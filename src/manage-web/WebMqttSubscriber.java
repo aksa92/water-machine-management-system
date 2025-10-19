@@ -1,9 +1,6 @@
 package com.campus.water.web.mqtt;
 
 import com.alibaba.fastjson2.JSONObject;
-import com.campus.water.web.entity.SensorDataWebVO;
-import com.campus.water.web.entity.AlertWebVO;
-import com.campus.water.web.service.RealTimeService;
 import org.eclipse.paho.client.mqttv3.IMqttMessageListener;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
@@ -12,9 +9,6 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 
-/**
- * 管理Web端MQTT订阅器（接收实时设备数据/告警，适配管理员监控需求）
- */
 @Component
 public class WebMqttSubscriber {
     @Autowired
@@ -41,13 +35,13 @@ public class WebMqttSubscriber {
             String payload = new String(message.getPayload());
             System.out.println("管理Web接收数据：主题=" + topic + "，内容=" + payload);
 
-            // 解析数据并缓存到内存（供前端轮询获取实时数据）
+            // 直接使用JSONObject处理数据
+            JSONObject data = JSONObject.parseObject(payload);
+
             if (topic.startsWith("forward/web/device/")) {
-                SensorDataWebVO sensorVO = JSONObject.parseObject(payload, SensorDataWebVO.class);
-                realTimeService.updateRealTimeData(sensorVO); // 缓存实时数据
+                realTimeService.updateRealTimeData(data);
             } else if (topic.startsWith("forward/web/alert/")) {
-                AlertWebVO alertVO = JSONObject.parseObject(payload, AlertWebVO.class);
-                realTimeService.addAlert(alertVO); // 缓存告警（前端告警列表实时更新）
+                realTimeService.addAlert(data);
             }
         };
     }
