@@ -1,0 +1,49 @@
+# Spring Boot 全局配置文件
+spring:
+  # 数据库配置（JPA自动集成HikariCP连接池）
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/campus_water?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root # 你的MySQL用户名
+    password: 123456 # 你的MySQL密码
+    hikari:
+      maximum-pool-size: 10 # 连接池最大连接数
+      idle-timeout: 300000 # 连接空闲超时时间（5分钟）
+
+  # JPA配置（hibernate 自动建表/更新表结构）
+  jpa:
+    hibernate:
+      ddl-auto: update # 开发环境：update（自动更新表结构）；生产环境：none
+    show-sql: true # 控制台打印SQL语句
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect # MySQL 8.0方言
+        format_sql: true # SQL格式化（便于调试）
+    open-in-view: false # 关闭OpenInView模式（避免懒加载异常）
+
+# 服务器配置
+server:
+  port: 8080 # 项目启动端口
+  servlet:
+    context-path: /water # 接口前缀（如http://localhost:8080/water）
+  tomcat:
+    uri-encoding: UTF-8 # 编码格式（避免中文乱码）
+
+# 日志配置（SLF4J + Logback）
+logging:
+  level:
+    root: INFO # 全局日志级别
+    com.campus.water: DEBUG # 项目包日志级别（调试用）
+    org.springframework.integration.mqtt: INFO # MQTT集成日志级别
+  file:
+    name: logs/water-system.log # 日志文件路径（项目根目录/logs）
+    max-size: 10MB # 单个日志文件最大10MB
+    max-history: 7 # 日志保留7天
+    total-size-cap: 100MB # 日志总大小限制100MB
+
+# Jackson配置（JSON序列化/反序列化）
+spring.jackson:
+  date-format: yyyy-MM-dd HH:mm:ss # 日期格式化
+  time-zone: GMT+8 # 时区（避免时间偏移）
+  serialization:
+    fail-on-empty-beans: false # 允许空对象序列化
