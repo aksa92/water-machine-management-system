@@ -1,0 +1,43 @@
+package com.campus.water.entity;
+
+import lombok.Data;
+import javax.persistence.*;
+import java.time.LocalDateTime;
+
+@Data
+@Entity
+@Table(name = "repairman")
+public class Repairman {
+    @Id
+    @Column(name = "repairman_id", length = 50)
+    private String repairmanId;
+
+    @Column(name = "repairman_name", length = 100)
+    private String repairmanName;
+
+    @Column(length = 20)
+    private String phone;
+
+    @Column(name = "area_id", length = 20)
+    private String areaId;
+
+    @Column(name = "skills", length = 200)
+    private String skills;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 50)
+    private RepairmanStatus status = RepairmanStatus.idle;
+
+    @Column(name = "work_count")
+    private Integer workCount = 0;
+
+    @Column(name = "rating", precision = 3, scale = 2)
+    private Double rating = 5.0;
+
+    @Column(name = "created_time")
+    private LocalDateTime createdTime = LocalDateTime.now();
+
+    public enum RepairmanStatus {
+        idle, busy, vacation
+    }
+}
