@@ -1,6 +1,6 @@
 package com.campus.water.mapper;
 
-import datebaseclass.system.Area;
+import com.campus.water.entity.Area;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;

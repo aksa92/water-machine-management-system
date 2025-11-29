@@ -1,11 +1,12 @@
 package com.campus.water.mapper;
 
-import datebaseclass.sensor.WaterSupplyRealtimeData;
+import com.campus.water.entity.WaterSupplyRealtimeData;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface WaterSupplyRealtimeDataRepository extends JpaRepository<WaterSupplyRealtimeData, Long> {
@@ -28,6 +29,9 @@ public interface WaterSupplyRealtimeDataRepository extends JpaRepository<WaterSu
     @Query("SELECT w FROM WaterSupplyRealtimeData w WHERE w.temperature > ?1")
     List<WaterSupplyRealtimeData> findByTemperatureGreaterThan(Double temperature);
 
-    @Query("SELECT w FROM WaterSupplyRealtimeData w WHERE w.waterPressure < ?1")
-    List<WaterSupplyRealtimeData> findByWaterPressureLessThan(Double waterPressure);
+    @Query("SELECT w FROM WaterSupplyRealtimeData w WHERE w.waterPress < ?1")
+    List<WaterSupplyRealtimeData> findByWaterPressLessThan(Double waterPress);
+
+    @Query(value = "SELECT * FROM water_supply_realtime_data w WHERE w.device_id = ?1 ORDER BY w.timestamp DESC LIMIT 1", nativeQuery = true)
+    Optional<WaterSupplyRealtimeData> findLatestByDeviceId(String deviceId);
 }

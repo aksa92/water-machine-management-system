@@ -2,8 +2,6 @@ package com.campus.water.entity;
 
 import lombok.Data;
 import javax.persistence.*;
-import java.time.LocalDate;
-import java.time.LocalTime;
 import java.time.LocalDateTime;
 
 @Data
@@ -24,8 +22,9 @@ public class DrinkRecord {
     @Column(name = "device_id", length = 20)
     private String deviceId;
 
-    @Column(name = "volume", precision = 6, scale = 2)
-    private Double volume;
+    // 根据文档修正：字段名改为 water_consumption
+    @Column(name = "water_consumption", precision = 6, scale = 2)
+    private Double waterConsumption;
 
     @Column(name = "water_quality", length = 50)
     private String waterQuality;
@@ -33,11 +32,9 @@ public class DrinkRecord {
     @Column(name = "tds_value", precision = 8, scale = 2)
     private Double tdsValue;
 
-    @Column(name = "drink_date")
-    private LocalDate drinkDate;
-
+    // 根据文档修正：字段名改为 drink_time
     @Column(name = "drink_time")
-    private LocalTime drinkTime;
+    private LocalDateTime drinkTime;
 
     @Column(name = "location", length = 200)
     private String location;

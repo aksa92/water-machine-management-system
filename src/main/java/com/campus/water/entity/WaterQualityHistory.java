@@ -10,7 +10,8 @@ import java.time.LocalDateTime;
 public class WaterQualityHistory {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "history_id")
+    private Long historyId;
 
     @Column(name = "terminal_id", length = 20)
     private String terminalId;
@@ -18,17 +19,22 @@ public class WaterQualityHistory {
     @Column(name = "device_id", length = 20)
     private String deviceId;
 
-    @Column(name = "tds_value", precision = 8, scale = 2)
-    private Double tdsValue;
+    // 根据文档修正：三个TDS值
+    @Column(name = "tds_value1", precision = 8, scale = 2)
+    private Double tdsValue1; // 原水TDS
+
+    @Column(name = "tds_value2", precision = 8, scale = 2)
+    private Double tdsValue2; // 纯水TDS
+
+    @Column(name = "tds_value3", precision = 8, scale = 2)
+    private Double tdsValue3; // 矿化水TDS
 
     @Column(name = "water_quality", length = 50)
     private String waterQuality;
 
-    @Column(name = "temperature", precision = 5, scale = 2)
-    private Double temperature;
-
-    @Column(name = "timestamp")
-    private LocalDateTime timestamp = LocalDateTime.now();
+    // 根据文档修正：字段名改为 detected_time
+    @Column(name = "detected_time")
+    private LocalDateTime detectedTime = LocalDateTime.now();
 
     @Column(name = "created_time")
     private LocalDateTime createdTime = LocalDateTime.now();
