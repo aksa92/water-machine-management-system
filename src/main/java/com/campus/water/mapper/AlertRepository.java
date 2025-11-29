@@ -1,6 +1,6 @@
 package com.campus.water.mapper;
 
-import datebaseclass.sensor.Alert;
+import com.campus.water.entity.Alert;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;

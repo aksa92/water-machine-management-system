@@ -1,6 +1,6 @@
 package com.campus.water.mapper;
 
-import datebaseclass.business.MessagePush;
+import com.campus.water.entity.MessagePush;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;

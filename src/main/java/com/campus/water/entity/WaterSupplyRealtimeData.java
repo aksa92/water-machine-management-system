@@ -18,8 +18,9 @@ public class WaterSupplyRealtimeData {
     @Column(name = "water_flow", precision = 8, scale = 2)
     private Double waterFlow;
 
-    @Column(name = "water_pressure", precision = 8, scale = 2)
-    private Double waterPressure;
+    // 根据文档修正：字段名改为 water_press
+    @Column(name = "water_press", precision = 8, scale = 2)
+    private Double waterPress;
 
     @Column(name = "water_level", precision = 8, scale = 2)
     private Double waterLevel;
@@ -27,11 +28,8 @@ public class WaterSupplyRealtimeData {
     @Column(name = "temperature", precision = 5, scale = 2)
     private Double temperature;
 
-    @Column(name = "humidity", precision = 5, scale = 2)
-    private Double humidity;
-
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", length = 50)
+    @Column(name = "status", length = 20)
     private DeviceStatus status = DeviceStatus.normal;
 
     @Column(name = "timestamp")

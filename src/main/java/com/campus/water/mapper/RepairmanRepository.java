@@ -1,6 +1,6 @@
 package com.campus.water.mapper;
 
-import datebaseclass.system.Repairman;
+import com.campus.water.entity.Repairman;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.util.List;

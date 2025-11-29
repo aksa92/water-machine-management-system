@@ -1,6 +1,6 @@
 package com.campus.water.mapper;
 
-import datebaseclass.system.Device;
+import com.campus.water.entity.Device;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.util.List;

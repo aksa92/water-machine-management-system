@@ -1,6 +1,6 @@
 package com.campus.water.mapper;
 
-import datebaseclass.business.WorkOrder;
+import com.campus.water.entity.WorkOrder;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
