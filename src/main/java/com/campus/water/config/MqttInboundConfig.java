@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.integration.mqtt.inbound.MqttPahoMessageDrivenChannelAdapter;
 import org.springframework.integration.mqtt.support.DefaultPahoMessageConverter;
 
+
 @Configuration
 public class MqttInboundConfig {
 
@@ -27,8 +28,6 @@ public class MqttInboundConfig {
         adapter.setQos(mqttConfig.QOS); // 订阅QOS等级与发送端一致
         adapter.setOutputChannel(mqttConfig.mqttInputChannel()); // 消息转发到接收通道
 
-        // 开启异常重试（避免网络波动导致消息丢失）
-        adapter.setRecoveryInterval(5000); // 重试间隔5秒
 
         return adapter;
     }

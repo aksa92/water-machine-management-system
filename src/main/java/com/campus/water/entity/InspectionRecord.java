@@ -6,7 +6,7 @@
 package com.campus.water.entity;
 
 import lombok.Data;
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Data
