@@ -1,3 +1,8 @@
+/**
+ * 区域信息实体类
+ * 对应表：area
+ * 用于管理校园、楼宇、区域等层级结构信息
+ */
 package com.campus.water.entity;
 
 import lombok.Data;

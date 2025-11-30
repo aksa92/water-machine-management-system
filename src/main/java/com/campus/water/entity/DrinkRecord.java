@@ -1,3 +1,8 @@
+/**
+ * 饮水记录实体类
+ * 对应表：drink_record
+ * 用于记录学生的每次饮水行为，包括用水量、水质、时间、位置等
+ */
 package com.campus.water.entity;
 
 import lombok.Data;
