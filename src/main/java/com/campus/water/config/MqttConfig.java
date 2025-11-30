@@ -12,9 +12,9 @@ import org.springframework.messaging.MessageChannel;
 @Configuration
 public class MqttConfig {
     // MQTT 基础配置（可迁移到 application.yml 中，用 @ConfigurationProperties 绑定）
-    public static final String BROKER = "tcp://b17be106.ala.cn-hangzhou.emqxsl.cn:8883";
-    public static final String USERNAME = "admin";
-    public static final String PASSWORD = "12345678";
+    public static final String BROKER = "b17be106.ala.cn-hangzhou.emqxsl.cn:8883";
+    public static final String USERNAME = "test1";
+    public static final String PASSWORD = "123456";
     public static final int QOS = 1; // 消息质量等级（1=确保送达，不重复）
     public static final int CONNECTION_TIMEOUT = 30000; // 连接超时（毫秒）
     public static final int KEEP_ALIVE_INTERVAL = 60; // 心跳间隔（秒）
