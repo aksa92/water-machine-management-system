@@ -1,3 +1,8 @@
+/**
+ * 消息推送记录实体类
+ * 对应表：message_push
+ * 用于存储系统向用户、管理员、维修人员推送的消息记录
+ */
 package com.campus.water.entity;
 
 import lombok.Data;

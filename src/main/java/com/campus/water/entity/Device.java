@@ -1,3 +1,8 @@
+/**
+ * 设备信息实体类
+ * 对应表：device
+ * 用于存储设备基本信息，如设备类型、安装位置、状态等
+ */
 package com.campus.water.entity;
 
 import lombok.Data;

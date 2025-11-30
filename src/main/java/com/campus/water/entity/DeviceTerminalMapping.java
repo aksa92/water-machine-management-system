@@ -1,3 +1,8 @@
+/**
+ * 设备与终端映射实体类
+ * 对应表：device_terminal_mapping
+ * 用于关联设备与终端设备，记录终端状态和安装信息
+ */
 package com.campus.water.entity;
 
 import lombok.Data;

@@ -1,3 +1,8 @@
+/**
+ * 工单实体类
+ * 对应表：work_order
+ * 用于管理维修、保养、巡检等工单信息，包括状态、优先级、处理记录等
+ */
 package com.campus.water.entity;
 
 import lombok.Data;

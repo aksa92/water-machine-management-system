@@ -1,3 +1,8 @@
+/**
+ * 巡检记录实体类
+ * 对应表：inspection_record
+ * 用于记录维修人员的巡检结果，包括状态、异常描述、照片等
+ */
 package com.campus.water.entity;
 
 import lombok.Data;
