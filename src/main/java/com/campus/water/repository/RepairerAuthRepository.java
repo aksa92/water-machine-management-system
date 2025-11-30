@@ -1,6 +1,6 @@
-package com.campus.water.mapper;
+package com.campus.water.repository;
 
-import com.campus.water.entity.po.RepairerAuthPO; // 替换为PO包下的实体类
+import com.campus.water.entity.po.RepairerAuthPO;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -10,22 +10,22 @@ import java.util.Optional;
 
 @Repository
 public interface RepairerAuthRepository extends JpaRepository<RepairerAuthPO, Long> {
-    // 根据用户名查询认证信息（适配PO类）
+    // 登录核心：通过用户名查询
     Optional<RepairerAuthPO> findByUsername(String username);
 
-    // 根据维修人员ID查询认证信息（适配PO类）
+    // 按维修人员ID查询
     Optional<RepairerAuthPO> findByRepairmanId(String repairmanId);
 
-    // 根据账户状态查询认证信息（引用PO内的枚举）
+    // 按账号状态查询（引用PO内的枚举）
     List<RepairerAuthPO> findByAccountStatus(RepairerAuthPO.AccountStatus accountStatus);
 
-    // 查找活跃状态的维修人员账号（JPQL实体类名改为RepairerAuthPO）
+    // 自定义查询：查询活跃状态的用户
     @Query("SELECT ra FROM RepairerAuthPO ra WHERE ra.username = ?1 AND ra.accountStatus = 'active'")
     Optional<RepairerAuthPO> findActiveByUsername(String username);
 
-    // 检查用户名是否存在
+    // 校验用户名是否存在
     boolean existsByUsername(String username);
 
-    // 检查维修工ID是否存在
+    // 校验维修人员ID是否存在
     boolean existsByRepairmanId(String repairmanId);
 }
