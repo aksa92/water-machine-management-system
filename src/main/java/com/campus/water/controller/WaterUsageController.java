@@ -1,7 +1,7 @@
 package com.campus.water.controller;
 
 import com.campus.water.entity.*;
-import com.campus.water.mapper.*;
+import com.campus.water.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
