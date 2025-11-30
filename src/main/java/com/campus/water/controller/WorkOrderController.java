@@ -1,9 +1,9 @@
 package com.campus.water.controller;
 
 import com.campus.water.entity.WorkOrder;
-import com.campus.water.repository.WorkOrderRepository;
-import com.campus.water.repository.RepairmanRepository;
-import com.campus.water.repository.AlertRepository;
+import com.campus.water.mapper.WorkOrderRepository;
+import com.campus.water.mapper.RepairmanRepository;
+import com.campus.water.mapper.AlertRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
