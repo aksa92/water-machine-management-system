@@ -1,5 +1,5 @@
 package com.campus.water.config;
-
+import com.campus.water.config.MqttConfig;//编译器问题
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.integration.mqtt.inbound.MqttPahoMessageDrivenChannelAdapter;
