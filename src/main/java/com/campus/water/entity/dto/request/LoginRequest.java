@@ -2,7 +2,7 @@
 package com.campus.water.entity.dto.request;
 
 import lombok.Data;
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 
 @Data
 public class LoginRequest { // 命名改为Request，符合dto/request分类

@@ -42,6 +42,10 @@ public class MqttConfig {
         options.setAutomaticReconnect(true); // 断线自动重连
         options.setCleanSession(true); // 断开后清除会话
 
+        // 在 MqttConfig 的 mqttClientFactory() 中增强连接选项
+        options.setAutomaticReconnect(true); // 启用自动重连
+        options.setMaxReconnectDelay(5000); // 重连间隔（毫秒，与原 5 秒一致）
+
         factory.setConnectionOptions(options);
         return factory;
     }
