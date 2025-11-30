@@ -1,3 +1,8 @@
+/**
+ * 水质历史数据实体类
+ * 对应表：water_quality_history
+ * 用于记录终端设备检测的水质历史数据，包括多个TDS值和水质评级
+ */
 package com.campus.water.entity;
 
 import lombok.Data;

@@ -1,3 +1,8 @@
+/**
+ * 告警信息实体类
+ * 对应表：alert
+ * 用于记录设备告警信息，包括告警级别、状态、处理人等
+ */
 package com.campus.water.entity;
 
 import lombok.Data;

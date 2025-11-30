@@ -1,3 +1,8 @@
+/**
+ * 维修人员信息实体类
+ * 对应表：repairman
+ * 用于存储维修人员信息，包括技能、状态、工作量、评分等
+ */
 package com.campus.water.entity;
 
 import lombok.Data;

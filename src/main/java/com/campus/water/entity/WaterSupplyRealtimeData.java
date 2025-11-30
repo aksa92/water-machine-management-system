@@ -1,3 +1,8 @@
+/**
+ * 实时供水数据实体类
+ * 对应表：water_supply_realtime_data
+ * 用于存储供水设备的实时运行数据，如流量、压力、水位、温度等
+ */
 package com.campus.water.entity;
 
 import lombok.Data;

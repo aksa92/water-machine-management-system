@@ -1,3 +1,8 @@
+/**
+ * 用户信息实体类（学生用户）
+ * 对应表：user
+ * 用于存储学生用户的基本信息、登录状态等
+ */
 package com.campus.water.entity;
 
 import lombok.Data;

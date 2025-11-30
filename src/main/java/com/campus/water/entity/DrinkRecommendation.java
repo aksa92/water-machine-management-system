@@ -1,3 +1,8 @@
+/**
+ * 饮水推荐实体类
+ * 对应表：drink_recommendation
+ * 用于记录学生的每日饮水目标和当前进度
+ */
 package com.campus.water.entity;
 
 import lombok.Data;
