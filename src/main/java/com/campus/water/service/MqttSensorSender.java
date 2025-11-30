@@ -34,16 +34,17 @@ public class MqttSensorSender {
             // 1. 构建模拟数据（符合正常业务范围）
             WaterMakerSensorData data = new WaterMakerSensorData();
             data.setDeviceId(deviceId);
-            data.setTdsValue(50 + random.nextDouble() * 30); // 50-80（正常范围）
-            data.setWaterFlow(random.nextDouble() * 2); // 0-2 L/min
-            data.setWaterPressure(0.2 + random.nextDouble() * 0.3); // 0.2-0.5 MPa
+            data.setTdsValue1(50 + random.nextDouble() * 30); // 50-80（正常范围）
+            data.setTdsValue2(50 + random.nextDouble() * 30);
+            data.setTdsValue3(50 + random.nextDouble() * 30);
+            data.setWaterFlow1(random.nextDouble() * 2); // 0-2 L/min
+            data.setWaterFlow2(random.nextDouble() * 2);
+            data.setWaterPress(0.2 + random.nextDouble() * 0.3); // 0.2-0.5 MPa
             data.setFilterLife(30 + random.nextInt(70)); // 30-100%
             data.setLeakage(random.nextBoolean() && random.nextBoolean()); // 漏水概率较低（25%）
-            data.setTemperature(20 + random.nextDouble() * 5); // 20-25℃
-            data.setHumidity(40 + random.nextDouble() * 20); // 40-60%RH
             data.setWaterQuality("合格");
             data.setStatus("normal");
-            data.setTimestamp(LocalDateTime.now());
+            data.setRecordTime(LocalDateTime.now());
 
             // 2. 序列化JSON（MQTT消息 payload 为JSON字符串）
             String payload = objectMapper.writeValueAsString(data);
@@ -67,14 +68,16 @@ public class MqttSensorSender {
             // 1. 构建异常数据（超出正常范围）
             WaterMakerSensorData data = new WaterMakerSensorData();
             data.setDeviceId(deviceId);
-            data.setTdsValue(150 + random.nextDouble() * 50); // 150-200（异常范围）
-            data.setWaterFlow(0.1 + random.nextDouble() * 0.3); // 流量极低
-            data.setWaterPressure(0.1 + random.nextDouble() * 0.1); // 水压过低（0.1-0.2 MPa）
+            data.setTdsValue1(150 + random.nextDouble() * 50); // 150-200（异常范围）
+            data.setTdsValue2(150 + random.nextDouble() * 50);
+            data.setTdsValue3(150 + random.nextDouble() * 50);
+            data.setWaterFlow1(0.1 + random.nextDouble() * 0.3); // 流量极低
+            data.setWaterFlow2(0.1 + random.nextDouble() * 0.3);
+            data.setWaterPress(0.1 + random.nextDouble() * 0.1); // 水压过低（0.1-0.2 MPa）
             data.setFilterLife(5 + random.nextInt(10)); // 滤芯寿命低（5-15%）
             data.setLeakage(true); // 强制漏水
-            data.setTemperature(28 + random.nextDouble() * 3); // 水温过高（28-31℃）
             data.setStatus("error");
-            data.setTimestamp(LocalDateTime.now());
+            data.setRecordTime(LocalDateTime.now());
 
             // 2. 序列化+发送
             String payload = objectMapper.writeValueAsString(data);
@@ -96,10 +99,9 @@ public class MqttSensorSender {
             WaterSupplySensorData data = new WaterSupplySensorData();
             data.setDeviceId(deviceId);
             data.setWaterFlow(random.nextDouble() * 3); // 0-3 L/min
-            data.setWaterPressure(0.1 + random.nextDouble() * 0.2); // 0.1-0.3 MPa
+            data.setWaterPress(0.1 + random.nextDouble() * 0.2); // 0.1-0.3 MPa
             data.setWaterLevel(30 + random.nextDouble() * 50); // 30-80%
             data.setTemperature(18 + random.nextDouble() * 4); // 18-22℃
-            data.setHumidity(35 + random.nextDouble() * 15); // 35-50%RH
             data.setStatus("normal");
             data.setTimestamp(LocalDateTime.now());
 
