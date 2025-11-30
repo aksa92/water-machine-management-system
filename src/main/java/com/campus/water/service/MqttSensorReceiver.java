@@ -86,16 +86,17 @@ public class MqttSensorReceiver {
         // 2. 模型对象转换为JPA实体（持久化到数据库）
         WaterMakerRealtimeData entity = new WaterMakerRealtimeData();
         entity.setDeviceId(sensorData.getDeviceId());
-        entity.setTdsValue(sensorData.getTdsValue());
-        entity.setWaterFlow(sensorData.getWaterFlow());
-        entity.setWaterPressure(sensorData.getWaterPressure());
+        entity.setTdsValue1(sensorData.getTdsValue1());
+        entity.setTdsValue2(sensorData.getTdsValue2());
+        entity.setTdsValue3(sensorData.getTdsValue3());
+        entity.setWaterFlow1(sensorData.getWaterFlow1());
+        entity.setWaterFlow2(sensorData.getWaterFlow2());
+        entity.setWaterPress(sensorData.getWaterPress());
         entity.setFilterLife(sensorData.getFilterLife());
         entity.setLeakage(sensorData.getLeakage() ? 1 : 0); // 数据库存储：1=漏水，0=正常
-        entity.setTemperature(sensorData.getTemperature());
-        entity.setHumidity(sensorData.getHumidity());
         entity.setWaterQuality(sensorData.getWaterQuality());
         entity.setStatus(WaterMakerRealtimeData.DeviceStatus.valueOf(sensorData.getStatus().toUpperCase()));
-        entity.setTimestamp(sensorData.getTimestamp());
+        entity.setRecordTime(sensorData.getRecordTime());
         entity.setCreatedTime(LocalDateTime.now());
 
         // 3. 持久化到数据库（JPA save() 自动实现CRUD）
@@ -113,20 +114,22 @@ public class MqttSensorReceiver {
         Alert alert = new Alert();
         alert.setDeviceId(sensorData.getDeviceId());
         alert.setAlertType("WATER_MAKER_ABNORMAL"); // 告警类型（枚举规范）
-        alert.setAlertLevel(Alert.AlertLevel.CRITICAL); // 告警级别（严重）
+        alert.setAlertLevel(Alert.AlertLevel.critical); // 告警级别（严重）
         alert.setAlertMessage(String.format(
                 "制水机异常 - 设备ID：%s，TDS值：%.2f，滤芯寿命：%d%%，漏水状态：%s",
                 sensorData.getDeviceId(),
-                sensorData.getTdsValue(),
+                sensorData.getTdsValue1(),
+                sensorData.getTdsValue2(),
+                sensorData.getTdsValue3(),
                 sensorData.getFilterLife(),
                 sensorData.getLeakage() ? "是" : "否"
         ));
-        alert.setStatus(Alert.AlertStatus.PENDING); // 告警状态（未处理）
-        alert.setTimestamp(sensorData.getTimestamp());
-        alert.setCreateTime(LocalDateTime.now());
+        alert.setStatus(Alert.AlertStatus.pending); // 告警状态（未处理）
+        alert.setTimestamp(sensorData.getRecordTime());
+        alert.setCreatedTime(LocalDateTime.now());
 
         alertRepo.save(alert);
-        log.warn("制水机告警记录持久化成功 | 告警ID：{} | 设备ID：{}", alert.getId(), sensorData.getDeviceId());
+        log.warn("制水机告警记录持久化成功 | 告警ID：{} | 设备ID：{}", alert.getAlertId(), sensorData.getDeviceId());
 
         // 2. 同时持久化状态数据（便于后续追溯）
         handleWaterMakerState(payload);
@@ -141,13 +144,12 @@ public class MqttSensorReceiver {
         WaterSupplyRealtimeData entity = new WaterSupplyRealtimeData();
         entity.setDeviceId(sensorData.getDeviceId());
         entity.setWaterFlow(sensorData.getWaterFlow());
-        entity.setWaterPressure(sensorData.getWaterPressure());
+        entity.setWaterPress(sensorData.getWaterPress());
         entity.setWaterLevel(sensorData.getWaterLevel());
         entity.setTemperature(sensorData.getTemperature());
-        entity.setHumidity(sensorData.getHumidity());
         entity.setStatus(WaterSupplyRealtimeData.DeviceStatus.valueOf(sensorData.getStatus().toUpperCase()));
         entity.setTimestamp(sensorData.getTimestamp());
-        entity.setCreatedTime(LocalDateTime.now());
+
 
         waterSupplyRepo.save(entity);
         log.info("供水机状态数据持久化成功 | 设备ID：{}", sensorData.getDeviceId());
@@ -163,19 +165,19 @@ public class MqttSensorReceiver {
         Alert alert = new Alert();
         alert.setDeviceId(sensorData.getDeviceId());
         alert.setAlertType("WATER_SUPPLY_ABNORMAL");
-        alert.setAlertLevel(Alert.AlertLevel.ERROR);
+        alert.setAlertLevel(Alert.AlertLevel.error);
         alert.setAlertMessage(String.format(
                 "供水机异常 - 设备ID：%s，水压：%.2fMPa，水位：%.2f%%",
                 sensorData.getDeviceId(),
-                sensorData.getWaterPressure(),
+                sensorData.getWaterPress(),
                 sensorData.getWaterLevel()
         ));
-        alert.setStatus(Alert.AlertStatus.PENDING);
+        alert.setStatus(Alert.AlertStatus.pending);
         alert.setTimestamp(sensorData.getTimestamp());
-        alert.setCreateTime(LocalDateTime.now());
+        alert.setCreatedTime(LocalDateTime.now());
 
         alertRepo.save(alert);
-        log.warn("供水机告警记录持久化成功 | 告警ID：{} | 设备ID：{}", alert.getId(), sensorData.getDeviceId());
+        log.warn("供水机告警记录持久化成功 | 告警ID：{} | 设备ID：{}", alert.getAlertId(), sensorData.getDeviceId());
 
         // 2. 同时持久化状态数据
         handleWaterSupplyState(payload);
