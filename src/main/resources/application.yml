@@ -31,3 +31,5 @@ server:
       charset: UTF-8
       enabled: true
       force: true  # 移除末尾多余的 zs
+
+  port: 8080
