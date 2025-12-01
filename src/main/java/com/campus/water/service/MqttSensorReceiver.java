@@ -31,6 +31,8 @@ public class MqttSensorReceiver {
     private final AlertRepository alertRepo;
     private final ObjectMapper objectMapper;
     private final MqttPahoMessageDrivenChannelAdapter mqttAdapter;
+    // 新增告警触发服务依赖
+    private final AlertTriggerService alertTriggerService;
 
     /**
      * 项目启动后初始化：订阅所有需要的MQTT主题
@@ -102,6 +104,9 @@ public class MqttSensorReceiver {
         // 3. 持久化到数据库（JPA save() 自动实现CRUD）
         waterMakerRepo.save(entity);
         log.info("制水机状态数据持久化成功 | 设备ID：{}", sensorData.getDeviceId());
+
+        // 新增：调用告警检查逻辑
+        alertTriggerService.checkWaterMakerAbnormal(sensorData);
     }
 
     /**
@@ -119,8 +124,6 @@ public class MqttSensorReceiver {
                 "制水机异常 - 设备ID：%s，TDS值：%.2f，滤芯寿命：%d%%，漏水状态：%s",
                 sensorData.getDeviceId(),
                 sensorData.getTdsValue1(),
-                sensorData.getTdsValue2(),
-                sensorData.getTdsValue3(),
                 sensorData.getFilterLife(),
                 sensorData.getLeakage() ? "是" : "否"
         ));
@@ -153,6 +156,9 @@ public class MqttSensorReceiver {
 
         waterSupplyRepo.save(entity);
         log.info("供水机状态数据持久化成功 | 设备ID：{}", sensorData.getDeviceId());
+
+        // 新增：调用告警检查逻辑
+        alertTriggerService.checkWaterSupplyAbnormal(sensorData);
     }
 
     /**
