@@ -38,6 +38,9 @@ public interface UserRepository extends JpaRepository<UserPO, String> {
     // 检查邮箱是否已存在
     boolean existsByEmail(String email);
 
+    // 检查用户名是否存在
+    boolean existsByUsername(String username);
+
     // ========== 新增：登录核心方法（必须） ==========
     Optional<UserPO> findByUsername(String username);
 }

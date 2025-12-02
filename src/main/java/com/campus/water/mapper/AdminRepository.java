@@ -38,4 +38,8 @@ public interface AdminRepository extends JpaRepository<AdminPO, String> {
 
     // 检查手机号是否存在
     boolean existsByPhone(String phone);
+
+    // 检查用户名是否存在
+    boolean existsByUsername(String username);
+
 }
