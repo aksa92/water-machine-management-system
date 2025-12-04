@@ -8,23 +8,39 @@ import java.util.List;
 
 @Repository
 public interface AlertRepository extends JpaRepository<Alert, Long> {
+    // 根据设备ID和时间范围查询告警
+    List<Alert> findByDeviceIdAndTimestampBetween(String deviceId, LocalDateTime startTime, LocalDateTime endTime);
+
+    // 根据告警级别和时间范围查询告警
+    List<Alert> findByAlertLevelAndTimestampBetween(Alert.AlertLevel level, LocalDateTime startTime, LocalDateTime endTime);
+
+    // 根据告警状态和时间范围查询告警
+    List<Alert> findByStatusAndTimestampBetween(Alert.AlertStatus status, LocalDateTime startTime, LocalDateTime endTime);
+
+    // 根据区域ID和时间范围查询告警
+    List<Alert> findByAreaIdAndTimestampBetween(String areaId, LocalDateTime startTime, LocalDateTime endTime);
+
+    // 根据时间范围查询告警
+    List<Alert> findByTimestampBetween(LocalDateTime startTime, LocalDateTime endTime);
+
+    // 根据区域ID和告警状态查询告警
+    List<Alert> findByAreaIdAndStatus(String areaId, Alert.AlertStatus status);
+
+    // 根据告警状态查询告警
+    List<Alert> findByStatus(Alert.AlertStatus status);
+
+    // 保留原有的其他查询方法（如果有）
     // 根据设备ID查询告警
     List<Alert> findByDeviceId(String deviceId);
 
     // 根据告警类型查询
     List<Alert> findByAlertType(String alertType);
 
-    // 根据告警状态查询
-    List<Alert> findByStatus(Alert.AlertStatus status);
-
     // 根据告警级别查询
     List<Alert> findByAlertLevel(Alert.AlertLevel alertLevel);
 
     // 根据区域ID查询告警
     List<Alert> findByAreaId(String areaId);
-
-    // 根据时间范围查询告警记录
-    List<Alert> findByTimestampBetween(LocalDateTime start, LocalDateTime end);
 
     // 按状态和级别查询告警
     List<Alert> findByStatusAndAlertLevel(Alert.AlertStatus status, Alert.AlertLevel level);
@@ -35,7 +51,7 @@ public interface AlertRepository extends JpaRepository<Alert, Long> {
     // 根据处理人查询告警
     List<Alert> findByResolvedBy(String resolvedBy);
 
-    // 新增：检查重复未处理告警
+    // 检查重复未处理告警
     List<Alert> findByDeviceIdAndAlertTypeAndStatusAndTimestampAfter(
             String deviceId,
             String alertType,
