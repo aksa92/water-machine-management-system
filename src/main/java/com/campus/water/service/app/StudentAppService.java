@@ -3,6 +3,7 @@ package com.campus.water.service.app;
 import com.campus.water.controller.WaterUsageController;
 import com.campus.water.util.ResultVO;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
@@ -13,7 +14,8 @@ public class StudentAppService {
     @Autowired
     private WaterUsageController waterUsageController;
 
-    // 扫码获取终端信息
+    // 扫码获取终端信息 - 学生和管理员可访问
+    @PreAuthorize("hasAnyRole('STUDENT', 'ADMIN')")
     public ResultVO<Map<String, Object>> getTerminalInfo(String terminalId) {
         try {
             Map<String, Object> result = waterUsageController.getTerminalInfo(terminalId);
@@ -23,7 +25,8 @@ public class StudentAppService {
         }
     }
 
-    // 扫码用水
+    // 扫码用水 - 学生和管理员可访问
+    @PreAuthorize("hasAnyRole('STUDENT', 'ADMIN')")
     public ResultVO<Map<String, Object>> scanToDrink(Map<String, Object> request) {
         try {
             String terminalId = (String) request.get("terminalId");
@@ -37,7 +40,8 @@ public class StudentAppService {
         }
     }
 
-    // 查询水质信息
+    // 查询水质信息 - 学生和管理员可访问
+    @PreAuthorize("hasAnyRole('STUDENT', 'ADMIN')")
     public ResultVO<Map<String, Object>> getWaterQuality(String deviceId) {
         try {
             Map<String, Object> result = waterUsageController.getWaterQualityInfo(deviceId);

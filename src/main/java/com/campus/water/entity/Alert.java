@@ -54,7 +54,28 @@ public class Alert {
     private LocalDateTime updatedTime = LocalDateTime.now();
 
     public enum AlertLevel {
-        info, warning, error, critical
+        info("一般", 1),         // 信息级（如状态通知，无需处理）
+        warning("一般", 2),      // 警告级（需关注，非紧急）
+        error("紧急", 3),        // 错误级（需立即处理）
+        critical("紧急", 4);     // 严重级（影响服务，最高优先级）
+
+        private final String levelName; // 分级名称（一般/紧急）
+        private final int priority;     // 处理优先级（1-4，升序）
+
+        AlertLevel(String levelName, int priority) {
+            this.levelName = levelName;
+            this.priority = priority;
+        }
+
+        // 获取分级名称（用于前端展示）
+        public String getLevelName() {
+            return levelName;
+        }
+
+        // 获取优先级（用于推送排序）
+        public int getPriority() {
+            return priority;
+        }
     }
 
     public enum AlertStatus {

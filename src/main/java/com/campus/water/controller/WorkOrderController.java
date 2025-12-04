@@ -5,6 +5,7 @@ import com.campus.water.mapper.WorkOrderRepository;
 import com.campus.water.mapper.RepairmanRepository;
 import com.campus.water.mapper.AlertRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,7 +25,8 @@ public class WorkOrderController {
     @Autowired
     private AlertRepository alertRepository;
 
-    // 抢单功能
+    // 抢单功能 - 维修人员和管理员可访问
+    @PreAuthorize("hasAnyRole('REPAIRMAN', 'ADMIN')")
     @Transactional
     public boolean grabOrder(String orderId, String repairmanId) {
         Optional<WorkOrder> orderOpt = workOrderRepository.findById(orderId);
@@ -48,7 +50,8 @@ public class WorkOrderController {
         return false;
     }
 
-    // 拒单功能
+    // 拒单功能 - 维修人员和管理员可访问
+    @PreAuthorize("hasAnyRole('REPAIRMAN', 'ADMIN')")
     @Transactional
     public boolean rejectOrder(String orderId, String repairmanId, String reason) {
         Optional<WorkOrder> orderOpt = workOrderRepository.findById(orderId);
@@ -75,7 +78,8 @@ public class WorkOrderController {
         return false;
     }
 
-    // 提交维修结果
+    // 提交维修结果 - 维修人员和管理员可访问
+    @PreAuthorize("hasAnyRole('REPAIRMAN', 'ADMIN')")
     @Transactional
     public boolean submitRepairResult(String orderId, String repairmanId,
                                       String dealNote, String imgUrl) {
@@ -106,12 +110,14 @@ public class WorkOrderController {
         return false;
     }
 
-    // 获取可抢工单列表
+    // 获取可抢工单列表 - 维修人员和管理员可访问
+    @PreAuthorize("hasAnyRole('REPAIRMAN', 'ADMIN')")
     public List<WorkOrder> getAvailableOrders(String areaId) {
         return workOrderRepository.findByAreaIdAndStatus(areaId, WorkOrder.OrderStatus.pending);
     }
 
-    // 获取维修工自己的工单
+    // 获取维修工自己的工单 - 维修人员和管理员可访问
+    @PreAuthorize("hasAnyRole('REPAIRMAN', 'ADMIN')")
     public List<WorkOrder> getMyOrders(String repairmanId) {
         return workOrderRepository.findByAssignedRepairmanId(repairmanId);
     }

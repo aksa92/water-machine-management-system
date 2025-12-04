@@ -155,6 +155,7 @@ public class AlertTriggerService {
         }
     }
 
+    private final AlertPushService alertPushService;
     /**
      * 创建告警记录和对应的工单（支持repair/maintenance类型）
      * @param orderType 工单类型（repair:维修，maintenance:保养，inspection:巡检<告警不触发>）
@@ -175,6 +176,7 @@ public class AlertTriggerService {
         alert.setStatus(Alert.AlertStatus.pending);
         alert.setTimestamp(LocalDateTime.now());
         alertRepository.save(alert);
+        alertPushService.pushAlertMessage(alert);
         log.info("创建告警记录成功 | 告警ID：{} | 设备ID：{} | 告警类型：{}",
                 alert.getAlertId(), deviceId, alertType);
 
