@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.campus.water.mapper.StatisticsMapper">
+    <!--
+      统计查询SQL映射配置文件
+      功能：定义统计数据查询的SQL语句和结果映射
+      用途：支持复杂的多表关联和聚合查询
+      核心SQL：
+        1. 用水量统计：按设备、区域、时间段分组聚合
+        2. 告警统计：按设备、区域、告警级别统计
+        3. 设备状态统计：在线率、故障率等指标计算
+        4. 告警处理统计：响应时间、处理效率分析
+    -->
+    <!-- 按设备统计用水量 -->
+    <select id="statWaterUsageByDevice" resultType="java.util.Map">
+        SELECT
+        dr.device_id as deviceId,
+        d.device_name as deviceName,
+        COUNT(dr.record_id) as usageCount,
+        SUM(dr.water_consumption) as totalWaterOutput,
+        AVG(dr.water_consumption) as avgWaterPerUse,
+        MAX(dr.drink_time) as lastUsageTime
+        FROM drink_record dr
+        LEFT JOIN device d ON dr.device_id = d.device_id
+        WHERE 1=1
+        <if test="startDate != null">
+            AND DATE(dr.drink_time) >= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND DATE(dr.drink_time) <= #{endDate}
+        </if>
+        <if test="areaId != null and areaId != ''">
+            AND d.area_id = #{areaId}
+        </if>
+        GROUP BY dr.device_id, d.device_name
+        ORDER BY totalWaterOutput DESC
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <!-- 按区域统计用水量 -->
+    <select id="statWaterUsageByArea" resultType="java.util.Map">
+        SELECT
+        a.area_id as areaId,
+        a.area_name as areaName,
+        COUNT(dr.record_id) as usageCount,
+        SUM(dr.water_consumption) as totalWaterOutput,
+        COUNT(DISTINCT dr.device_id) as deviceCount
+        FROM drink_record dr
+        LEFT JOIN device d ON dr.device_id = d.device_id
+        LEFT JOIN area a ON d.area_id = a.area_id
+        WHERE 1=1
+        <if test="startDate != null">
+            AND DATE(dr.drink_time) >= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND DATE(dr.drink_time) <= #{endDate}
+        </if>
+        <if test="deviceType != null and deviceType != ''">
+            AND d.device_type = #{deviceType}
+        </if>
+        AND a.area_id IS NOT NULL
+        GROUP BY a.area_id, a.area_name
+        ORDER BY totalWaterOutput DESC
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <!-- 按时间段统计用水量 -->
+    <select id="statWaterUsageByTime" resultType="java.util.Map">
+        <choose>
+            <when test="period == 'day'">
+                SELECT
+                DATE_FORMAT(dr.drink_time, '%Y-%m-%d') as timeLabel,
+                COUNT(dr.record_id) as usageCount,
+                SUM(dr.water_consumption) as totalWaterOutput
+                FROM drink_record dr
+                WHERE 1=1
+                <if test="startDate != null">
+                    AND DATE(dr.drink_time) >= #{startDate}
+                </if>
+                <if test="endDate != null">
+                    AND DATE(dr.drink_time) <= #{endDate}
+                </if>
+                <if test="deviceId != null and deviceId != ''">
+                    AND dr.device_id = #{deviceId}
+                </if>
+                <if test="areaId != null and areaId != ''">
+                    AND dr.device_id IN (
+                    SELECT device_id FROM device WHERE area_id = #{areaId}
+                    )
+                </if>
+                GROUP BY DATE_FORMAT(dr.drink_time, '%Y-%m-%d')
+                ORDER BY timeLabel
+            </when>
+            <when test="period == 'week'">
+                SELECT
+                CONCAT(YEAR(dr.drink_time), '-W', WEEK(dr.drink_time, 1)) as timeLabel,
+                COUNT(dr.record_id) as usageCount,
+                SUM(dr.water_consumption) as totalWaterOutput
+                FROM drink_record dr
+                WHERE 1=1
+                <if test="startDate != null">
+                    AND DATE(dr.drink_time) >= #{startDate}
+                </if>
+                <if test="endDate != null">
+                    AND DATE(dr.drink_time) <= #{endDate}
+                </if>
+                <if test="deviceId != null and deviceId != ''">
+                    AND dr.device_id = #{deviceId}
+                </if>
+                <if test="areaId != null and areaId != ''">
+                    AND dr.device_id IN (
+                    SELECT device_id FROM device WHERE area_id = #{areaId}
+                    )
+                </if>
+                GROUP BY YEAR(dr.drink_time), WEEK(dr.drink_time, 1)
+                ORDER BY timeLabel
+            </when>
+            <when test="period == 'month'">
+                SELECT
+                DATE_FORMAT(dr.drink_time, '%Y-%m') as timeLabel,
+                COUNT(dr.record_id) as usageCount,
+                SUM(dr.water_consumption) as totalWaterOutput
+                FROM drink_record dr
+                WHERE 1=1
+                <if test="startDate != null">
+                    AND DATE(dr.drink_time) >= #{startDate}
+                </if>
+                <if test="endDate != null">
+                    AND DATE(dr.drink_time) <= #{endDate}
+                </if>
+                <if test="deviceId != null and deviceId != ''">
+                    AND dr.device_id = #{deviceId}
+                </if>
+                <if test="areaId != null and areaId != ''">
+                    AND dr.device_id IN (
+                    SELECT device_id FROM device WHERE area_id = #{areaId}
+                    )
+                </if>
+                GROUP BY DATE_FORMAT(dr.drink_time, '%Y-%m')
+                ORDER BY timeLabel
+            </when>
+        </choose>
+    </select>
+
+    <!-- 按设备统计告警次数 -->
+    <select id="statAlarmCountByDevice" resultType="java.util.Map">
+        SELECT
+        a.device_id as deviceId,
+        d.device_name as deviceName,
+        COUNT(a.alert_id) as totalAlarms,
+        SUM(CASE WHEN a.status = 'pending' THEN 1 ELSE 0 END) as pendingAlarms,
+        SUM(CASE WHEN a.status = 'resolved' THEN 1 ELSE 0 END) as resolvedAlarms,
+        MAX(a.timestamp) as lastAlarmTime
+        FROM alert a
+        LEFT JOIN device d ON a.device_id = d.device_id
+        WHERE 1=1
+        <if test="startDate != null">
+            AND DATE(a.timestamp) >= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND DATE(a.timestamp) <= #{endDate}
+        </if>
+        <if test="areaId != null and areaId != ''">
+            AND d.area_id = #{areaId}
+        </if>
+        <if test="alarmLevel != null and alarmLevel != ''">
+            AND a.alert_level = #{alarmLevel}
+        </if>
+        GROUP BY a.device_id, d.device_name
+        ORDER BY totalAlarms DESC
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <!-- 按区域统计告警次数 -->
+    <select id="statAlarmCountByArea" resultType="java.util.Map">
+        SELECT
+        a.area_id as areaId,
+        ar.area_name as areaName,
+        COUNT(al.alert_id) as totalAlarms,
+        SUM(CASE WHEN al.status = 'pending' THEN 1 ELSE 0 END) as pendingAlarms,
+        COUNT(DISTINCT al.device_id) as affectedDeviceCount
+        FROM alert al
+        LEFT JOIN device d ON al.device_id = d.device_id
+        LEFT JOIN area ar ON d.area_id = ar.area_id
+        WHERE 1=1
+        <if test="startDate != null">
+            AND DATE(al.timestamp) >= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND DATE(al.timestamp) <= #{endDate}
+        </if>
+        <if test="deviceType != null and deviceType != ''">
+            AND d.device_type = #{deviceType}
+        </if>
+        AND ar.area_id IS NOT NULL
+        GROUP BY a.area_id, ar.area_name
+        ORDER BY totalAlarms DESC
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <!-- 统计设备状态 -->
+    <select id="getDeviceStatusStatistics" resultType="java.util.Map">
+        SELECT
+        COUNT(*) as totalDevices,
+        SUM(CASE WHEN status = 'online' THEN 1 ELSE 0 END) as onlineDevices,
+        SUM(CASE WHEN status = 'offline' THEN 1 ELSE 0 END) as offlineDevices,
+        SUM(CASE WHEN status = 'fault' THEN 1 ELSE 0 END) as faultDevices,
+        SUM(CASE WHEN status = 'maintenance' THEN 1 ELSE 0 END) as maintenanceDevices,
+        ROUND(SUM(CASE WHEN status = 'online' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) as onlineRate
+        FROM device
+        WHERE 1=1
+        <if test="areaId != null and areaId != ''">
+            AND area_id = #{areaId}
+        </if>
+        <if test="deviceType != null and deviceType != ''">
+            AND device_type = #{deviceType}
+        </if>
+    </select>
+
+    <!-- 统计告警处理情况 -->
+    <select id="getAlarmHandleStatistics" resultType="java.util.Map">
+        SELECT
+        COUNT(*) as totalAlarms,
+        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pendingAlarms,
+        SUM(CASE WHEN status = 'processing' THEN 1 ELSE 0 END) as processingAlarms,
+        SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) as resolvedAlarms,
+        AVG(TIMESTAMPDIFF(HOUR, timestamp, resolved_time)) as avgResponseHours,
+        MAX(TIMESTAMPDIFF(HOUR, timestamp, resolved_time)) as maxResponseHours
+        FROM alert
+        WHERE 1=1
+        <if test="startDate != null">
+            AND DATE(timestamp) >= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND DATE(timestamp) <= #{endDate}
+        </if>
+        <if test="areaId != null and areaId != ''">
+            AND area_id = #{areaId}
+        </if>
+    </select>
+
+</mapper>
