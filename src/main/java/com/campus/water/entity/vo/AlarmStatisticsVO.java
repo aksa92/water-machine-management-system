@@ -1,40 +1,13 @@
-/**
- * 告警统计数据视图对象（VO）
- * 功能：封装告警相关的统计数据，包括告警级别、类型、设备分布等
- * 用途：展示告警统计分析和处理情况
- * 结构：
- *   - AlarmStatisticsVO: 告警统计主类
- *   - DeviceAlarmStatVO: 设备告警统计明细项
- */
+// com/campus/water/entity/vo/AlarmStatisticsVO.java
 package com.campus.water.entity.vo;
 
 import lombok.Data;
-import java.util.List;
 import java.util.Map;
 
 @Data
 public class AlarmStatisticsVO {
-    private Integer totalAlarms;                // 总告警数
-    private Integer pendingAlarms;              // 未处理告警数
-    private Integer resolvedAlarms;             // 已处理告警数
-    private Double averageResponseTime;         // 平均响应时间(小时)
-
-    // 按级别统计
-    private Map<String, Integer> alarmLevelCount;
-
-    // 按类型统计
-    private Map<String, Integer> alarmTypeCount;
-
-    // 按设备统计
-    private List<DeviceAlarmStatVO> deviceAlarmStats;
-
-    @Data
-    public static class DeviceAlarmStatVO {
-        private String deviceId;
-        private String deviceName;
-        private Integer totalAlarms;
-        private Integer pendingAlarms;
-        private Integer resolvedAlarms;
-        private String mostCommonAlarmType;     // 最常见告警类型
-    }
+    private Map<String, Long> levelCount; // 告警级别统计（解决setLevelCount()错误）
+    private Map<String, Long> statusCount; // 告警状态统计（解决setStatusCount()错误）
+    private double handleRate; // 处理率（解决setHandleRate()错误）
+    private long totalAlarms; // 总告警数
 }

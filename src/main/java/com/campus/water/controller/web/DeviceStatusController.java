@@ -15,7 +15,7 @@ package com.campus.water.controller.web;
 
 import com.campus.water.entity.Device;
 import com.campus.water.entity.dto.request.DeviceStatusUpdateRequest;
-import com.campus.water.service.DeviceService;
+import com.campus.water.service.DeviceStatusService;
 import com.campus.water.util.ResultVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -33,14 +33,14 @@ import java.util.Map;
 @Tag(name = "设备状态管理接口", description = "Web管理端设备状态管理接口")
 public class DeviceStatusController {
 
-    private final DeviceService deviceService;
+    private final DeviceStatusService deviceStatusService;
 
     @PostMapping("/update")
     @Operation(summary = "更新设备状态", description = "手动更新设备状态（在线/离线/故障）")
     public ResponseEntity<ResultVO<Boolean>> updateDeviceStatus(
             @Valid @RequestBody DeviceStatusUpdateRequest request) {
         try {
-            boolean result = deviceService.updateDeviceStatus(request);
+            boolean result = deviceStatusService.updateDeviceStatus(request);
             return ResponseEntity.ok(ResultVO.success(result, "设备状态更新成功"));
         } catch (Exception e) {
             return ResponseEntity.ok(ResultVO.error(500, "设备状态更新失败: " + e.getMessage()));
@@ -51,7 +51,7 @@ public class DeviceStatusController {
     @Operation(summary = "标记设备在线", description = "将设备标记为在线状态")
     public ResponseEntity<ResultVO<Boolean>> markDeviceOnline(@PathVariable String deviceId) {
         try {
-            boolean result = deviceService.markDeviceOnline(deviceId);
+            boolean result = deviceStatusService.markDeviceOnline(deviceId);
             return ResponseEntity.ok(ResultVO.success(result, "设备已标记为在线"));
         } catch (Exception e) {
             return ResponseEntity.ok(ResultVO.error(500, "标记设备在线失败: " + e.getMessage()));
@@ -64,7 +64,7 @@ public class DeviceStatusController {
             @PathVariable String deviceId,
             @RequestParam(required = false) String reason) {
         try {
-            boolean result = deviceService.markDeviceOffline(deviceId, reason);
+            boolean result = deviceStatusService.markDeviceOffline(deviceId, reason);
             return ResponseEntity.ok(ResultVO.success(result, "设备已标记为离线"));
         } catch (Exception e) {
             return ResponseEntity.ok(ResultVO.error(500, "标记设备离线失败: " + e.getMessage()));
@@ -78,7 +78,7 @@ public class DeviceStatusController {
             @RequestParam String faultType,
             @RequestParam String description) {
         try {
-            boolean result = deviceService.markDeviceFault(deviceId, faultType, description);
+            boolean result = deviceStatusService.markDeviceFault(deviceId, faultType, description);
             return ResponseEntity.ok(ResultVO.success(result, "设备已标记为故障"));
         } catch (Exception e) {
             return ResponseEntity.ok(ResultVO.error(500, "标记设备故障失败: " + e.getMessage()));
@@ -92,7 +92,7 @@ public class DeviceStatusController {
             @RequestParam String status,
             @RequestParam(required = false) String remark) {
         try {
-            boolean result = deviceService.batchUpdateDeviceStatus(deviceIds, status, remark);
+            boolean result = deviceStatusService.batchUpdateDeviceStatus(deviceIds, status, remark);
             return ResponseEntity.ok(ResultVO.success(result, "批量更新设备状态成功"));
         } catch (Exception e) {
             return ResponseEntity.ok(ResultVO.error(500, "批量更新设备状态失败: " + e.getMessage()));
@@ -106,7 +106,7 @@ public class DeviceStatusController {
             @RequestParam(required = false) String areaId,
             @RequestParam(required = false) String deviceType) {
         try {
-            List<Device> devices = deviceService.getDevicesByStatus(status, areaId, deviceType);
+            List<Device> devices = deviceStatusService.getDevicesByStatus(status, areaId, deviceType);
             return ResponseEntity.ok(ResultVO.success(devices));
         } catch (Exception e) {
             return ResponseEntity.ok(ResultVO.error(500, "查询设备失败: " + e.getMessage()));
@@ -119,7 +119,7 @@ public class DeviceStatusController {
             @RequestParam(required = false) String areaId,
             @RequestParam(required = false) String deviceType) {
         try {
-            Map<String, Object> result = deviceService.getDeviceStatusCount(areaId, deviceType);
+            Map<String, Object> result = deviceStatusService.getDeviceStatusCount(areaId, deviceType);
             return ResponseEntity.ok(ResultVO.success(result));
         } catch (Exception e) {
             return ResponseEntity.ok(ResultVO.error(500, "设备状态统计失败: " + e.getMessage()));
@@ -132,7 +132,7 @@ public class DeviceStatusController {
             @RequestParam(defaultValue = "30") Integer thresholdMinutes,
             @RequestParam(required = false) String areaId) {
         try {
-            List<Device> devices = deviceService.getOfflineDevicesExceedThreshold(thresholdMinutes, areaId);
+            List<Device> devices = deviceStatusService.getOfflineDevicesExceedThreshold(thresholdMinutes, areaId);
             return ResponseEntity.ok(ResultVO.success(devices));
         } catch (Exception e) {
             return ResponseEntity.ok(ResultVO.error(500, "离线设备检测失败: " + e.getMessage()));
@@ -144,7 +144,7 @@ public class DeviceStatusController {
     public ResponseEntity<ResultVO<String>> autoDetectOfflineDevices(
             @RequestParam(defaultValue = "30") Integer thresholdMinutes) {
         try {
-            deviceService.autoDetectOfflineDevices(thresholdMinutes);
+            deviceStatusService.autoDetectOfflineDevices(thresholdMinutes);
             return ResponseEntity.ok(ResultVO.success("离线设备检测完成"));
         } catch (Exception e) {
             return ResponseEntity.ok(ResultVO.error(500, "自动检测离线设备失败: " + e.getMessage()));
