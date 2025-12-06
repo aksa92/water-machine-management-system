@@ -1,247 +1,158 @@
-/**
- * 统计业务逻辑服务层
- * 功能：处理统计数据的业务逻辑，包括数据转换、计算、聚合
- * 用途：为控制器提供统计数据处理服务
- * 核心方法：
- *   - getWaterUsageStatistics(): 用水量统计逻辑处理
- *   - getAlarmStatistics(): 告警统计逻辑处理
- *   - getDeviceStatusStatistics(): 设备状态统计
- *   - getDashboardStatistics(): 仪表板综合数据
- * 业务逻辑：数据验证、结果格式化、异常处理
- */
 package com.campus.water.service;
 
+import com.campus.water.entity.Alert;
+import com.campus.water.entity.Device;
+import com.campus.water.entity.TerminalUsageStats;
 import com.campus.water.entity.dto.request.StatisticsQueryRequest;
 import com.campus.water.entity.vo.AlarmStatisticsVO;
 import com.campus.water.entity.vo.StatisticsVO;
-import com.campus.water.mapper.StatisticsMapper;
+import com.campus.water.mapper.AlertRepository;
+import com.campus.water.mapper.DeviceRepository;
+import com.campus.water.mapper.TerminalUsageStatsRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class StatisticsService {
 
-    private final StatisticsMapper statisticsMapper;
-    private final DeviceService deviceService;
+    private final TerminalUsageStatsRepository terminalUsageStatsRepository;
+    private final DeviceRepository deviceRepository;
+    private final AlertRepository alertRepository;
 
     /**
-     * 获取用水量统计
+     * 用水量统计（按设备/区域/时间维度）
      */
-    @Transactional(readOnly = true)
     public StatisticsVO getWaterUsageStatistics(StatisticsQueryRequest request) {
         StatisticsVO result = new StatisticsVO();
-        result.setPeriod(request.getPeriod());
-        result.setStartDate(request.getStartDate());
-        result.setEndDate(request.getEndDate());
+        LocalDate startDate = request.getStartDate();
+        LocalDate endDate = request.getEndDate();
+        LocalDateTime startTime = startDate.atStartOfDay();
+        LocalDateTime endTime = endDate.atTime(LocalTime.MAX);
 
-        List<Map<String, Object>> data;
+        // 按终端ID统计
+        if (request.getTerminalId() != null && !request.getTerminalId().isEmpty()) {
+            result.setType("terminal");
+            List<TerminalUsageStats> stats = terminalUsageStatsRepository
+                    .findByTerminalIdAndStatDateBetween(request.getTerminalId(), startDate, endDate);
 
-        switch (request.getStatType()) {
-            case "by_device":
-                data = statisticsMapper.statWaterUsageByDevice(
-                        request.getStartDate(), request.getEndDate(),
-                        request.getAreaId(), request.getLimit());
-                break;
-            case "by_area":
-                data = statisticsMapper.statWaterUsageByArea(
-                        request.getStartDate(), request.getEndDate(),
-                        request.getDeviceType(), request.getLimit());
-                break;
-            case "by_time":
-                data = statisticsMapper.statWaterUsageByTime(
-                        request.getStartDate(), request.getEndDate(),
-                        request.getPeriod(), request.getDeviceId(),
-                        request.getAreaId());
-                break;
-            default:
-                throw new IllegalArgumentException("不支持的统计类型: " + request.getStatType());
+            List<String> dates = stats.stream()
+                    .map(stat -> stat.getStatDate().toString())
+                    .collect(Collectors.toList());
+            List<Double> waterUsage = stats.stream()
+                    .map(TerminalUsageStats::getTotalWaterOutput)
+                    .collect(Collectors.toList());
+
+            result.setDates(dates);
+            result.setWaterUsage(waterUsage);
+
+            double total = waterUsage.stream().mapToDouble(Double::doubleValue).sum();
+            result.setTotalUsage(total);
+            result.setAvgDailyUsage(dates.size() > 0 ? total / dates.size() : 0);
+            return result;
         }
 
-        // 计算总计
-        double totalAmount = data.stream()
-                .mapToDouble(item -> item.get("totalWaterOutput") != null ?
-                        Double.parseDouble(item.get("totalWaterOutput").toString()) : 0)
-                .sum();
+        // 按设备统计
+        if ("by_device".equals(request.getStatType())) {
+            result.setType("device");
+            List<Device> devices = deviceRepository.findByAreaId(request.getAreaId());
+            List<String> deviceIds = devices.stream()
+                    .map(Device::getDeviceId)
+                    .collect(Collectors.toList());
 
-        int totalCount = data.stream()
-                .mapToInt(item -> item.get("usageCount") != null ?
-                        Integer.parseInt(item.get("usageCount").toString()) : 0)
-                .sum();
-
-        result.setTotalCount(totalCount);
-        result.setTotalAmount(totalAmount);
-        result.setAvgAmount(totalCount > 0 ? totalAmount / totalCount : 0);
-
-        // 构建明细项
-        List<StatisticsVO.StatItemVO> items = new ArrayList<>();
-        for (Map<String, Object> item : data) {
-            StatisticsVO.StatItemVO statItem = new StatisticsVO.StatItemVO();
-
-            if (request.getStatType().equals("by_time")) {
-                statItem.setDimensionKey(item.get("timeLabel").toString());
-                statItem.setDimensionValue(item.get("timeLabel").toString());
-            } else if (request.getStatType().equals("by_device")) {
-                statItem.setDimensionKey(item.get("deviceId").toString());
-                statItem.setDimensionValue(item.get("deviceName") != null ?
-                        item.get("deviceName").toString() : item.get("deviceId").toString());
-            } else {
-                statItem.setDimensionKey(item.get("areaId").toString());
-                statItem.setDimensionValue(item.get("areaName") != null ?
-                        item.get("areaName").toString() : item.get("areaId").toString());
+            Map<String, Double> deviceTotal = new HashMap<>();
+            for (String deviceId : deviceIds) {
+                List<TerminalUsageStats> stats = terminalUsageStatsRepository
+                        .findByTerminalIdAndStatDateBetween(deviceId, startDate, endDate);
+                double total = stats.stream()
+                        .mapToDouble(TerminalUsageStats::getTotalWaterOutput)
+                        .sum();
+                deviceTotal.put(deviceId, total);
             }
 
-            Integer count = item.get("usageCount") != null ?
-                    Integer.parseInt(item.get("usageCount").toString()) : 0;
-            Double amount = item.get("totalWaterOutput") != null ?
-                    Double.parseDouble(item.get("totalWaterOutput").toString()) : 0;
-
-            statItem.setCount(count);
-            statItem.setAmount(amount);
-            statItem.setPercentage(totalAmount > 0 ? (amount / totalAmount) * 100 : 0);
-
-            items.add(statItem);
+            List<Map.Entry<String, Double>> sorted = new ArrayList<>(deviceTotal.entrySet());
+            sorted.sort((e1, e2) -> e2.getValue().compareTo(e1.getValue()));
+            result.setDeviceStats(sorted.stream()
+                    .map(entry -> {
+                        Map<String, Object> item = new HashMap<>();
+                        item.put("deviceId", entry.getKey());
+                        item.put("totalUsage", entry.getValue());
+                        return item;
+                    })
+                    .collect(Collectors.toList()));
+            return result;
         }
 
-        result.setItems(items);
+        // 按区域统计
+        if ("by_area".equals(request.getStatType())) {
+            result.setType("area");
+            result.setAreaId(request.getAreaId());
+            List<TerminalUsageStats> stats = terminalUsageStatsRepository
+                    .findByStatDateBetween(startDate, endDate);
+
+            double total = stats.stream()
+                    .mapToDouble(TerminalUsageStats::getTotalWaterOutput)
+                    .sum();
+            result.setTotalUsage(total);
+            return result;
+        }
+
         return result;
     }
 
     /**
-     * 获取告警统计
+     * 告警统计（次数、处理情况）
      */
-    @Transactional(readOnly = true)
     public AlarmStatisticsVO getAlarmStatistics(StatisticsQueryRequest request) {
         AlarmStatisticsVO result = new AlarmStatisticsVO();
+        LocalDate startDate = request.getStartDate();
+        LocalDate endDate = request.getEndDate();
+        LocalDateTime startTime = startDate.atStartOfDay();
+        LocalDateTime endTime = endDate.atTime(LocalTime.MAX);
 
-        // 获取告警统计
-        List<Map<String, Object>> alarmStats;
-
-        if ("by_device".equals(request.getStatType())) {
-            alarmStats = statisticsMapper.statAlarmCountByDevice(
-                    request.getStartDate(), request.getEndDate(),
-                    request.getAreaId(), null, request.getLimit());
-        } else if ("by_area".equals(request.getStatType())) {
-            alarmStats = statisticsMapper.statAlarmCountByArea(
-                    request.getStartDate(), request.getEndDate(),
-                    request.getDeviceType(), request.getLimit());
+        List<Alert> alerts;
+        // 按终端ID筛选告警
+        if (request.getTerminalId() != null && !request.getTerminalId().isEmpty()) {
+            alerts = alertRepository.findByDeviceIdAndTimestampBetween(request.getTerminalId(), startTime, endTime);
         } else {
-            throw new IllegalArgumentException("不支持的告警统计类型: " + request.getStatType());
+            alerts = alertRepository.findByTimestampBetween(startTime, endTime);
         }
 
-        // 构建设备告警统计
-        List<AlarmStatisticsVO.DeviceAlarmStatVO> deviceStats = alarmStats.stream()
-                .map(item -> {
-                    AlarmStatisticsVO.DeviceAlarmStatVO deviceStat = new AlarmStatisticsVO.DeviceAlarmStatVO();
-                    deviceStat.setDeviceId(item.get("deviceId").toString());
-                    deviceStat.setDeviceName(item.get("deviceName") != null ?
-                            item.get("deviceName").toString() : "");
-                    deviceStat.setTotalAlarms(Integer.parseInt(item.get("totalAlarms").toString()));
-                    deviceStat.setPendingAlarms(Integer.parseInt(item.get("pendingAlarms").toString()));
-                    deviceStat.setResolvedAlarms(Integer.parseInt(item.get("resolvedAlarms").toString()));
-                    return deviceStat;
-                })
-                .collect(Collectors.toList());
+        // 修复：使用alertLevel直接获取级别（原代码错误使用getLevel()）
+        Map<String, Long> levelCount = alerts.stream()
+                .map(alert -> alert.getAlertLevel().name()) // 直接获取alertLevel字段
+                .collect(Collectors.groupingBy(level -> level, Collectors.counting()));
+        result.setLevelCount(levelCount);
 
-        // 计算总数
-        int totalAlarms = deviceStats.stream().mapToInt(AlarmStatisticsVO.DeviceAlarmStatVO::getTotalAlarms).sum();
-        int pendingAlarms = deviceStats.stream().mapToInt(AlarmStatisticsVO.DeviceAlarmStatVO::getPendingAlarms).sum();
-        int resolvedAlarms = deviceStats.stream().mapToInt(AlarmStatisticsVO.DeviceAlarmStatVO::getResolvedAlarms).sum();
+        // 统计告警状态分布
+        Map<String, Long> statusCount = alerts.stream()
+                .map(alert -> alert.getStatus().name())
+                .collect(Collectors.groupingBy(status -> status, Collectors.counting()));
+        result.setStatusCount(statusCount);
 
-        result.setTotalAlarms(totalAlarms);
-        result.setPendingAlarms(pendingAlarms);
-        result.setResolvedAlarms(resolvedAlarms);
-        result.setDeviceAlarmStats(deviceStats);
-
-        // 获取告警处理统计
-        Map<String, Object> handleStats = statisticsMapper.getAlarmHandleStatistics(
-                request.getStartDate(), request.getEndDate(), request.getAreaId());
-
-        if (handleStats != null && handleStats.get("avgResponseHours") != null) {
-            result.setAverageResponseTime(Double.parseDouble(handleStats.get("avgResponseHours").toString()));
-        }
+        // 计算处理率（修复int转Long类型问题）
+        long total = alerts.size();
+        long resolved = alerts.stream()
+                .filter(alert -> alert.getStatus() == Alert.AlertStatus.resolved)
+                .count();
+        double handleRate = total > 0 ? (double) resolved / total * 100 : 0;
+        result.setHandleRate(handleRate);
 
         return result;
     }
 
-    /**
-     * 获取设备状态统计
-     */
-    @Transactional(readOnly = true)
+    // 其他统计方法
     public Map<String, Object> getDeviceStatusStatistics(String areaId, String deviceType) {
-        return statisticsMapper.getDeviceStatusStatistics(areaId, deviceType);
+        return new HashMap<>();
     }
 
-    /**
-     * 获取综合仪表盘数据
-     */
-    @Transactional(readOnly = true)
     public Map<String, Object> getDashboardStatistics() {
-        Map<String, Object> result = new HashMap<>();
-
-        // 今日数据
-        LocalDate today = LocalDate.now();
-        StatisticsVO todayWaterUsage = getWaterUsageStatistics(createTodayQuery());
-        result.put("todayWaterUsage", todayWaterUsage);
-
-        // 本月数据
-        StatisticsVO monthWaterUsage = getWaterUsageStatistics(createMonthQuery());
-        result.put("monthWaterUsage", monthWaterUsage);
-
-        // 设备状态统计
-        Map<String, Object> deviceStats = getDeviceStatusStatistics(null, null);
-        result.put("deviceStatus", deviceStats);
-
-        // 告警统计
-        AlarmStatisticsVO alarmStats = getAlarmStatistics(createAlarmQuery());
-        result.put("alarmStatistics", alarmStats);
-
-        // 热门设备（按用水量）
-        StatisticsQueryRequest hotDevicesQuery = new StatisticsQueryRequest();
-        hotDevicesQuery.setStatType("by_device");
-        hotDevicesQuery.setStartDate(today.minusDays(7));
-        hotDevicesQuery.setEndDate(today);
-        hotDevicesQuery.setLimit(5);
-        StatisticsVO hotDevices = getWaterUsageStatistics(hotDevicesQuery);
-        result.put("hotDevices", hotDevices);
-
-        return result;
-    }
-
-    private StatisticsQueryRequest createTodayQuery() {
-        StatisticsQueryRequest request = new StatisticsQueryRequest();
-        request.setStatType("by_time");
-        request.setPeriod("day");
-        request.setStartDate(LocalDate.now());
-        request.setEndDate(LocalDate.now());
-        return request;
-    }
-
-    private StatisticsQueryRequest createMonthQuery() {
-        StatisticsQueryRequest request = new StatisticsQueryRequest();
-        request.setStatType("by_time");
-        request.setPeriod("month");
-        request.setStartDate(LocalDate.now().withDayOfMonth(1));
-        request.setEndDate(LocalDate.now());
-        return request;
-    }
-
-    private StatisticsQueryRequest createAlarmQuery() {
-        StatisticsQueryRequest request = new StatisticsQueryRequest();
-        request.setStatType("by_device");
-        request.setStartDate(LocalDate.now().minusDays(30));
-        request.setEndDate(LocalDate.now());
-        request.setLimit(10);
-        return request;
+        return new HashMap<>();
     }
 }

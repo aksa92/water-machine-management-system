@@ -12,9 +12,9 @@
  */
 package com.campus.water.controller.web;
 
-import com.campus.water.entity.dto.request.StatisticsQueryRequest;
 import com.campus.water.entity.vo.AlarmStatisticsVO;
 import com.campus.water.entity.vo.StatisticsVO;
+import com.campus.water.entity.dto.request.StatisticsQueryRequest;
 import com.campus.water.service.StatisticsService;
 import com.campus.water.util.ResultVO;
 import io.swagger.v3.oas.annotations.Operation;

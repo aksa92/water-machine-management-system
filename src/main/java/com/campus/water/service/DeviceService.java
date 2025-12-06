@@ -1,219 +1,146 @@
-/**
- * 设备状态管理业务服务层
- * 功能：处理设备状态相关的业务逻辑
- * 用途：为设备状态控制器提供业务处理服务
- * 核心方法：
- *   - 状态更新：单设备状态变更
- *   - 状态标记：在线/离线/故障标记
- *   - 批量操作：批量状态更新
- *   - 自动检测：定时检测离线设备
- *   - 故障告警：设备故障时自动创建告警
- * 业务逻辑：状态验证、事务管理、日志记录
- */
 package com.campus.water.service;
 
 import com.campus.water.entity.Device;
-import com.campus.water.entity.dto.request.DeviceStatusUpdateRequest;
-import com.campus.water.mapper.DeviceMapper;
+import com.campus.water.entity.DeviceTerminalMapping;
+import com.campus.water.entity.Device.DeviceStatus;
+import com.campus.water.entity.Device.DeviceType;
+import com.campus.water.entity.DeviceTerminalMapping.TerminalStatus;
+import com.campus.water.mapper.DeviceRepository;
+import com.campus.water.mapper.DeviceTerminalMappingRepository;
+import com.campus.water.util.ResultVO;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 
+/**
+ * 设备管理服务类
+ * 处理设备的CRUD、状态更新、终端关联等核心业务逻辑
+ */
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class DeviceService {
 
-    private final DeviceMapper deviceMapper;
-    private final AlertService alertService;
+    private final DeviceRepository deviceRepository;
+    private final DeviceTerminalMappingRepository terminalMappingRepository;
 
     /**
-     * 更新设备状态
+     * 根据设备ID查询设备详情
      */
-    @Transactional
-    public boolean updateDeviceStatus(DeviceStatusUpdateRequest request) {
-        try {
-            int rows = deviceMapper.updateDeviceStatus(
-                    request.getDeviceId(),
-                    request.getStatus(),
-                    request.getRemark()
-            );
-
-            if (rows > 0) {
-                log.info("设备状态更新成功: deviceId={}, status={}",
-                        request.getDeviceId(), request.getStatus());
-
-                // 如果是故障状态，自动创建告警
-                if ("fault".equals(request.getStatus())) {
-                    createFaultAlert(request.getDeviceId(), request.getRemark());
-                }
-
-                return true;
-            }
-            return false;
-        } catch (Exception e) {
-            log.error("设备状态更新失败: deviceId={}, error={}",
-                    request.getDeviceId(), e.getMessage(), e);
-            throw new RuntimeException("设备状态更新失败: " + e.getMessage());
-        }
+    public Device getDeviceById(String deviceId) {
+        return deviceRepository.findById(deviceId)
+                .orElseThrow(() -> new RuntimeException("设备不存在：" + deviceId));
     }
 
     /**
-     * 标记设备在线
+     * 新增设备
      */
     @Transactional
-    public boolean markDeviceOnline(String deviceId) {
-        try {
-            int rows = deviceMapper.markDeviceOnline(deviceId);
-            if (rows > 0) {
-                log.info("设备标记为在线: deviceId={}", deviceId);
-                return true;
-            }
-            return false;
-        } catch (Exception e) {
-            log.error("标记设备在线失败: deviceId={}, error={}", deviceId, e.getMessage());
-            throw new RuntimeException("标记设备在线失败: " + e.getMessage());
+    public Device addDevice(Device device) {
+        // 检查设备ID是否已存在
+        if (deviceRepository.existsById(device.getDeviceId())) {
+            throw new RuntimeException("设备ID已存在：" + device.getDeviceId());
         }
+        device.setCreateTime(LocalDateTime.now());
+        device.setStatus(DeviceStatus.online); // 默认为在线状态
+        return deviceRepository.save(device);
     }
 
     /**
-     * 标记设备离线
+     * 更新设备基本信息（不含状态）
      */
     @Transactional
-    public boolean markDeviceOffline(String deviceId, String reason) {
-        try {
-            int rows = deviceMapper.markDeviceOffline(deviceId, reason);
-            if (rows > 0) {
-                log.info("设备标记为离线: deviceId={}, reason={}", deviceId, reason);
-                return true;
-            }
-            return false;
-        } catch (Exception e) {
-            log.error("标记设备离线失败: deviceId={}, error={}", deviceId, e.getMessage());
-            throw new RuntimeException("标记设备离线失败: " + e.getMessage());
-        }
+    public Device updateDeviceInfo(Device device) {
+        Device existingDevice = getDeviceById(device.getDeviceId());
+        // 保留创建时间，更新其他可编辑字段
+        existingDevice.setDeviceName(device.getDeviceName());
+        existingDevice.setDeviceType(device.getDeviceType());
+        existingDevice.setAreaId(device.getAreaId());
+        existingDevice.setInstallLocation(device.getInstallLocation());
+        existingDevice.setInstallDate(device.getInstallDate());
+        return deviceRepository.save(existingDevice);
     }
 
     /**
-     * 标记设备故障
+     * 更新设备状态（在线/离线/故障）
      */
     @Transactional
-    public boolean markDeviceFault(String deviceId, String faultType, String description) {
-        try {
-            int rows = deviceMapper.markDeviceFault(deviceId, faultType, description);
-            if (rows > 0) {
-                log.info("设备标记为故障: deviceId={}, type={}, desc={}",
-                        deviceId, faultType, description);
-
-                // 创建故障告警
-                createFaultAlert(deviceId, String.format("故障类型: %s, 描述: %s", faultType, description));
-
-                return true;
-            }
-            return false;
-        } catch (Exception e) {
-            log.error("标记设备故障失败: deviceId={}, error={}", deviceId, e.getMessage());
-            throw new RuntimeException("标记设备故障失败: " + e.getMessage());
-        }
+    public boolean updateDeviceStatus(String deviceId, DeviceStatus status) {
+        Device device = getDeviceById(deviceId);
+        device.setStatus(status);
+        deviceRepository.save(device);
+        return true;
     }
 
     /**
      * 批量更新设备状态
      */
     @Transactional
-    public boolean batchUpdateDeviceStatus(List<String> deviceIds, String status, String remark) {
-        try {
-            if (deviceIds == null || deviceIds.isEmpty()) {
-                return false;
-            }
+    public boolean batchUpdateStatus(List<String> deviceIds, DeviceStatus status) {
+        List<Device> devices = deviceRepository.findAllById(deviceIds);
+        if (devices.size() != deviceIds.size()) {
+            throw new RuntimeException("部分设备ID不存在");
+        }
+        devices.forEach(device -> device.setStatus(status));
+        deviceRepository.saveAll(devices);
+        return true;
+    }
 
-            int rows = deviceMapper.batchUpdateDeviceStatus(deviceIds, status, remark);
-            log.info("批量更新设备状态: count={}, status={}, updated={}",
-                    deviceIds.size(), status, rows);
-
-            // 如果是故障状态，为每个设备创建告警
-            if ("fault".equals(status)) {
-                for (String deviceId : deviceIds) {
-                    createFaultAlert(deviceId, remark);
-                }
-            }
-
-            return rows > 0;
-        } catch (Exception e) {
-            log.error("批量更新设备状态失败: error={}", e.getMessage(), e);
-            throw new RuntimeException("批量更新设备状态失败: " + e.getMessage());
+    /**
+     * 根据条件查询设备列表
+     */
+    public List<Device> queryDevices(String areaId, DeviceType deviceType, DeviceStatus status) {
+        if (areaId != null && deviceType != null) {
+            return deviceRepository.findByAreaIdAndDeviceType(areaId, deviceType);
+        } else if (areaId != null) {
+            return deviceRepository.findByAreaId(areaId);
+        } else if (deviceType != null) {
+            return deviceRepository.findByDeviceType(deviceType);
+        } else if (status != null) {
+            return deviceRepository.findByStatus(status);
+        } else {
+            return deviceRepository.findAll();
         }
     }
 
     /**
-     * 获取设备状态统计
-     */
-    @Transactional(readOnly = true)
-    public Map<String, Object> getDeviceStatusCount(String areaId, String deviceType) {
-        return deviceMapper.countByStatus(areaId, deviceType);
-    }
-
-    /**
-     * 查询离线设备（超过阈值）
-     */
-    @Transactional(readOnly = true)
-    public List<Device> getOfflineDevicesExceedThreshold(Integer thresholdMinutes, String areaId) {
-        return deviceMapper.findOfflineDevicesExceedThreshold(thresholdMinutes, areaId);
-    }
-
-    /**
-     * 获取设备最后在线时间
-     */
-    @Transactional(readOnly = true)
-    public LocalDateTime getDeviceLastOnlineTime(String deviceId) {
-        Device device = deviceMapper.getDeviceLastOnlineTime(deviceId);
-        return device != null ? device.getUpdatedTime() : null;
-    }
-
-    /**
-     * 根据状态查询设备
-     */
-    @Transactional(readOnly = true)
-    public List<Device> getDevicesByStatus(String status, String areaId, String deviceType) {
-        return deviceMapper.findByStatus(status, areaId, deviceType);
-    }
-
-    /**
-     * 自动检测并标记离线设备
+     * 关联设备与终端
      */
     @Transactional
-    public void autoDetectOfflineDevices(Integer thresholdMinutes) {
-        List<Device> offlineDevices = getOfflineDevicesExceedThreshold(thresholdMinutes, null);
+    public DeviceTerminalMapping bindTerminal(String deviceId, String terminalId, String terminalName) {
+        // 校验设备是否存在
+        getDeviceById(deviceId);
 
-        for (Device device : offlineDevices) {
-            markDeviceOffline(device.getDeviceId(),
-                    String.format("自动检测离线，超过%d分钟无数据", thresholdMinutes));
+        // 检查终端是否已绑定
+        Optional<DeviceTerminalMapping> existing = terminalMappingRepository.findByTerminalId(terminalId);
+        if (existing.isPresent()) {
+            throw new RuntimeException("终端已绑定设备：" + existing.get().getDeviceId());
         }
 
-        if (!offlineDevices.isEmpty()) {
-            log.warn("自动标记离线设备完成: count={}", offlineDevices.size());
-        }
+        DeviceTerminalMapping mapping = new DeviceTerminalMapping();
+        mapping.setDeviceId(deviceId);
+        mapping.setTerminalId(terminalId);
+        mapping.setTerminalName(terminalName);
+        mapping.setTerminalStatus(TerminalStatus.active);
+        mapping.setInstallDate(java.time.LocalDate.now());
+        return terminalMappingRepository.save(mapping);
     }
 
     /**
-     * 创建故障告警
+     * 查询设备关联的终端列表
      */
-    private void createFaultAlert(String deviceId, String description) {
-        try {
-            alertService.createManualAlert(
-                    deviceId,
-                    "DEVICE_FAULT",
-                    "设备故障",
-                    String.format("设备故障告警 - 设备ID: %s, 描述: %s", deviceId, description),
-                    "fault"
-            );
-        } catch (Exception e) {
-            log.error("创建故障告警失败: deviceId={}, error={}", deviceId, e.getMessage());
-        }
+    public List<DeviceTerminalMapping> getBoundTerminals(String deviceId) {
+        getDeviceById(deviceId); // 校验设备存在性
+        return terminalMappingRepository.findByDeviceId(deviceId);
+    }
+
+    /**
+     * 统计各状态设备数量
+     */
+    public long countByStatus(DeviceStatus status) {
+        return deviceRepository.findByStatus(status).size();
     }
 }
