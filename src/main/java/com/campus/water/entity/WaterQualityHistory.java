@@ -7,6 +7,8 @@ package com.campus.water.entity;
 
 import lombok.Data;
 import jakarta.persistence.*;
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -26,13 +28,13 @@ public class WaterQualityHistory {
 
     // 根据文档修正：三个TDS值
     @Column(name = "tds_value1", precision = 8, scale = 2)
-    private Double tdsValue1; // 原水TDS
+    private BigDecimal tdsValue1; // 原水TDS
 
     @Column(name = "tds_value2", precision = 8, scale = 2)
-    private Double tdsValue2; // 纯水TDS
+    private BigDecimal  tdsValue2; // 纯水TDS
 
     @Column(name = "tds_value3", precision = 8, scale = 2)
-    private Double tdsValue3; // 矿化水TDS
+    private BigDecimal  tdsValue3; // 矿化水TDS
 
     @Column(name = "water_quality", length = 50)
     private String waterQuality;

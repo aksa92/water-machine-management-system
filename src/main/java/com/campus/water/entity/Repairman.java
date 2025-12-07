@@ -7,6 +7,8 @@ package com.campus.water.entity;
 
 import lombok.Data;
 import jakarta.persistence.*;
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -37,7 +39,7 @@ public class Repairman {
     private Integer workCount = 0;
 
     @Column(name = "rating", precision = 3, scale = 2)
-    private Double rating = 5.0;
+    private BigDecimal rating ;
 
     @Column(name = "created_time")
     private LocalDateTime createdTime = LocalDateTime.now();

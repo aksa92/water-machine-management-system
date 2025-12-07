@@ -7,6 +7,8 @@ package com.campus.water.entity;
 
 import lombok.Data;
 import jakarta.persistence.*;
+
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -22,11 +24,11 @@ public class DrinkRecommendation {
     @Column(name = "student_id", length = 50)
     private String studentId;
 
-    @Column(name = "daily_target", precision = 6, scale = 2)
+    @Column(name = "daily_target")
     private Double dailyTarget;
 
     @Column(name = "current_progress", precision = 6, scale = 2)
-    private Double currentProgress;
+    private BigDecimal currentProgress;
 
     @Column(name = "recommendation_date")
     private LocalDate recommendationDate;

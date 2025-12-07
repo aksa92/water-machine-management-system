@@ -7,6 +7,8 @@ package com.campus.water.entity;
 
 import lombok.Data;
 import jakarta.persistence.*;
+
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -29,10 +31,10 @@ public class TerminalUsageStats {
     private Integer usageCount = 0;
 
     @Column(name = "total_water_output", precision = 10, scale = 2)
-    private Double totalWaterOutput = 0.0;
+    private BigDecimal totalWaterOutput ;
 
     @Column(name = "avg_water_per_use", precision = 6, scale = 2)
-    private Double avgWaterPerUse = 0.0;
+    private BigDecimal  avgWaterPerUse ;
 
     @Column(name = "peak_hour", length = 5)
     private String peakHour;
