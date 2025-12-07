@@ -2,7 +2,6 @@
 package com.campus.water.config;
 
 import com.campus.water.security.JwtAuthenticationFilter;
-import com.campus.water.security.RoleConstants;
 import com.campus.water.security.UserDetailsServiceImpl;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
