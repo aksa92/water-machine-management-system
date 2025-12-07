@@ -19,16 +19,16 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/alerts")
 @RequiredArgsConstructor
-@Tag(name = "告警管理接口") // 替换 @Api
+@Tag(name = "告警管理接口")
 public class AlertController {
 
     private final AlertRepository alertRepository;
 
     @GetMapping("/history")
     @PreAuthorize("hasAnyRole('ADMIN', 'REPAIRMAN')")
-    @Operation(summary = "分页查询告警历史（支持多条件筛选）") // 替换 @ApiOperation（若有）
+    @Operation(summary = "分页查询告警历史（支持多条件筛选）")
     public ResultVO<List<Alert>> getAlertHistory(
-            @Parameter(description = "设备ID（可选）") @RequestParam(required = false) String deviceId, // 替换 @ApiParam
+            @Parameter(description = "设备ID（可选）") @RequestParam(required = false) String deviceId,
             @Parameter(description = "告警级别（可选，如error、critical）") @RequestParam(required = false) String level,
             @Parameter(description = "告警状态（可选，如pending、resolved）") @RequestParam(required = false) String status,
             @Parameter(description = "开始时间（可选，格式：yyyy-MM-dd HH:mm:ss）") @RequestParam(required = false) LocalDateTime startTime,
@@ -37,7 +37,6 @@ public class AlertController {
     ) {
         List<Alert> alerts;
 
-        // 构建查询条件（根据参数动态拼接，实际可使用Specification更灵活）
         if (deviceId != null) {
             alerts = alertRepository.findByDeviceIdAndTimestampBetween(deviceId, startTime, endTime);
         } else if (level != null) {
@@ -61,12 +60,12 @@ public class AlertController {
     @GetMapping("/pending")
     @PreAuthorize("hasAnyRole('ADMIN', 'REPAIRMAN')")
     public ResultVO<List<Alert>> getPendingAlerts(
-            @Parameter(description = "区域ID（可选）") @RequestParam(required = false) String areaId) { // 替换@ApiParam为@Parameter
+            @Parameter(description = "区域ID（可选）") @RequestParam(required = false) String areaId) {
         List<Alert> pendingAlerts = areaId != null
                 ? alertRepository.findByAreaIdAndStatus(areaId, Alert.AlertStatus.pending)
                 : alertRepository.findByStatus(Alert.AlertStatus.pending);
 
-        // 按优先级排序（紧急在前）
+        // 按优先级排序（紧急在前）- 使用方法引用替代lambda
         pendingAlerts.sort((a1, a2) ->
                 Integer.compare(a2.getAlertLevel().getPriority(), a1.getAlertLevel().getPriority()));
 

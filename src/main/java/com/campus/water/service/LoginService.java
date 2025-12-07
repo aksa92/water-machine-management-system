@@ -1,90 +1,81 @@
 package com.campus.water.service;
 
-import com.campus.water.entity.Admin; // 改为引用修改import com.campus.water.entity.dto.request.LoginRequest;
+import com.campus.water.entity.Admin;
 import com.campus.water.entity.po.RepairerAuthPO;
 import com.campus.water.entity.po.UserPO;
 import com.campus.water.entity.vo.LoginVO;
 import com.campus.water.mapper.AdminRepository;
 import com.campus.water.mapper.RepairerAuthRepository;
 import com.campus.water.mapper.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.util.DigestUtils;
 import com.campus.water.entity.dto.request.LoginRequest;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor // 自动生成构造函数（需要Lombok依赖）
 public class LoginService {
 
-    @Autowired
-    private AdminRepository adminRepository;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private RepairerAuthRepository repairerAuthRepository;
+    // 依赖注入：通过构造函数初始化（@RequiredArgsConstructor自动生成构造函数）
+    private final AdminRepository adminRepository;
+    private final UserRepository userRepository;
+    private final RepairerAuthRepository repairerAuthRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public LoginVO login(LoginRequest loginRequest) {
         String username = loginRequest.getUsername();
-        // 密码MD5加密（和数据库存储的一致）
-        String encryptedPwd = DigestUtils.md5DigestAsHex(
-                loginRequest.getPassword().getBytes(StandardCharsets.UTF_8)
-        );
+        String password = loginRequest.getPassword();
         String userType = loginRequest.getUserType();
 
-        switch (userType) {
-            case "admin":
-                return handleAdminLogin(username, encryptedPwd);
-            case "user":
-                return handleUserLogin(username, encryptedPwd);
-            case "repairer":
-                return handleRepairerLogin(username, encryptedPwd);
-            default:
-                throw new RuntimeException("无效的用户类型：" + userType);
-        }
+        // 增强版switch（解决"Switch语句可替换为增强的switch"警告）
+        return switch (userType) {
+            case "admin" -> handleAdminLogin(username, password);
+            case "user" -> handleUserLogin(username, password);
+            case "repairer" -> handleRepairerLogin(username, password);
+            default -> throw new RuntimeException("无效的用户类型：" + userType);
+        };
     }
 
-    // 管理员登录（适配修改后的Admin实体和AdminRepository）
     private LoginVO handleAdminLogin(String username, String password) {
-        // 方法名从findByUsername改为findByAdminName
         Admin admin = adminRepository.findByAdminName(username)
                 .orElseThrow(() -> new RuntimeException("管理员不存在"));
-        if (!admin.getPassword().equals(password)) {
+
+        if (!passwordEncoder.matches(password, admin.getPassword())) {
             throw new RuntimeException("密码错误");
         }
+
         return createLoginVO(admin.getAdminId(), username, "admin");
     }
 
-    // 学生登录（保持不变）
     private LoginVO handleUserLogin(String username, String password) {
         UserPO user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("用户不存在"));
-        if (!user.getPassword().equals(password)) {
+
+        if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new RuntimeException("密码错误");
         }
+
         return createLoginVO(user.getStudentId(), username, "user");
     }
 
-    // 维修人员登录（保持不变）
     private LoginVO handleRepairerLogin(String username, String password) {
         RepairerAuthPO repairer = repairerAuthRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("维修人员不存在"));
-        if (!repairer.getPassword().equals(password)) {
+
+        if (!passwordEncoder.matches(password, repairer.getPassword())) {
             throw new RuntimeException("密码错误");
         }
+
         return createLoginVO(repairer.getRepairmanId(), username, "repairer");
     }
 
-    // 构建登录响应VO（保持不变）
     private LoginVO createLoginVO(String userId, String username, String userType) {
         LoginVO vo = new LoginVO();
         vo.setUserId(userId);
         vo.setUsername(username);
         vo.setUserType(userType);
-        // 临时Token（后续可替换为JWT）
         vo.setToken(UUID.randomUUID().toString().replace("-", ""));
         return vo;
     }
