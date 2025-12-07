@@ -11,8 +11,8 @@ jwt:
 spring:
   main:
     allow-bean-definition-overriding: true  # 缩进在 spring 下，作为子配置
-    # 数据库配置
-    datasource:
+  # 数据库配置
+  datasource:
       url: jdbc:mysql://120.46.151.248:3306/campus_water_management?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
       username: member
       password: Hdp11008@
@@ -35,5 +35,5 @@ server:
     encoding:
       charset: UTF-8
       enabled: true
-      force: true  # 移除末尾多余的 zs
+      force: true
   port: 8080
