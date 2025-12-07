@@ -21,4 +21,8 @@ public interface DeviceRepository extends JpaRepository<Device, String> {
 
     // 按安装位置模糊查询设备
     List<Device> findByInstallLocationContaining(String location);
+
+    List<Device> findByStatusAndAreaIdAndDeviceType(String status, String areaId, String deviceType);
+
+    Object countByStatusAndAreaIdAndDeviceType(String online, String areaId, String deviceType);
 }

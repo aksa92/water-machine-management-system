@@ -51,8 +51,8 @@ public interface AlertRepository extends JpaRepository<Alert, Long> {
     // 根据处理人查询告警
     List<Alert> findByResolvedBy(String resolvedBy);
 
-    // 检查重复未处理告警
-    List<Alert> findByDeviceIdAndAlertTypeAndStatusAndTimestampAfter(
+    // 修复：将 AndStatus 改为 AndStatusIn，支持List集合的IN查询
+    List<Alert> findByDeviceIdAndAlertTypeAndStatusInAndTimestampAfter(
             String deviceId,
             String alertType,
             List<Alert.AlertStatus> activeStatus,

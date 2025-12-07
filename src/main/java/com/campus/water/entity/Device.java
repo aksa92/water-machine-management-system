@@ -41,6 +41,9 @@ public class Device {
     @Column(name = "create_time")
     private LocalDateTime createTime = LocalDateTime.now();
 
+    public void setRemark(String remark) {
+    }
+
     public enum DeviceType {
         water_maker, water_supply
     }
