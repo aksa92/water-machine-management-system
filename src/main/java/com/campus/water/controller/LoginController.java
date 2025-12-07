@@ -3,6 +3,7 @@ package com.campus.water.controller; // 修正包路径：去掉main.java + 按�
 import com.campus.water.entity.dto.request.LoginRequest; // 替换原LoginDTO为规范的LoginRequest
 import com.campus.water.entity.vo.LoginVO;
 import com.campus.water.service.LoginService;
+import com.campus.water.util.ResultVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,9 +28,10 @@ public class LoginController {
      * @param loginRequest 登录请求参数（替换原LoginDTO）
      * @return 登录响应结果
      */
+    // 修改LoginController的login方法
     @PostMapping("/login")
-    public ResponseEntity<LoginVO> login(@Valid @RequestBody LoginRequest loginRequest) { // 参数类型替换为LoginRequest
-        LoginVO loginVO = loginService.login(loginRequest); // 同步修改入参类型
-        return ResponseEntity.ok(loginVO);
+    public ResponseEntity<ResultVO<LoginVO>> login(@Valid @RequestBody LoginRequest loginRequest) {
+        LoginVO loginVO = loginService.login(loginRequest);
+        return ResponseEntity.ok(ResultVO.success(loginVO)); // 用ResultVO包装
     }
 }
