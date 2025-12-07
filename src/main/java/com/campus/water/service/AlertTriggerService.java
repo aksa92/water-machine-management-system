@@ -32,6 +32,7 @@ import java.util.Optional;
 public class AlertTriggerService {
 
     // 异常阈值配置（可根据实际需求调整或移至配置文件）
+
     private static final double WATER_MAKER_TDS_THRESHOLD = 100.0; // 制水机TDS值异常阈值
     private static final double WATER_MAKER_PRESS_MIN = 0.2; // 最小水压
     private static final int FILTER_LIFE_THRESHOLD = 20; // 滤芯寿命阈值(%)
@@ -205,7 +206,7 @@ public class AlertTriggerService {
                 Alert.AlertStatus.pending,
                 Alert.AlertStatus.processing
         );
-        return !alertRepository.findByDeviceIdAndAlertTypeAndStatusAndTimestampAfter(
+        return !alertRepository.findByDeviceIdAndAlertTypeAndStatusInAndTimestampAfter(
                 deviceId,
                 alertType,
                 activeStatus,
