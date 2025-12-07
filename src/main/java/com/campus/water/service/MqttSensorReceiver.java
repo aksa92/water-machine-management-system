@@ -19,6 +19,7 @@ import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Service
@@ -88,14 +89,15 @@ public class MqttSensorReceiver {
         // 2. 模型对象转换为JPA实体（持久化到数据库）
         WaterMakerRealtimeData entity = new WaterMakerRealtimeData();
         entity.setDeviceId(sensorData.getDeviceId());
-        entity.setTdsValue1(sensorData.getTdsValue1());
-        entity.setTdsValue2(sensorData.getTdsValue2());
-        entity.setTdsValue3(sensorData.getTdsValue3());
-        entity.setWaterFlow1(sensorData.getWaterFlow1());
-        entity.setWaterFlow2(sensorData.getWaterFlow2());
-        entity.setWaterPress(sensorData.getWaterPress());
+        // Double转BigDecimal处理（包含null值判断）
+        entity.setTdsValue1(sensorData.getTdsValue1() != null ? BigDecimal.valueOf(sensorData.getTdsValue1()) : null);
+        entity.setTdsValue2(sensorData.getTdsValue2() != null ? BigDecimal.valueOf(sensorData.getTdsValue2()) : null);
+        entity.setTdsValue3(sensorData.getTdsValue3() != null ? BigDecimal.valueOf(sensorData.getTdsValue3()) : null);
+        entity.setWaterFlow1(sensorData.getWaterFlow1() != null ? BigDecimal.valueOf(sensorData.getWaterFlow1()) : null);
+        entity.setWaterFlow2(sensorData.getWaterFlow2() != null ? BigDecimal.valueOf(sensorData.getWaterFlow2()) : null);
+        entity.setWaterPress(sensorData.getWaterPress() != null ? BigDecimal.valueOf(sensorData.getWaterPress()) : null);
         entity.setFilterLife(sensorData.getFilterLife());
-        entity.setLeakage(sensorData.getLeakage() ? true: false); // 数据库存储：true=漏水，false=正常
+        entity.setLeakage(sensorData.getLeakage() ? true : false); // 数据库存储：true=漏水，false=正常
         entity.setWaterQuality(sensorData.getWaterQuality());
         entity.setStatus(WaterMakerRealtimeData.DeviceStatus.valueOf(sensorData.getStatus().toUpperCase()));
         entity.setRecordTime(sensorData.getRecordTime());
@@ -146,10 +148,11 @@ public class MqttSensorReceiver {
 
         WaterSupplyRealtimeData entity = new WaterSupplyRealtimeData();
         entity.setDeviceId(sensorData.getDeviceId());
-        entity.setWaterFlow(sensorData.getWaterFlow());
-        entity.setWaterPress(sensorData.getWaterPress());
-        entity.setWaterLevel(sensorData.getWaterLevel());
-        entity.setTemperature(sensorData.getTemperature());
+        // Double转BigDecimal处理（包含null值判断）
+        entity.setWaterFlow(sensorData.getWaterFlow() != null ? BigDecimal.valueOf(sensorData.getWaterFlow()) : null);
+        entity.setWaterPress(sensorData.getWaterPress() != null ? BigDecimal.valueOf(sensorData.getWaterPress()) : null);
+        entity.setWaterLevel(sensorData.getWaterLevel() != null ? BigDecimal.valueOf(sensorData.getWaterLevel()) : null);
+        entity.setTemperature(sensorData.getTemperature() != null ? BigDecimal.valueOf(sensorData.getTemperature()) : null);
         entity.setStatus(WaterSupplyRealtimeData.DeviceStatus.valueOf(sensorData.getStatus().toUpperCase()));
         entity.setTimestamp(sensorData.getTimestamp());
 

@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -56,7 +57,9 @@ public class WaterUsageController {
             drinkRecord.setStudentId(studentId);
             drinkRecord.setTerminalId(terminalId);
             drinkRecord.setDeviceId(mapping.getDeviceId());
-            drinkRecord.setWaterConsumption(waterConsumption);
+
+            // 错误1修复：Double转BigDecimal（适配DrinkRecord的BigDecimal类型字段）
+            drinkRecord.setWaterConsumption(waterConsumption != null ? BigDecimal.valueOf(waterConsumption) : BigDecimal.ZERO);
             drinkRecord.setDrinkTime(LocalDateTime.now());
             drinkRecord.setLocation(mapping.getTerminalName());
 
@@ -67,7 +70,8 @@ public class WaterUsageController {
             }
 
             drinkRecordRepository.save(drinkRecord);
-            updateTerminalUsageStats(terminalId, waterConsumption);
+            // 传入BigDecimal类型的用水量
+            updateTerminalUsageStats(terminalId, BigDecimal.valueOf(waterConsumption));
 
             result.put("success", true);
             result.put("message", "用水成功");
@@ -82,8 +86,8 @@ public class WaterUsageController {
         }
     }
 
-    // 更新终端使用统计
-    private void updateTerminalUsageStats(String terminalId, Double waterConsumption) {
+    // 更新终端使用统计（参数改为BigDecimal）
+    private void updateTerminalUsageStats(String terminalId, BigDecimal waterConsumption) {
         LocalDateTime now = LocalDateTime.now();
         Optional<TerminalUsageStats> statsOpt = terminalUsageStatsRepository
                 .findByTerminalIdAndStatDate(terminalId, now.toLocalDate());
@@ -92,13 +96,22 @@ public class WaterUsageController {
         if (statsOpt.isPresent()) {
             stats = statsOpt.get();
             stats.setUsageCount(stats.getUsageCount() + 1);
-            stats.setTotalWaterOutput(stats.getTotalWaterOutput() + waterConsumption);
-            stats.setAvgWaterPerUse(stats.getTotalWaterOutput() / stats.getUsageCount());
+
+            // 错误2&3修复：BigDecimal加法（替代+运算符）
+            stats.setTotalWaterOutput(stats.getTotalWaterOutput().add(waterConsumption));
+
+            // 错误4修复：BigDecimal除法（替代/运算符，指定精度和舍入模式）
+            stats.setAvgWaterPerUse(
+                    stats.getTotalWaterOutput()
+                            .divide(BigDecimal.valueOf(stats.getUsageCount()), 2, BigDecimal.ROUND_HALF_UP)
+            );
         } else {
             stats = new TerminalUsageStats();
             stats.setTerminalId(terminalId);
             stats.setStatDate(now.toLocalDate());
             stats.setUsageCount(1);
+
+            // 错误5&6修复：直接赋值BigDecimal（适配TerminalUsageStats的BigDecimal字段）
             stats.setTotalWaterOutput(waterConsumption);
             stats.setAvgWaterPerUse(waterConsumption);
             stats.setPeakHour(String.format("%02d:00", now.getHour()));
@@ -122,9 +135,10 @@ public class WaterUsageController {
             if (realtimeDataOpt.isPresent()) {
                 WaterMakerRealtimeData realtimeData = realtimeDataOpt.get();
                 result.put("deviceId", deviceId);
-                result.put("rawWaterTds", realtimeData.getTdsValue1());
-                result.put("pureWaterTds", realtimeData.getTdsValue2());
-                result.put("mineralWaterTds", realtimeData.getTdsValue3());
+                // 如需返回Double给前端：BigDecimal转Double
+                result.put("rawWaterTds", realtimeData.getTdsValue1() != null ? realtimeData.getTdsValue1().doubleValue() : null);
+                result.put("pureWaterTds", realtimeData.getTdsValue2() != null ? realtimeData.getTdsValue2().doubleValue() : null);
+                result.put("mineralWaterTds", realtimeData.getTdsValue3() != null ? realtimeData.getTdsValue3().doubleValue() : null);
                 result.put("waterQuality", realtimeData.getWaterQuality());
                 result.put("filterLife", realtimeData.getFilterLife());
                 result.put("status", realtimeData.getStatus());

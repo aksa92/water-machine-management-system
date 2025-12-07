@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 
 @Data
 @Entity
-@Table(name = "repairer_auth") // 对应数据库表
+@Table(name = "repairer_auth_backup") // 对应数据库表
 public class RepairerAuthPO {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY) // 主键自增（Long类型）
@@ -20,15 +20,17 @@ public class RepairerAuthPO {
     @Column(nullable = false)
     private String password; // MD5加密密码
 
-    // 账号状态枚举（和Repository的AccountStatus匹配）
+    // 账号状态枚举（解决字段映射冲突）
     public enum AccountStatus {
         active, inactive, locked
     }
 
-    @Enumerated(EnumType.STRING) // 枚举以字符串存储（匹配SQL里的'active'）
+    // 明确指定数据库字段名，与实体类字段形成映射，解决冲突
+    @Enumerated(EnumType.STRING)
+    @Column(name = "account_status", length = 50, nullable = false)
     private AccountStatus accountStatus;
 
-    // 补充其他业务字段（按需添加）
+    // 补充其他业务字段
     private String phone; // 联系电话
     private String areaId; // 负责区域ID
     private String name; // 维修人员姓名

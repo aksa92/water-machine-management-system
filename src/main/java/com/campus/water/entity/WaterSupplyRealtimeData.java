@@ -7,6 +7,8 @@ package com.campus.water.entity;
 
 import lombok.Data;
 import jakarta.persistence.*;
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -21,17 +23,17 @@ public class WaterSupplyRealtimeData {
     private String deviceId;
 
     @Column(name = "water_flow", precision = 8, scale = 2)
-    private Double waterFlow;
+    private BigDecimal waterFlow;
 
     // 根据文档修正：字段名改为 water_press
     @Column(name = "water_press", precision = 8, scale = 2)
-    private Double waterPress;
+    private BigDecimal  waterPress;
 
     @Column(name = "water_level", precision = 8, scale = 2)
-    private Double waterLevel;
+    private BigDecimal  waterLevel;
 
     @Column(name = "temperature", precision = 5, scale = 2)
-    private Double temperature;
+    private BigDecimal  temperature;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20)

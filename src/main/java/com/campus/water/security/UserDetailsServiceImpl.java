@@ -1,7 +1,6 @@
-// com/campus/water/security/UserDetailsServiceImpl.java
 package com.campus.water.security;
 
-import com.campus.water.entity.po.AdminPO;
+import com.campus.water.entity.Admin;  // 改为引用Admin实体下的Admin实体类
 import com.campus.water.entity.po.RepairerAuthPO;
 import com.campus.water.entity.po.UserPO;
 import com.campus.water.mapper.AdminRepository;
@@ -44,11 +43,11 @@ public class UserDetailsServiceImpl implements UserDetailsService {
             );
         }
 
-        // 2. 尝试查询管理员用户
-        AdminPO admin = adminRepository.findByUsername(username).orElse(null);
+        // 2. 尝试查询管理员用户（适配Admin实体类的adminName字段）
+        Admin admin = adminRepository.findByAdminName(username).orElse(null);  // 方法名从findByUsername改为findByAdminName
         if (admin != null) {
             return createUserDetails(
-                    admin.getUsername(),
+                    admin.getAdminName(),  // 字段名从getUsername改为getAdminName
                     admin.getPassword(),
                     RoleConstants.ROLE_ADMIN
             );

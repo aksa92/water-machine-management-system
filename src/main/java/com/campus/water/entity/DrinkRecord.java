@@ -7,6 +7,8 @@ package com.campus.water.entity;
 
 import lombok.Data;
 import jakarta.persistence.*;
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -29,13 +31,13 @@ public class DrinkRecord {
 
     // 根据文档修正：字段名改为 water_consumption
     @Column(name = "water_consumption", precision = 6, scale = 2)
-    private Double waterConsumption;
+    private BigDecimal waterConsumption;
 
     @Column(name = "water_quality", length = 50)
     private String waterQuality;
 
     @Column(name = "tds_value", precision = 8, scale = 2)
-    private Double tdsValue;
+    private BigDecimal tdsValue;
 
     // 根据文档修正：字段名改为 drink_time
     @Column(name = "drink_time")

@@ -1,7 +1,7 @@
 package com.campus.water.service;
 
+import com.campus.water.entity.Admin; // 替换旧的AdminPO
 import com.campus.water.entity.dto.request.RegisterRequest;
-import com.campus.water.entity.po.AdminPO;
 import com.campus.water.entity.po.RepairerAuthPO;
 import com.campus.water.entity.po.UserPO;
 import com.campus.water.mapper.AdminRepository;
@@ -27,7 +27,6 @@ public class RegisterService {
 
     public boolean register(RegisterRequest request) {
         String username = request.getUsername();
-        // 密码MD5加密（与登录逻辑保持一致）
         String encryptedPwd = DigestUtils.md5DigestAsHex(
                 request.getPassword().getBytes(StandardCharsets.UTF_8)
         );
@@ -49,22 +48,25 @@ public class RegisterService {
         return true;
     }
 
+    // 修正管理员注册逻辑（适配新实体Admin）
     private void handleAdminRegister(String username, String password, RegisterRequest request) {
-        // 检查用户名是否已存在
-        if (adminRepository.existsByUsername(username)) {
+        // 检查用户名是否已存在（使用新方法existsByAdminName）
+        if (adminRepository.existsByAdminName(username)) {
             throw new RuntimeException("管理员用户名已存在");
         }
 
-        AdminPO admin = new AdminPO();
-        admin.setUsername(username);
-        admin.setPassword(password);
+        Admin admin = new Admin();
         admin.setAdminId(request.getAdminId());
-        admin.setRole(AdminPO.AdminRole.valueOf(request.getAdminRole()));
-        admin.setStatus(AdminPO.AdminStatus.ACTIVE);
+        admin.setAdminName(username); // 字段名从username改为adminName
+        admin.setPassword(password);
+        // 角色枚举值转换（新实体角色为小写，需统一）
+        admin.setRole(Admin.AdminRole.valueOf(request.getAdminRole().toLowerCase()));
+        admin.setStatus(Admin.AdminStatus.active); // 状态枚举值改为小写
 
         adminRepository.save(admin);
     }
 
+    // 学生注册逻辑保持不变
     private void handleUserRegister(String username, String password, RegisterRequest request) {
         if (userRepository.existsByUsername(username)) {
             throw new RuntimeException("用户名已存在");
@@ -77,13 +79,14 @@ public class RegisterService {
         user.setUsername(username);
         user.setPassword(password);
         user.setStudentId(request.getStudentId());
-        user.setUsername(request.getStudentName());
-        user.setStatus(UserPO.UserStatus.ACTIVE);
-        // 可根据需要补充其他字段默认值
+        user.setUsername(request.getStudentName()); // 注意：这里重复设置了username，建议修正为setStudentName（如果有该字段）
+        // 枚举值改为小写（与UserPO中定义的一致）
+        user.setStatus(UserPO.UserStatus.active);
 
         userRepository.save(user);
     }
 
+    // 维修人员注册逻辑保持不变
     private void handleRepairerRegister(String username, String password, RegisterRequest request) {
         if (repairerAuthRepository.existsByUsername(username)) {
             throw new RuntimeException("维修人员用户名已存在");

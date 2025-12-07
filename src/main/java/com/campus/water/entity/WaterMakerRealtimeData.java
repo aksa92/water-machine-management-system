@@ -7,6 +7,8 @@ package com.campus.water.entity;
 
 import lombok.Data;
 import jakarta.persistence.*;
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -22,24 +24,24 @@ public class WaterMakerRealtimeData {
 
     // 根据文档修正：三个TDS值
     @Column(name = "tds_value1", precision = 8, scale = 2)
-    private Double tdsValue1; // 原水TDS
+    private BigDecimal tdsValue1; // 原水TDS
 
     @Column(name = "tds_value2", precision = 8, scale = 2)
-    private Double tdsValue2; // 纯水TDS
+    private BigDecimal  tdsValue2; // 纯水TDS
 
     @Column(name = "tds_value3", precision = 8, scale = 2)
-    private Double tdsValue3; // 矿化水TDS
+    private BigDecimal  tdsValue3; // 矿化水TDS
 
     // 根据文档修正：两个流量计
     @Column(name = "water_flow1", precision = 8, scale = 2)
-    private Double waterFlow1;
+    private BigDecimal  waterFlow1;
 
     @Column(name = "water_flow2", precision = 8, scale = 2)
-    private Double waterFlow2;
+    private BigDecimal  waterFlow2;
 
     // 根据文档修正：字段名改为 water_press
     @Column(name = "water_press", precision = 8, scale = 2)
-    private Double waterPress;
+    private BigDecimal  waterPress;
 
     @Column(name = "filter_life")
     private Integer filterLife;
