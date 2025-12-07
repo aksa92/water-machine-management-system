@@ -21,7 +21,6 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
-import java.util.Collections;
 
 /**
  * 安全配置类
@@ -34,7 +33,7 @@ public class SecurityConfig {
     private final UserDetailsServiceImpl userDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    // 构造函数注入（替代@Autowired字段注入，更安全）
+    // 构造函数注入
     public SecurityConfig(UserDetailsServiceImpl userDetailsService,
                           JwtAuthenticationFilter jwtAuthenticationFilter) {
         this.userDetailsService = userDetailsService;
@@ -69,53 +68,67 @@ public class SecurityConfig {
     }
 
     /**
-     * 安全过滤链
+     * 安全过滤链 - 优先处理CORS和预检请求
      */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // 启用CORS并配置源
-                .csrf(csrf -> csrf.disable()) // 关闭CSRF
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // 无状态会话
+                // 1. 优先配置CORS，确保预检请求不被拦截
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                // 2. 关闭CSRF（配合无状态会话）
+                .csrf(csrf -> csrf.disable())
+                // 3. 配置会话管理（无状态）
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // 4. 配置URL权限
                 .authorizeHttpRequests(auth -> auth
-                        // 登录接口放行
+                        // 放行登录接口
                         .requestMatchers("/api/app/student/login", "/api/app/repair/login", "/api/web/login", "/api/common/login").permitAll()
-                        // 静态资源放行
+                        // 放行注册接口
+                        .requestMatchers("/api/common/register").permitAll()
+                        // 放行静态资源
                         .requestMatchers("/static/**", "/templates/**").permitAll()
-                        // 新增告警接口权限控制（URL级）
+                        // 放行预检请求（重要：避免OPTIONS请求被拦截）
+                        .requestMatchers(request -> "OPTIONS".equals(request.getMethod())).permitAll()
+                        // 告警接口权限
                         .requestMatchers("/api/alerts/**").hasAnyRole("ADMIN", "REPAIRMAN")
-                        // 基础权限控制（细粒度在Controller层通过注解控制）
+                        // 学生接口权限
                         .requestMatchers("/api/app/student/**").hasAnyRole("STUDENT", "ADMIN")
+                        // 维修人员接口权限
                         .requestMatchers("/api/app/repair/**").hasAnyRole("REPAIRMAN", "ADMIN")
+                        // 管理员接口权限
                         .requestMatchers("/api/web/**").hasRole("ADMIN")
                         // 其他接口需要认证
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class); // 添加JWT过滤器
-
-        http.authenticationProvider(authenticationProvider()); // 设置认证提供者
+                // 5. 添加JWT过滤器（在用户名密码过滤器之前）
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                // 6. 设置认证提供者
+                .authenticationProvider(authenticationProvider());
 
         return http.build();
     }
 
+    /**
+     * CORS配置源 - 放宽跨域限制以兼容前端请求
+     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // 允许前端源（开发环境）
+        // 允许的前端源（生产环境建议指定具体域名）
         configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173"));
-        // 允许所有HTTP方法
+        // 允许的HTTP方法
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        // 允许所有请求头
-        configuration.setAllowedHeaders(Arrays.asList("*"));
-        // 允许携带凭证（如Cookie）
+        // 允许的请求头（包含自定义头）
+        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
+        // 允许携带凭证（如Cookie、JWT）
         configuration.setAllowCredentials(true);
-        // 预检请求缓存时间（1小时）
+        // 预检请求缓存时间（减少预检请求次数）
         configuration.setMaxAge(3600L);
-        // 暴露响应头（便于前端获取自定义头信息）
-        configuration.setExposedHeaders(Arrays.asList("Authorization", "Content-Type"));
+        // 暴露响应头（便于前端获取自定义头）
+        configuration.setExposedHeaders(Arrays.asList("Authorization", "Content-Length"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        // 应用到所有API路径
+        // 应用到所有路径
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }

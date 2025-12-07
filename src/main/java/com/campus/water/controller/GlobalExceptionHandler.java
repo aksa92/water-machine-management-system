@@ -5,8 +5,10 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 
 import java.time.format.DateTimeParseException;
+import java.util.Objects;
 
 /**
  * 全局异常处理器 - 统一处理项目中所有控制器层异常
@@ -64,5 +66,15 @@ public class GlobalExceptionHandler {
         // 生产环境建议添加日志记录，此处简化
         // log.error("服务器运行时异常", e);
         return ResultVO.error(500, "服务器内部错误：" + e.getMessage());
+    }
+
+    /**
+     * 处理请求参数验证失败（如@NotBlank/@Pattern等注解验证失败）
+     */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResultVO<Void> handleMethodArgumentNotValid(MethodArgumentNotValidException e) {
+        // 获取第一个验证失败的字段和消息
+        String errorMsg = Objects.requireNonNull(e.getBindingResult().getFieldError()).getDefaultMessage();
+        return ResultVO.badRequest(errorMsg); // 返回400状态码和具体错误信息
     }
 }
