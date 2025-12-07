@@ -101,14 +101,22 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Collections.singletonList("http://localhost:5173"));
+        // 允许前端源（开发环境）
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173"));
+        // 允许所有HTTP方法
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Collections.singletonList("*"));
+        // 允许所有请求头
+        configuration.setAllowedHeaders(Arrays.asList("*"));
+        // 允许携带凭证（如Cookie）
         configuration.setAllowCredentials(true);
+        // 预检请求缓存时间（1小时）
         configuration.setMaxAge(3600L);
+        // 暴露响应头（便于前端获取自定义头信息）
+        configuration.setExposedHeaders(Arrays.asList("Authorization", "Content-Type"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/api/**", configuration);
+        // 应用到所有API路径
+        source.registerCorsConfiguration("/**", configuration);
         return source;
     }
 }
