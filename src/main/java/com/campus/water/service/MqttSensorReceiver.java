@@ -99,7 +99,7 @@ public class MqttSensorReceiver {
         entity.setFilterLife(sensorData.getFilterLife());
         entity.setLeakage(sensorData.getLeakage() ? true : false); // 数据库存储：true=漏水，false=正常
         entity.setWaterQuality(sensorData.getWaterQuality());
-        entity.setStatus(WaterMakerRealtimeData.DeviceStatus.valueOf(sensorData.getStatus().toUpperCase()));
+        entity.setStatus(WaterMakerRealtimeData.DeviceStatus.valueOf(sensorData.getStatus()));
         entity.setRecordTime(sensorData.getRecordTime());
         entity.setCreatedTime(LocalDateTime.now());
 
@@ -153,7 +153,7 @@ public class MqttSensorReceiver {
         entity.setWaterPress(sensorData.getWaterPress() != null ? BigDecimal.valueOf(sensorData.getWaterPress()) : null);
         entity.setWaterLevel(sensorData.getWaterLevel() != null ? BigDecimal.valueOf(sensorData.getWaterLevel()) : null);
         entity.setTemperature(sensorData.getTemperature() != null ? BigDecimal.valueOf(sensorData.getTemperature()) : null);
-        entity.setStatus(WaterSupplyRealtimeData.DeviceStatus.valueOf(sensorData.getStatus().toUpperCase()));
+        entity.setStatus(WaterSupplyRealtimeData.DeviceStatus.valueOf(sensorData.getStatus()));
         entity.setTimestamp(sensorData.getTimestamp());
 
 
