@@ -5,29 +5,57 @@ import { useRouter } from 'vue-router'
 import { authServices } from '@/services/authServices'
 
 const router = useRouter()
+const usertype = ref('repairer')
 const username = ref('')
 const password = ref('')
 const loading = ref(false)
 
-const handleLogin = async () => {
-  if (!username.value || !password.value) {
-    alert('请输入账号和密码')
-    return
-  }
+   // 在 handleLogin 函数中添加更多日志
+    // 在 LoginPage.vue 中添加更详细的调试
+   const handleLogin = async () => {
+     console.log('开始登录流程');
+     if (!username.value || !password.value) {
+       alert('请输入账号和密码');
+       return;
+     }
 
-  loading.value = true
-  try {
-    const result = await authServices.login(username.value, password.value)
-    console.log('登录成功:', result)
-    // Store user info or token if needed
-    router.push('/home')
-  } catch (error) {
-    console.error('登录失败:', error)
-    alert('登录失败: ' + (error.message || '未知错误'))
-  } finally {
-    loading.value = false
-  }
-}
+     loading.value = true;
+     try {
+       console.log('调用 authServices.login', {
+         username: username.value,
+         password: password.value,
+         userType: usertype.value
+       });
+
+       const loginPromise = authServices.login({
+         username: username.value,
+         password: password.value,
+         userType: usertype.value
+       });
+       console.log('loginPromise 创建成功:', loginPromise);
+
+       const result = await loginPromise;
+
+       // 添加对结果的验证
+       if (result && result.code === 200) {
+         console.log('登录成功:', result);
+         router.push('/home');
+       } else {
+         alert('登录失败: ' + (result?.message || '未知错误'));
+       }
+     } catch (error) {
+       console.error('登录过程异常:', error);
+       console.error('错误类型:', typeof error);
+       console.error('错误堆栈:', error.stack);
+       alert('登录失败: ' + (error.message || '未知错误'));
+     } finally {
+       loading.value = false;
+     }
+   };
+
+
+
+
 </script>
 
 <template>
@@ -64,6 +92,8 @@ const handleLogin = async () => {
         <button type="submit" class="login-button" :disabled="loading">
           {{ loading ? '登录中...' : '登录' }}
         </button>
+
+
       </form>
     </div>
   </div>
@@ -182,4 +212,6 @@ const handleLogin = async () => {
 .login-button:active:not(:disabled) {
   transform: translateY(0);
 }
+
+
 </style>

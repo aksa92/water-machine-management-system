@@ -55,16 +55,16 @@
 
     <!-- 底部导航栏 -->
     <div class="bottom-nav">
-      <div class="nav-item active">
+      <div class="nav-item active" @click="goToHome">
         <span>首页</span>
       </div>
-      <div class="nav-item">
+      <div class="nav-item" @click="goToInspection">
         <span>巡检</span>
       </div>
-      <div class="nav-item">
+      <div class="nav-item" @click="goToWorkOrders">
         <span>工单</span>
       </div>
-      <div class="nav-item">
+      <div class="nav-item" @click="goToProfile">
         <span>我的</span>
       </div>
     </div>
@@ -72,19 +72,29 @@
 </template>
 
 <script setup>
-// 移除未使用的 router 导入
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
 const goToInspection = () => {
   console.log('跳转到巡检页面')
-  // 如果需要路由跳转，可以在这里添加
-  // const router = useRouter()
-  // router.push('/inspection')
+  router.push('/inspection')
 }
 
 const goToWorkOrders = () => {
   console.log('跳转到工单页面')
-  // 如果需要路由跳转，可以在这里添加
-  // const router = useRouter()
-  // router.push('/work-orders')
+  router.push('/work-orders')
+}
+
+const goToHome = () => {
+  if (router.currentRoute.value.path !== '/home') {
+    router.push('/home')
+  }
+}
+
+const goToProfile = () => {
+  console.log('跳转到我的页面')
+  router.push('/profile')
 }
 </script>
 
@@ -273,10 +283,24 @@ const goToWorkOrders = () => {
   color: #666;
   cursor: pointer;
   transition: color 0.3s;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .nav-item.active {
   color: #1890ff;
+  position: relative;
+}
+
+.nav-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 2px;
+  background: #1890ff;
+  border-radius: 1px;
 }
 
 .nav-item:hover {
