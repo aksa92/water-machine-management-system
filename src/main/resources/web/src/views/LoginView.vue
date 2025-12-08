@@ -7,6 +7,22 @@
       </div>
 
       <form class="login-form" @submit.prevent="handleLogin">
+        <!-- 用户类型选择 -->
+        <div class="form-group">
+          <label for="userType">用户类型</label>
+          <select
+              id="userType"
+              v-model="loginForm.userType"
+              class="form-input"
+              :disabled="loading"
+              required
+          >
+            <option value="user">普通用户</option>
+            <option value="admin">管理员</option>
+            <option value="repairer">维修人员</option>
+          </select>
+        </div>
+
         <div class="form-group">
           <label for="username">用户名</label>
           <input
@@ -68,9 +84,11 @@ const debugInfo = ref('')
 const loginForm = reactive({
   username: '',
   password: '',
+  userType: 'user', // 添加默认用户类型
   rememberMe: false
 })
 
+// 在 handleLogin 方法中
 const handleLogin = async () => {
   if (!loginForm.username.trim() || !loginForm.password.trim()) {
     alert('请输入用户名和密码')
@@ -78,27 +96,34 @@ const handleLogin = async () => {
   }
 
   loading.value = true
-  debugInfo.value = '开始登录...'
 
   try {
-    debugInfo.value = `调用接口: ${import.meta.env.VITE_API_BASE_URL}/api/common/login\n请求数据: ${JSON.stringify(loginForm, null, 2)}`
-
-    // 调用登录接口
+    // 调用真实的登录接口，传递完整的参数
     await authStore.login({
       username: loginForm.username,
       password: loginForm.password,
+      userType: loginForm.userType, // 添加用户类型参数
       rememberMe: loginForm.rememberMe
     })
 
-    debugInfo.value += '\n✅ 登录成功，跳转到首页...'
-
-    // 登录成功，跳转到首页
-    router.push('/home')
+    // 登录成功，处理重定向
+    const redirect = router.currentRoute.value.query.redirect as string
+    if (redirect) {
+      router.push(redirect)
+    } else {
+      router.push('/home')
+    }
 
   } catch (error: any) {
     console.error('登录失败:', error)
-    debugInfo.value += `\n❌ 登录失败: ${error.message}`
-    alert(error.message || '登录失败，请检查用户名和密码')
+    // 更友好的错误提示
+    const errorMessage = error.message.includes('Network')
+        ? '网络连接失败，请检查网络设置'
+        : error.message.includes('401')
+            ? '用户名或密码错误'
+            : error.message || '登录失败，请稍后重试'
+
+    alert(errorMessage)
   } finally {
     loading.value = false
   }

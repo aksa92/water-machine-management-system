@@ -11,6 +11,7 @@ import com.campus.water.entity.dto.request.LoginRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.DigestUtils;
 
 import java.util.UUID;
 
@@ -38,7 +39,7 @@ public class LoginService {
         };
     }
 
-    private LoginVO handleAdminLogin(String username, String password) {
+   /* private LoginVO handleAdminLogin(String username, String password) {
         Admin admin = adminRepository.findByAdminName(username)
                 .orElseThrow(() -> new RuntimeException("管理员不存在"));
 
@@ -47,7 +48,28 @@ public class LoginService {
         }
 
         return createLoginVO(admin.getAdminId(), username, "admin");
+    }*/
+    private LoginVO handleAdminLogin(String username, String password) {
+    Admin admin = adminRepository.findByAdminName(username)
+            .orElseThrow(() -> new RuntimeException("管理员不存在"));
+
+    boolean matches;
+    // 临时支持 MD5 验证（仅用于测试环境）
+    if (admin.getPassword().startsWith("$2a$") || admin.getPassword().startsWith("$2y$")) {
+        // BCrypt 格式密码
+        matches = passwordEncoder.matches(password, admin.getPassword());
+    } else {
+        // MD5 格式密码
+        String md5Password = DigestUtils.md5DigestAsHex(password.getBytes());
+        matches = md5Password.equals(admin.getPassword());
     }
+
+    if (!matches) {
+        throw new RuntimeException("密码错误");
+    }
+
+    return createLoginVO(admin.getAdminId(), username, "admin");
+}
 
     private LoginVO handleUserLogin(String username, String password) {
         UserPO user = userRepository.findByUsername(username)
