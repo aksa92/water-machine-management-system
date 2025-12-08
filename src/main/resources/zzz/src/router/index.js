@@ -8,6 +8,13 @@ const router = createRouter({
       name: 'LoginPage',
       component: () => import('../views/LoginPage.vue')
     },
+    // 添加维修人员注册页路由
+    {
+      path: '/repairer-register',
+      name: 'RepairerRegisterPage',
+      component: () => import('../views/RepairerRegisterPage.vue')
+    },
+    // 其他现有路由保持不变...
     {
       path: '/home',
       name: 'HomePage',
@@ -27,12 +34,6 @@ const router = createRouter({
       path: '/work-orders/:id',
       name: 'WorkOrderDetail',
       component: () => import('../views/WorkOrderDetail.vue')
-    },
-    // 修改现有工单页面路由，指向工单列表
-    {
-      path: '/inspection',
-      name: 'InspectionPage',
-      component: () => import('../views/InspectionPage.vue')
     },
     {
       path: '/inspection',
@@ -69,7 +70,7 @@ const router = createRouter({
       name: 'InspectionForm',
       component: () => import('../views/InspectionForm.vue')
     }
-  ],
+  ]
 })
 
 export default router

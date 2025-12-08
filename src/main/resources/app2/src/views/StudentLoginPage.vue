@@ -377,51 +377,76 @@ const handleLogin = async () => {
   }
 }
 
+
 // 注册处理
+// 在 <script setup> 部分修改 handleRegister 函数
 const handleRegister = async () => {
   if (!validateRegister()) return
 
   loading.value = true
 
   try {
-    // 构建注册数据
+    // 构建注册数据（匹配后端RegisterRequest结构）
     const registerData = {
-      studentId: registerForm.studentId,
-      name: registerForm.name,
-      phone: registerForm.phone,
+      studentId: registerForm.studentId.trim(),
+      name: registerForm.name.trim(),
       password: registerForm.password,
-      email: registerForm.email || '' // 可选字段
+      // 注意：后端RegisterRequest目前不支持phone和email字段
+      // 如果需要这些字段，需要扩展后端的RegisterRequest和User实体
     }
 
-    console.log('开始学生注册:', registerData)
+    console.log('前端注册数据:', registerData)
 
     // 调用注册接口
-    // 注意：这里需要根据你后端实际的注册接口来调整
     const result = await authServices.studentRegister(registerData)
 
-    console.log('注册响应:', result)
+    console.log('注册完整响应:', result)
 
-    if (result.code === 200 || result.code === 201) {
+    // 根据后端ResultVO格式处理响应
+    if (result && result.code === 200) {
       // 注册成功
-      alert('注册成功！请登录')
+      alert('注册成功！请使用您的学号和密码登录')
       showRegister.value = false
 
       // 清空注册表单
       Object.keys(registerForm).forEach(key => {
-        registerForm[key] = ''
+        if (key !== 'agreed') {
+          registerForm[key] = ''
+        }
       })
       registerForm.agreed = false
+
+      // 清空错误信息
+      Object.keys(errors).forEach(key => errors[key] = '')
     } else {
-      alert('注册失败: ' + (result.message || '未知错误'))
+      // 注册失败，显示后端返回的错误信息
+      const errorMsg = result?.message || '注册失败，请稍后重试'
+      alert('注册失败: ' + errorMsg)
     }
   } catch (error) {
     console.error('注册过程异常:', error)
-    alert('注册失败: ' + (error.message || '网络错误'))
+
+    // 处理错误信息
+    let errorMessage = '注册失败，请稍后重试'
+
+    if (error.code === 400) {
+      errorMessage = error.message || '请求参数错误，请检查填写的信息'
+    } else if (error.code === 409) {
+      errorMessage = error.message || '用户已存在'
+    } else if (error.message) {
+      // 如果是对象，提取message字段
+      if (typeof error.message === 'object' && error.message.message) {
+        errorMessage = error.message.message
+      } else if (typeof error.message === 'string') {
+        errorMessage = error.message
+      }
+    }
+
+    alert('注册失败: ' + errorMessage)
   } finally {
     loading.value = false
   }
 }
-
 // 其他辅助函数保持不变
 const handleForgotPassword = () => {
   alert('请联系管理员重置密码：admin@example.com')

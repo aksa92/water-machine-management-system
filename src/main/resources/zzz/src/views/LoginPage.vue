@@ -1,4 +1,3 @@
-<!-- src/views/LoginPage.vue -->
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -10,52 +9,62 @@ const username = ref('')
 const password = ref('')
 const loading = ref(false)
 
-   // 在 handleLogin 函数中添加更多日志
-    // 在 LoginPage.vue 中添加更详细的调试
-   const handleLogin = async () => {
-     console.log('开始登录流程');
-     if (!username.value || !password.value) {
-       alert('请输入账号和密码');
-       return;
-     }
+// 在 handleLogin 函数中添加更多日志
+// 在 LoginPage.vue 中添加更详细的调试
+const handleLogin = async () => {
+  console.log('开始登录流程');
+  if (!username.value || !password.value) {
+    alert('请输入账号和密码');
+    return;
+  }
 
-     loading.value = true;
-     try {
-       console.log('调用 authServices.login', {
-         username: username.value,
-         password: password.value,
-         userType: usertype.value
-       });
+  loading.value = true;
+  try {
+    console.log('调用 authServices.login', {
+      username: username.value,
+      password: password.value,
+      userType: usertype.value
+    });
 
-       const loginPromise = authServices.login({
-         username: username.value,
-         password: password.value,
-         userType: usertype.value
-       });
-       console.log('loginPromise 创建成功:', loginPromise);
+    const loginPromise = authServices.login({
+      username: username.value,
+      password: password.value,
+      userType: usertype.value
+    });
+    console.log('loginPromise 创建成功:', loginPromise);
 
-       const result = await loginPromise;
+    const result = await loginPromise;
 
-       // 添加对结果的验证
-       if (result && result.code === 200) {
-         console.log('登录成功:', result);
-         router.push('/home');
-       } else {
-         alert('登录失败: ' + (result?.message || '未知错误'));
-       }
-     } catch (error) {
-       console.error('登录过程异常:', error);
-       console.error('错误类型:', typeof error);
-       console.error('错误堆栈:', error.stack);
-       alert('登录失败: ' + (error.message || '未知错误'));
-     } finally {
-       loading.value = false;
-     }
-   };
+    // 添加对结果的验证
+    if (result && result.code === 200) {
+      console.log('登录成功:', result);
 
+      // 保存登录信息到本地存储
+      localStorage.setItem('token', result.data.token)
+      localStorage.setItem('userId', result.data.userId)
+      localStorage.setItem('username', result.data.username)
+      localStorage.setItem('userType', result.data.userType)
+      localStorage.setItem('repairmanId', username.value)
 
+      alert('登录成功！')
+      router.push('/home');
+    } else {
+      alert('登录失败: ' + (result?.message || '未知错误'));
+    }
+  } catch (error) {
+    console.error('登录过程异常:', error);
+    console.error('错误类型:', typeof error);
+    console.error('错误堆栈:', error.stack);
+    alert('登录失败: ' + (error.message || '未知错误'));
+  } finally {
+    loading.value = false;
+  }
+};
 
-
+// 跳转到注册页面
+const goToRegister = () => {
+  router.push('/repairer-register');
+};
 </script>
 
 <template>
@@ -93,7 +102,13 @@ const loading = ref(false)
           {{ loading ? '登录中...' : '登录' }}
         </button>
 
-
+        <!-- 添加注册按钮 -->
+        <div class="register-section">
+          <p class="register-text">还没有账户？</p>
+          <button type="button" class="register-button" @click="goToRegister" :disabled="loading">
+            立即注册
+          </button>
+        </div>
       </form>
     </div>
   </div>
@@ -194,7 +209,8 @@ const loading = ref(false)
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s;
-  margin-top: auto;
+  margin-top: 20px;
+  margin-bottom: 15px;
   box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
 }
 
@@ -213,5 +229,45 @@ const loading = ref(false)
   transform: translateY(0);
 }
 
+/* 注册部分样式 */
+.register-section {
+  text-align: center;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
 
+.register-text {
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.register-button {
+  width: 100%;
+  padding: 12px;
+  background: white;
+  color: #667eea;
+  border: 1px solid #667eea;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.register-button:hover:not(:disabled) {
+  background: #f8f9ff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+}
+
+.register-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.register-button:active:not(:disabled) {
+  transform: translateY(0);
+}
 </style>
