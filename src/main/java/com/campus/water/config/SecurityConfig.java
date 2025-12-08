@@ -54,11 +54,12 @@ public class SecurityConfig {
     /**
      * 密码加密器
      */
+    // com/campus/water/config/SecurityConfig.java
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+        // 替换为MD5加密器
+        return new MD5PasswordEncoder();
     }
-
     /**
      * 认证管理器
      */
