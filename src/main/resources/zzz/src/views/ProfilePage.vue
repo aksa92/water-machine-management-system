@@ -128,7 +128,9 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
+const authStore = useAuthStore()
 const router = useRouter()
 
 // 未读消息数量
@@ -197,15 +199,11 @@ const cancelLogout = () => {
 
 // 确认退出
 const confirmLogout = () => {
-  console.log('用户退出登录')
-  showLogoutConfirm.value = false
+  console.log('用户退出登录');
+  showLogoutConfirm.value = false;
 
-  // 清除用户数据或token
-  // localStorage.removeItem('userToken')
-  // localStorage.removeItem('userInfo')
-
-  // 跳转到登录页面
-  router.push('/')
+  // 调用存储的登出方法
+  authStore.logout();
 }
 </script>
 

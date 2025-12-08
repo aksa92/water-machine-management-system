@@ -2,7 +2,9 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { authServices } from '@/services/authServices'
+import { useAuthStore } from '@/stores/auth'
 
+const authStore = useAuthStore()
 const router = useRouter()
 const usertype = ref('repairer')
 const username = ref('')
@@ -26,35 +28,37 @@ const handleLogin = async () => {
       userType: usertype.value
     });
 
-    const loginPromise = authServices.login({
+    const result = await authServices.login({
       username: username.value,
       password: password.value,
       userType: usertype.value
     });
-    console.log('loginPromise 创建成功:', loginPromise);
 
-    const result = await loginPromise;
-
-    // 添加对结果的验证
     if (result && result.code === 200) {
       console.log('登录成功:', result);
 
-      // 保存登录信息到本地存储
-      localStorage.setItem('token', result.data.token)
-      localStorage.setItem('userId', result.data.userId)
-      localStorage.setItem('username', result.data.username)
-      localStorage.setItem('userType', result.data.userType)
-      localStorage.setItem('repairmanId', username.value)
+      // 保存用户信息到存储
+      authStore.login({
+        username: result.data.username,
+        userType: result.data.userType,
+        userId: result.data.userId,
+        repairmanId: username.value
+      }, result.data.token);
 
-      alert('登录成功！')
+      // 保存到本地存储
+      localStorage.setItem('token', result.data.token);
+      localStorage.setItem('userId', result.data.userId);
+      localStorage.setItem('username', result.data.username);
+      localStorage.setItem('userType', result.data.userType);
+      localStorage.setItem('repairmanId', username.value);
+
+      alert('登录成功！');
       router.push('/home');
     } else {
       alert('登录失败: ' + (result?.message || '未知错误'));
     }
   } catch (error) {
     console.error('登录过程异常:', error);
-    console.error('错误类型:', typeof error);
-    console.error('错误堆栈:', error.stack);
     alert('登录失败: ' + (error.message || '未知错误'));
   } finally {
     loading.value = false;

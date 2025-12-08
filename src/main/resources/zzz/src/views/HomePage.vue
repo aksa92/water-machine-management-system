@@ -2,9 +2,15 @@
   <div class="home-page">
     <!-- 顶部标题栏 -->
     <div class="header">
+      <div class="header-left">
+        <div class="user-info">
+          <div class="user-name">{{ userInfo?.username || '未登录' }}</div>
+          <div class="user-type">{{ userInfo?.userType === 'repairer' ? '维修人员' : userInfo?.userType }}</div>
+        </div>
+      </div>
       <div class="header-title">运维工作台</div>
+      <div class="header-right"></div>
     </div>
-
     <!-- 主要内容区域 -->
     <div class="main-content">
       <!-- 统计卡片 -->
@@ -73,7 +79,10 @@
 
 <script setup>
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
+const authStore = useAuthStore()
+const userInfo = authStore.getUserInfo()
 const router = useRouter()
 
 const goToInspection = () => {
@@ -305,5 +314,19 @@ const goToProfile = () => {
 
 .nav-item:hover {
   color: #1890ff;
+}
+
+.user-info {
+  font-size: 12px;
+}
+
+.user-name {
+  font-weight: 500;
+  color: #333;
+}
+
+.user-type {
+  color: #666;
+  font-size: 11px;
 }
 </style>
