@@ -6,7 +6,11 @@
     "composite": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "lib": ["ES2015", "DOM"],  // 关键：添加 ES2015 支持 Promise
+      "target": "ES2015",        // 目标输出为 ES2015 及以上
+      "module": "ESNext",        // 配合异步模块解析
+      "moduleResolution": "NodeNext"
     }
   }
 }

@@ -29,15 +29,18 @@ interface MenuItem {
 const route = useRoute()
 const router = useRouter()
 
+// 计算当前激活的菜单项ID
 const activeItem = computed(() => {
   const currentPath = route.path
+  // 查找当前路由对应的菜单项
   const item = menuItems.find(item => 
     item.route === currentPath || 
     item.children?.some(child => child.route === currentPath)
   )
-  return item?.id || 1
+  return item?.id || 1 // 默认激活仪表盘
 })
 
+// 菜单配置项
 const menuItems: MenuItem[] = [
   { 
     id: 1, 
@@ -72,7 +75,7 @@ const menuItems: MenuItem[] = [
     id: 4, 
     name: '人员管理', 
     icon: '👥', 
-    route: '/home/personnel',
+    // 移除主菜单路由，点击主菜单只展开子菜单
     children: [
       { name: '管理员', route: '/home/personnel/admin' },
       { name: '维修人员', route: '/home/personnel/maintenance' },
@@ -83,7 +86,7 @@ const menuItems: MenuItem[] = [
     id: 5, 
     name: '片区', 
     icon: '🗺️', 
-    route: '/home/area',
+    // 移除主菜单路由，点击主菜单只展开子菜单
     children: [
       { name: '市区', route: '/home/area/urban' },
       { name: '校区', route: '/home/area/campus' }
@@ -97,6 +100,7 @@ const menuItems: MenuItem[] = [
   }
 ]
 
+// 处理菜单项点击事件
 const handleItemClick = (itemId: number) => {
   const item = menuItems.find(m => m.id === itemId)
   if (item?.route) {
@@ -111,6 +115,8 @@ const handleItemClick = (itemId: number) => {
   background: white;
   border-right: 1px solid #e1e8ed;
   box-shadow: 2px 0 10px rgba(0, 0, 0, 0.05);
+  height: calc(100vh - 60px); /* 减去头部高度 */
+  overflow-y: auto; /* 菜单过多时可滚动 */
 }
 
 .sidebar-nav {

@@ -4,7 +4,7 @@
       <h1 class="system-title">校园矿化水系统</h1>
     </div>
     <div class="header-right">
-      <div class="user-info">
+      <div class="user-info" @click="goToProfile">
         <div class="user-avatar">
           <img :src="userAvatar" alt="用户头像" />
         </div>
@@ -17,8 +17,15 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 const userAvatar = ref('images/用户界面/u106.jpg') // 根据实际路径调整
+const router = useRouter()
+
+// 跳转到个人信息页面
+const goToProfile = () => {
+  router.push('/home/profile')
+}
 </script>
 
 <style scoped>

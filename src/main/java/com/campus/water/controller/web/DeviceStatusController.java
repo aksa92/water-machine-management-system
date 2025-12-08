@@ -102,16 +102,23 @@ public class DeviceStatusController {
     @GetMapping("/by-status")
     @Operation(summary = "按状态查询设备", description = "根据状态查询设备列表")
     public ResponseEntity<ResultVO<List<Device>>> getDevicesByStatus(
-            @RequestParam String status,
-            @RequestParam(required = false) String areaId,
-            @RequestParam(required = false) String deviceType) {
-        try {
-            List<Device> devices = deviceStatusService.getDevicesByStatus(status, areaId, deviceType);
-            return ResponseEntity.ok(ResultVO.success(devices));
-        } catch (Exception e) {
-            return ResponseEntity.ok(ResultVO.error(500, "查询设备失败: " + e.getMessage()));
-        }
+    @RequestParam String status,
+    @RequestParam(required = false) String areaId,
+    @RequestParam(required = false) String deviceType) {
+
+    // 添加默认值处理
+    if (deviceType == null || deviceType.isEmpty()) {
+        deviceType = "water_maker"; // 默认值
     }
+
+    try {
+        List<Device> devices = deviceStatusService.getDevicesByStatus(status, areaId, deviceType);
+        return ResponseEntity.ok(ResultVO.success(devices));
+    } catch (Exception e) {
+        return ResponseEntity.ok(ResultVO.error(500, "查询设备失败: " + e.getMessage()));
+    }
+}
+
 
     @GetMapping("/status-count")
     @Operation(summary = "设备状态数量统计", description = "统计各状态设备数量")
