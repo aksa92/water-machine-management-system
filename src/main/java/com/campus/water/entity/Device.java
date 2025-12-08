@@ -1,8 +1,4 @@
-/**
- * 设备信息实体类
- * 对应表：device
- * 用于存储设备基本信息，如设备类型、安装位置、状态等
- */
+// com/campus/water/entity/Device.java
 package com.campus.water.entity;
 
 import lombok.Data;
@@ -10,6 +6,9 @@ import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+/**
+ * 设备信息实体类（对应原始device表，不新增字段）
+ */
 @Data
 @Entity
 @Table(name = "device")
@@ -25,7 +24,7 @@ public class Device {
     @Column(name = "device_type", length = 50)
     private DeviceType deviceType;
 
-    @Column(name = "area_id", length = 20)  // 确保这个字段存在
+    @Column(name = "area_id", length = 20)
     private String areaId;
 
     @Column(name = "install_location", length = 200)
@@ -41,7 +40,10 @@ public class Device {
     @Column(name = "create_time")
     private LocalDateTime createTime = LocalDateTime.now();
 
+    // 保留原有的remark方法（若表中有该字段可直接映射，无则忽略）
+    private String remark;
     public void setRemark(String remark) {
+        this.remark = remark;
     }
 
     public enum DeviceType {

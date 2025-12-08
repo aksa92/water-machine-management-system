@@ -1,3 +1,4 @@
+// com/campus/water/mapper/DeviceRepository.java
 package com.campus.water.mapper;
 
 import com.campus.water.entity.Device;
@@ -10,19 +11,31 @@ public interface DeviceRepository extends JpaRepository<Device, String> {
     // 根据区域ID查询设备
     List<Device> findByAreaId(String areaId);
 
-    // 根据设备类型查询
+    // 根据设备类型（枚举）查询
     List<Device> findByDeviceType(Device.DeviceType deviceType);
 
-    // 根据设备状态查询
+    // 根据设备状态（枚举）查询
     List<Device> findByStatus(Device.DeviceStatus status);
 
-    // 按区域和设备类型查询设备
+    // 按区域和设备类型查询
     List<Device> findByAreaIdAndDeviceType(String areaId, Device.DeviceType deviceType);
 
-    // 按安装位置模糊查询设备
+    // 按安装位置模糊查询
     List<Device> findByInstallLocationContaining(String location);
 
-    List<Device> findByStatusAndAreaIdAndDeviceType(String status, String areaId, String deviceType);
+    // 关键修正：参数类型为枚举（原DevicePO用String，现统一为Device的枚举）
+    List<Device> findByStatusAndAreaIdAndDeviceType(
+            Device.DeviceStatus status,
+            String areaId,
+            Device.DeviceType deviceType
+    );
 
-    Object countByStatusAndAreaIdAndDeviceType(String online, String areaId, String deviceType);
+    // 统计方法参数修正为枚举
+    long countByStatusAndAreaIdAndDeviceType(
+            Device.DeviceStatus status,
+            String areaId,
+            Device.DeviceType deviceType
+    );
+
+    List<Device> findByAreaIdAndStatus(String areaId, Device.DeviceStatus deviceStatus);
 }
