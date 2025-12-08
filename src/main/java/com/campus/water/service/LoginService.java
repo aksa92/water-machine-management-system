@@ -1,8 +1,9 @@
+// filePath：main/java/com/campus/water/service/LoginService.java
 package com.campus.water.service;
 
 import com.campus.water.entity.Admin;
-import com.campus.water.entity.po.RepairerAuthPO;
-import com.campus.water.entity.po.UserPO;
+import com.campus.water.entity.RepairerAuth;
+import com.campus.water.entity.User; // 引入User实体类
 import com.campus.water.entity.vo.LoginVO;
 import com.campus.water.mapper.AdminRepository;
 import com.campus.water.mapper.RepairerAuthRepository;
@@ -15,10 +16,9 @@ import org.springframework.stereotype.Service;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor // 自动生成构造函数（需要Lombok依赖）
+@RequiredArgsConstructor
 public class LoginService {
 
-    // 依赖注入：通过构造函数初始化（@RequiredArgsConstructor自动生成构造函数）
     private final AdminRepository adminRepository;
     private final UserRepository userRepository;
     private final RepairerAuthRepository repairerAuthRepository;
@@ -29,7 +29,6 @@ public class LoginService {
         String password = loginRequest.getPassword();
         String userType = loginRequest.getUserType();
 
-        // 增强版switch（解决"Switch语句可替换为增强的switch"警告）
         return switch (userType) {
             case "admin" -> handleAdminLogin(username, password);
             case "user" -> handleUserLogin(username, password);
@@ -50,18 +49,22 @@ public class LoginService {
     }
 
     private LoginVO handleUserLogin(String username, String password) {
-        UserPO user = userRepository.findByUsername(username)
+        // 改为查询User实体，使用studentName字段匹配用户名
+        User user = userRepository.findByStudentName(username)
                 .orElseThrow(() -> new RuntimeException("用户不存在"));
 
+        // 验证密码（User的password字段与UserPO一致）
         if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new RuntimeException("密码错误");
         }
 
+        // 使用User的studentId作为用户ID
         return createLoginVO(user.getStudentId(), username, "user");
     }
 
     private LoginVO handleRepairerLogin(String username, String password) {
-        RepairerAuthPO repairer = repairerAuthRepository.findByUsername(username)
+        // 此处将RepairerAuthPO改为RepairerAuth
+        RepairerAuth repairer = repairerAuthRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("维修人员不存在"));
 
         if (!passwordEncoder.matches(password, repairer.getPassword())) {
