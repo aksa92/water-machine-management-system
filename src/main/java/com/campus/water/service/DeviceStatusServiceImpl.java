@@ -1,3 +1,4 @@
+// com/campus/water/service/DeviceStatusServiceImpl.java
 package com.campus.water.service;
 
 import com.campus.water.entity.Device;
@@ -7,22 +8,19 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
-// 核心：添加@Service注解，让Spring注册这个实现类为Bean
 @Service
-@RequiredArgsConstructor // 注入Repository等依赖
+@RequiredArgsConstructor
 @Slf4j
 public class DeviceStatusServiceImpl implements DeviceStatusService {
 
-    // 注入设备仓库（根据你的业务逻辑补充依赖）
     private final DeviceRepository deviceRepository;
 
-    // 实现接口的所有方法（以下是示例实现，你需根据业务逻辑完善）
     @Override
     public boolean updateDeviceStatus(DeviceStatusUpdateRequest request) {
-        // 示例逻辑：根据request更新设备状态
         Device device = deviceRepository.findById(request.getDeviceId()).orElse(null);
         if (device == null) {
             log.warn("设备不存在 | 设备ID：{}", request.getDeviceId());
@@ -36,20 +34,18 @@ public class DeviceStatusServiceImpl implements DeviceStatusService {
 
     @Override
     public boolean markDeviceOnline(String deviceId) {
-        // 实现标记设备在线的逻辑
         Device device = deviceRepository.findById(deviceId).orElse(null);
         if (device == null) return false;
-        device.setStatus(Device.DeviceStatus.valueOf("online")); // 对应你的Device枚举/字符串
+        device.setStatus(Device.DeviceStatus.online);
         deviceRepository.save(device);
         return true;
     }
 
     @Override
     public boolean markDeviceOffline(String deviceId, String reason) {
-        // 实现标记设备离线的逻辑
         Device device = deviceRepository.findById(deviceId).orElse(null);
         if (device == null) return false;
-        device.setStatus(Device.DeviceStatus.valueOf("offline"));
+        device.setStatus(Device.DeviceStatus.offline);
         device.setRemark(reason);
         deviceRepository.save(device);
         return true;
@@ -57,10 +53,9 @@ public class DeviceStatusServiceImpl implements DeviceStatusService {
 
     @Override
     public boolean markDeviceFault(String deviceId, String faultType, String description) {
-        // 实现标记设备故障的逻辑
         Device device = deviceRepository.findById(deviceId).orElse(null);
         if (device == null) return false;
-        device.setStatus(Device.DeviceStatus.valueOf("fault"));
+        device.setStatus(Device.DeviceStatus.fault);
         device.setRemark("故障类型：" + faultType + "，描述：" + description);
         deviceRepository.save(device);
         return true;
@@ -68,10 +63,10 @@ public class DeviceStatusServiceImpl implements DeviceStatusService {
 
     @Override
     public boolean batchUpdateDeviceStatus(List<String> deviceIds, String status, String remark) {
-        // 实现批量更新设备状态的逻辑
         List<Device> devices = deviceRepository.findAllById(deviceIds);
+        Device.DeviceStatus targetStatus = Device.DeviceStatus.valueOf(status);
         devices.forEach(device -> {
-            device.setStatus(Device.DeviceStatus.valueOf(status));
+            device.setStatus(targetStatus);
             device.setRemark(remark);
         });
         deviceRepository.saveAll(devices);
@@ -80,32 +75,32 @@ public class DeviceStatusServiceImpl implements DeviceStatusService {
 
     @Override
     public List<Device> getDevicesByStatus(String status, String areaId, String deviceType) {
-        // 实现按状态/区域/设备类型查询设备的逻辑
-        // 可调用DeviceRepository的自定义查询方法
-        return deviceRepository.findByStatusAndAreaIdAndDeviceType(status, areaId, deviceType);
+        Device.DeviceStatus targetStatus = Device.DeviceStatus.valueOf(status);
+        Device.DeviceType targetType = Device.DeviceType.valueOf(deviceType);
+        return deviceRepository.findByStatusAndAreaIdAndDeviceType(targetStatus, areaId, targetType);
     }
 
     @Override
     public Map<String, Object> getDeviceStatusCount(String areaId, String deviceType) {
-        // 实现统计各状态设备数量的逻辑
-        // 示例：返回online/offline/fault的数量
+        Device.DeviceType targetType = Device.DeviceType.valueOf(deviceType);
         return Map.of(
-                "online", deviceRepository.countByStatusAndAreaIdAndDeviceType("online", areaId, deviceType),
-                "offline", deviceRepository.countByStatusAndAreaIdAndDeviceType("offline", areaId, deviceType),
-                "fault", deviceRepository.countByStatusAndAreaIdAndDeviceType("fault", areaId, deviceType)
+                "online", deviceRepository.countByStatusAndAreaIdAndDeviceType(Device.DeviceStatus.online, areaId, targetType),
+                "offline", deviceRepository.countByStatusAndAreaIdAndDeviceType(Device.DeviceStatus.offline, areaId, targetType),
+                "fault", deviceRepository.countByStatusAndAreaIdAndDeviceType(Device.DeviceStatus.fault, areaId, targetType)
         );
     }
 
     @Override
     public List<Device> getOfflineDevicesExceedThreshold(Integer thresholdMinutes, String areaId) {
-        // 实现获取超过阈值的离线设备的逻辑
-        // 需结合设备最后心跳时间判断
-        return List.of(); // 临时返回空，需完善
+        // 由于没有last_active_time，此处逻辑需调整：
+        // 方案1：若设备有最近操作时间，可用作替代；
+        // 方案2：仅返回状态为offline的设备（不判断时间）
+        return deviceRepository.findByAreaIdAndStatus(areaId, Device.DeviceStatus.offline);
     }
 
     @Override
     public void autoDetectOfflineDevices(Integer thresholdMinutes) {
-        // 实现自动检测离线设备的逻辑
-        // 定时任务/扫描逻辑，需完善
+        // 同理，无last_active_time时，无法通过时间判断，可注释或简化逻辑
+        log.info("自动检测离线设备（不执行时间判断，仅依赖手动标记）");
     }
 }
