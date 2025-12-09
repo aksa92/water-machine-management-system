@@ -95,8 +95,12 @@ public class SecurityConfig {
                         .requestMatchers("/api/app/student/**").hasAnyRole("STUDENT", "ADMIN")
                         // 维修人员接口权限
                         .requestMatchers("/api/app/repair/**").hasAnyRole("REPAIRMAN", "ADMIN")
-                        // 管理员接口权限
-                        .requestMatchers("/api/web/**").hasRole("ADMIN")
+                        .requestMatchers("/api/web/**")
+                        .hasAnyRole(
+                                "SUPER_ADMIN",   // 对应ROLE_SUPER_ADMIN（Spring会自动加ROLE_前缀）
+                                "AREA_ADMIN",    // 对应ROLE_AREA_ADMIN
+                                "VIEWER"         // 对应ROLE_VIEWER
+                        )
                         // 其他接口需要认证
                         .anyRequest().authenticated()
                 )

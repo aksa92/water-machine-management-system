@@ -1,4 +1,3 @@
-// filePath：main/java/com/campus/water/service/LoginService.java
 package com.campus.water.service;
 
 import com.campus.water.entity.Admin;
@@ -58,7 +57,8 @@ public class LoginService {
             throw new RuntimeException("密码错误");
         }
 
-        return createLoginVO(admin.getAdminId(), username, "admin");
+        // ========== 关键改动1：调用重载的createLoginVO方法，传入Admin实体 ==========
+        return createLoginVO(admin.getAdminId(), username, "admin", admin);
     }
 
     private LoginVO handleUserLogin(String username, String password) {
@@ -84,11 +84,24 @@ public class LoginService {
     }
 
     /**
-     * 生成包含JWT令牌和角色信息的登录响应
-     * 角色映射：
-     * - admin -> ROLE_ADMIN
-     * - user -> ROLE_STUDENT
-     * - repairman -> ROLE_REPAIRMAN
+     * 重载方法：处理管理员登录（支持获取真实角色）
+     * ========== 关键改动2：新增重载方法，接收Admin参数 ==========
+     */
+    private LoginVO createLoginVO(String userId, String username, String userType, Admin admin) {
+        LoginVO vo = new LoginVO();
+        vo.setUserId(userId);
+        vo.setUsername(username);
+        vo.setUserType(userType);
+
+        // 获取管理员真实角色（如ROLE_SUPER_ADMIN/ROLE_AREA_ADMIN）
+        String role = admin.getRole().name();
+        // 生成包含真实角色的JWT令牌
+        vo.setToken(jwtTokenProvider.generateToken(username, role));
+        return vo;
+    }
+
+    /**
+     * 原有方法：处理用户/维修人员登录（保留不变）
      */
     private LoginVO createLoginVO(String userId, String username, String userType) {
         LoginVO vo = new LoginVO();
@@ -98,7 +111,7 @@ public class LoginService {
 
         // 根据用户类型获取对应的角色
         String role = switch (userType) {
-            case "admin" -> RoleConstants.ROLE_ADMIN;
+
             case "user" -> RoleConstants.ROLE_STUDENT;
             case "repairman" -> RoleConstants.ROLE_REPAIRMAN;
             default -> throw new RuntimeException("不支持的用户类型：" + userType);

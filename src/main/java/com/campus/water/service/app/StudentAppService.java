@@ -15,7 +15,7 @@ public class StudentAppService {
     private WaterUsageController waterUsageController;
 
     // 扫码获取终端信息 - 学生和管理员可访问
-    @PreAuthorize("hasAnyRole('STUDENT', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'SUPER_ADMIN', 'AREA_ADMIN', 'VIEWER')")
     public ResultVO<Map<String, Object>> getTerminalInfo(String terminalId) {
         try {
             Map<String, Object> result = waterUsageController.getTerminalInfo(terminalId);
@@ -26,7 +26,7 @@ public class StudentAppService {
     }
 
     // 扫码用水 - 学生和管理员可访问
-    @PreAuthorize("hasAnyRole('STUDENT', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'SUPER_ADMIN', 'AREA_ADMIN', 'VIEWER')")
     public ResultVO<Map<String, Object>> scanToDrink(Map<String, Object> request) {
         try {
             String terminalId = (String) request.get("terminalId");
@@ -41,7 +41,7 @@ public class StudentAppService {
     }
 
     // 查询水质信息 - 学生和管理员可访问
-    @PreAuthorize("hasAnyRole('STUDENT', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'SUPER_ADMIN', 'AREA_ADMIN', 'VIEWER')")
     public ResultVO<Map<String, Object>> getWaterQuality(String deviceId) {
         try {
             Map<String, Object> result = waterUsageController.getWaterQualityInfo(deviceId);
