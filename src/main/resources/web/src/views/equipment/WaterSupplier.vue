@@ -1,0 +1,412 @@
+<!-- src/views/equipment/WaterSupplier.vue -->
+<template>
+  <div class="water-supplier-page">
+    <!-- 页面标题和面包屑 -->
+    <div class="page-header">
+      <h2>供水机管理</h2>
+      <div class="breadcrumb">校园矿化水平台 / 设备监控 / 供水机</div>
+    </div>
+
+    <!-- 操作按钮区 -->
+    <div class="action-bar">
+      <button class="btn-add">添加供水机</button>
+      
+      <div class="filters">
+        <!-- 搜索框 -->
+        <div class="search-box">
+          <input 
+            type="text" 
+            placeholder="搜索设备ID或位置..." 
+            v-model="searchKeyword"
+            @input="handleSearch"
+          >
+          <button class="search-btn">搜索</button>
+        </div>
+        
+        <!-- 片区筛选 -->
+        <select 
+          v-model="selectedArea" 
+          class="filter-select"
+          @change="handleSearch"
+        >
+          <option value="">全部片区</option>
+          <option value="市区">市区</option>
+          <option value="校区">校区</option>
+        </select>
+        
+        <!-- 状态筛选 -->
+        <select 
+          v-model="selectedStatus" 
+          class="filter-select"
+          @change="handleSearch"
+        >
+          <option value="">全部状态</option>
+          <option value="online">在线</option>
+          <option value="offline">离线</option>
+          <option value="warning">警告</option>
+          <option value="error">故障</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 设备表格 - 新增设备机型列 -->
+    <div class="card">
+      <table class="equipment-table">
+        <thead>
+          <tr>
+            <th>设备ID</th>
+            <th>设备机型</th> <!-- 新增机型列 -->
+            <th>所属片区</th>
+            <th>详细位置</th>
+            <th>状态</th>
+            <th>最后上传时间</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="device in filteredDevices" :key="device.id">
+            <td>{{ device.id }}</td>
+            <td>供水机</td> <!-- 固定显示供水机机型 -->
+            <td>{{ device.area }}</td>
+            <td>{{ device.location }}</td>
+            <td>
+              <span :class="`status-tag ${device.status}`">
+                {{ formatStatus(device.status) }}
+              </span>
+            </td>
+            <td>{{ device.lastUploadTime }}</td>
+            <td class="operation-buttons">
+              <button class="btn-view" @click="viewDevice(device.id)">查看详情</button>
+            </td>
+          </tr>
+          <tr v-if="filteredDevices.length === 0">
+            <td colspan="7" class="no-data">暂无设备数据</td> <!-- colspan从6改为7 -->
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 分页控件 -->
+    <div class="pagination">
+      <button 
+        class="page-btn" 
+        :disabled="currentPage === 1"
+        @click="currentPage--"
+      >
+        上一页
+      </button>
+      <span class="page-info">
+        第 {{ currentPage }} 页 / 共 {{ totalPages }} 页
+      </span>
+      <button 
+        class="page-btn" 
+        :disabled="currentPage === totalPages"
+        @click="currentPage++"
+      >
+        下一页
+      </button>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
+
+// 设备状态类型定义
+type DeviceStatus = 'online' | 'offline' | 'warning' | 'error'
+
+// 设备数据接口
+interface WaterSupplierDevice {
+  id: string
+  area: string
+  location: string
+  status: DeviceStatus
+  lastUploadTime: string
+}
+
+// 模拟供水机设备数据
+const waterSupplierDevices: WaterSupplierDevice[] = [
+  {
+    id: 'WS-2023-001',
+    area: '市区',
+    location: '行政中心大楼1楼大厅',
+    status: 'online',
+    lastUploadTime: '2023-10-25 10:15:33'
+  },
+  {
+    id: 'WS-2023-002',
+    area: '校区',
+    location: '研究生公寓3号楼一层',
+    status: 'online',
+    lastUploadTime: '2023-10-25 09:30:22'
+  },
+  {
+    id: 'WS-2023-003',
+    area: '市区',
+    location: '科技园区A座大厅',
+    status: 'warning',
+    lastUploadTime: '2023-10-25 08:45:11'
+  },
+  {
+    id: 'WS-2023-004',
+    area: '校区',
+    location: '留学生公寓1楼',
+    status: 'offline',
+    lastUploadTime: '2023-10-24 23:05:47'
+  },
+  {
+    id: 'WS-2023-005',
+    area: '市区',
+    location: '图书馆新馆2楼',
+    status: 'error',
+    lastUploadTime: '2023-10-25 07:20:35'
+  }
+]
+
+// 响应式数据
+const devices = ref<WaterSupplierDevice[]>(waterSupplierDevices)
+const searchKeyword = ref('')
+const selectedArea = ref('') // 片区筛选值
+const selectedStatus = ref('') // 状态筛选值
+const currentPage = ref(1)
+const pageSize = 10 // 每页显示数量
+const router = useRouter()
+
+// 多条件过滤设备数据
+const filteredDevices = computed(() => {
+  return devices.value.filter(device => {
+    const keywordMatch = searchKeyword.value.trim() === '' ||
+      device.id.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
+      device.location.toLowerCase().includes(searchKeyword.value.toLowerCase())
+    
+    const areaMatch = selectedArea.value === '' || device.area === selectedArea.value
+    const statusMatch = selectedStatus.value === '' || device.status === selectedStatus.value
+    
+    return keywordMatch && areaMatch && statusMatch
+  })
+})
+
+// 分页计算
+const totalPages = computed(() => {
+  return Math.ceil(filteredDevices.value.length / pageSize)
+})
+
+// 状态格式化
+const formatStatus = (status: DeviceStatus): string => {
+  const statusMap = {
+    online: '在线',
+    offline: '离线',
+    warning: '警告',
+    error: '故障'
+  }
+  return statusMap[status]
+}
+
+// 搜索处理
+const handleSearch = () => {
+  currentPage.value = 1 // 重置到第一页
+}
+
+// 查看详情
+const viewDevice = (id: string) => {
+  router.push(`/home/equipment/water-supplier/${id}`)
+}
+</script>
+
+<style scoped>
+/* 样式与制水机页面保持一致 */
+.water-supplier-page {
+  padding: 20px;
+}
+
+.page-header {
+  margin-bottom: 24px;
+}
+
+.page-header h2 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.breadcrumb {
+  color: #666;
+  font-size: 14px;
+}
+
+.action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.btn-add {
+  background: #42b983;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.3s;
+}
+
+.btn-add:hover {
+  background: #359e75;
+}
+
+.filters {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.search-box {
+  display: flex;
+  gap: 8px;
+}
+
+.search-box input {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  width: 240px;
+}
+
+.search-btn {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.filter-select {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+}
+
+.equipment-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.equipment-table th,
+.equipment-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.equipment-table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: #4e5969;
+  font-size: 14px;
+}
+
+.equipment-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.status-tag {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-tag.online {
+  background-color: #e6f7ee;
+  color: #00875a;
+}
+
+.status-tag.offline {
+  background-color: #f5f5f5;
+  color: #8c8c8c;
+}
+
+.status-tag.warning {
+  background-color: #fff7e6;
+  color: #d48806;
+}
+
+.status-tag.error {
+  background-color: #ffebe6;
+  color: #cf1322;
+}
+
+.operation-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.operation-buttons button {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.3s;
+}
+
+.operation-buttons button:hover {
+  opacity: 0.9;
+}
+
+.btn-view {
+  background-color: #e6f7ff;
+  color: #1890ff;
+}
+
+.no-data {
+  text-align: center;
+  padding: 40px 0;
+  color: #8c8c8c;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: 24px;
+  color: #666;
+  font-size: 14px;
+}
+
+.page-btn {
+  padding: 4px 12px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.page-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .filters {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .search-box, .filter-select {
+    width: 100%;
+  }
+}
+</style>

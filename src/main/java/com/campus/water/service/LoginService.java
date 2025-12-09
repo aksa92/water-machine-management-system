@@ -12,6 +12,7 @@ import com.campus.water.entity.dto.request.LoginRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.DigestUtils;
 
 import java.util.UUID;
 
@@ -32,21 +33,32 @@ public class LoginService {
         return switch (userType) {
             case "admin" -> handleAdminLogin(username, password);
             case "user" -> handleUserLogin(username, password);
-            case "repairer" -> handleRepairerLogin(username, password);
+            case "repairman" -> handleRepairmanLogin(username, password);
             default -> throw new RuntimeException("无效的用户类型：" + userType);
         };
     }
 
     private LoginVO handleAdminLogin(String username, String password) {
-        Admin admin = adminRepository.findByAdminName(username)
-                .orElseThrow(() -> new RuntimeException("管理员不存在"));
+    Admin admin = adminRepository.findByAdminName(username)
+            .orElseThrow(() -> new RuntimeException("管理员不存在"));
 
-        if (!passwordEncoder.matches(password, admin.getPassword())) {
-            throw new RuntimeException("密码错误");
-        }
-
-        return createLoginVO(admin.getAdminId(), username, "admin");
+    boolean matches;
+    // 临时支持 MD5 验证（仅用于测试环境）
+    if (admin.getPassword().startsWith("$2a$") || admin.getPassword().startsWith("$2y$")) {
+        // BCrypt 格式密码
+        matches = passwordEncoder.matches(password, admin.getPassword());
+    } else {
+        // MD5 格式密码
+        String md5Password = DigestUtils.md5DigestAsHex(password.getBytes());
+        matches = md5Password.equals(admin.getPassword());
     }
+
+    if (!matches) {
+        throw new RuntimeException("密码错误");
+    }
+
+    return createLoginVO(admin.getAdminId(), username, "admin");
+}
 
     private LoginVO handleUserLogin(String username, String password) {
         // 改为查询User实体，使用studentName字段匹配用户名
@@ -62,7 +74,7 @@ public class LoginService {
         return createLoginVO(user.getStudentId(), username, "user");
     }
 
-    private LoginVO handleRepairerLogin(String username, String password) {
+    private LoginVO handleRepairmanLogin(String username, String password) {
         // 此处将RepairerAuthPO改为RepairerAuth
         RepairerAuth repairer = repairerAuthRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("维修人员不存在"));
@@ -71,7 +83,7 @@ public class LoginService {
             throw new RuntimeException("密码错误");
         }
 
-        return createLoginVO(repairer.getRepairmanId(), username, "repairer");
+        return createLoginVO(repairer.getRepairmanId(), username, "repairman");
     }
 
     private LoginVO createLoginVO(String userId, String username, String userType) {
