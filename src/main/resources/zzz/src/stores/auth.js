@@ -35,10 +35,11 @@ export const useAuthStore = defineStore('auth', () => {
     return user.value?.userType || localStorage.getItem('userType')
   })
 
-  // 获取维修人员ID
-  const getRepairmanId = computed(() => {
-    return user.value?.repairmanId || localStorage.getItem('repairmanId')
-  })
+ // 获取维修人员ID
+const getRepairmanId = computed(() => {
+  return user.value?.userId || localStorage.getItem('userId') // 使用userId而不是repairmanId
+})
+
 
   // 登出
   const logout = () => {

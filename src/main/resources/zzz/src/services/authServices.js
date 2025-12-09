@@ -19,7 +19,7 @@ export const authServices = {
       const requestData = {
         username: registerData.username,
         password: registerData.password,
-        userType: 'repairer',  // 固定为repairer类型
+        userType: 'repairman',  // 固定为repairma 类型
         repairmanId: registerData.repairmanId
       }
 
