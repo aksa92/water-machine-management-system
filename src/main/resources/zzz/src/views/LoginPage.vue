@@ -1,33 +1,74 @@
-<!-- src/views/LoginPage.vue -->
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { authServices } from '@/services/authServices'
+import { useAuthStore } from '@/stores/auth'
 
+const authStore = useAuthStore()
 const router = useRouter()
+const usertype = ref('repairer')
 const username = ref('')
 const password = ref('')
 const loading = ref(false)
 
+// 在 handleLogin 函数中添加更多日志
+// 在 LoginPage.vue 中添加更详细的调试
 const handleLogin = async () => {
+  console.log('开始登录流程');
   if (!username.value || !password.value) {
-    alert('请输入账号和密码')
-    return
+    alert('请输入账号和密码');
+    return;
   }
 
-  loading.value = true
+  loading.value = true;
   try {
-    const result = await authServices.login(username.value, password.value)
-    console.log('登录成功:', result)
-    // Store user info or token if needed
-    router.push('/home')
+    console.log('调用 authServices.login', {
+      username: username.value,
+      password: password.value,
+      userType: usertype.value
+    });
+
+    const result = await authServices.login({
+      username: username.value,
+      password: password.value,
+      userType: usertype.value
+    });
+
+    if (result && result.code === 200) {
+      console.log('登录成功:', result);
+
+      // 保存用户信息到存储
+      authStore.login({
+        username: result.data.username,
+        userType: result.data.userType,
+        userId: result.data.userId,
+        repairmanId: username.value
+      }, result.data.token);
+
+      // 保存到本地存储
+      localStorage.setItem('token', result.data.token);
+      localStorage.setItem('userId', result.data.userId);
+      localStorage.setItem('username', result.data.username);
+      localStorage.setItem('userType', result.data.userType);
+      localStorage.setItem('repairmanId', username.value);
+
+      alert('登录成功！');
+      router.push('/home');
+    } else {
+      alert('登录失败: ' + (result?.message || '未知错误'));
+    }
   } catch (error) {
-    console.error('登录失败:', error)
-    alert('登录失败: ' + (error.message || '未知错误'))
+    console.error('登录过程异常:', error);
+    alert('登录失败: ' + (error.message || '未知错误'));
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
+
+// 跳转到注册页面
+const goToRegister = () => {
+  router.push('/repairer-register');
+};
 </script>
 
 <template>
@@ -64,6 +105,14 @@ const handleLogin = async () => {
         <button type="submit" class="login-button" :disabled="loading">
           {{ loading ? '登录中...' : '登录' }}
         </button>
+
+        <!-- 添加注册按钮 -->
+        <div class="register-section">
+          <p class="register-text">还没有账户？</p>
+          <button type="button" class="register-button" @click="goToRegister" :disabled="loading">
+            立即注册
+          </button>
+        </div>
       </form>
     </div>
   </div>
@@ -164,7 +213,8 @@ const handleLogin = async () => {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s;
-  margin-top: auto;
+  margin-top: 20px;
+  margin-bottom: 15px;
   box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
 }
 
@@ -180,6 +230,48 @@ const handleLogin = async () => {
 }
 
 .login-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* 注册部分样式 */
+.register-section {
+  text-align: center;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+.register-text {
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.register-button {
+  width: 100%;
+  padding: 12px;
+  background: white;
+  color: #667eea;
+  border: 1px solid #667eea;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.register-button:hover:not(:disabled) {
+  background: #f8f9ff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+}
+
+.register-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.register-button:active:not(:disabled) {
   transform: translateY(0);
 }
 </style>

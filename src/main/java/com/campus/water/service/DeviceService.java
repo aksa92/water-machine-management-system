@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * 设备管理服务类
@@ -142,5 +143,26 @@ public class DeviceService {
      */
     public long countByStatus(DeviceStatus status) {
         return deviceRepository.findByStatus(status).size();
+    }
+    /**
+     * 删除设备（需先校验是否已解绑终端）
+     */
+    @Transactional
+    public void deleteDevice(String deviceId) {
+        // 1. 校验设备是否存在
+        Device device = getDeviceById(deviceId);
+
+        // 2. 检查设备是否已绑定终端
+        List<DeviceTerminalMapping> boundTerminals = terminalMappingRepository.findByDeviceId(deviceId);
+        if (!boundTerminals.isEmpty()) {
+            // 收集已绑定的终端ID，便于前端提示
+            String terminalIds = boundTerminals.stream()
+                    .map(DeviceTerminalMapping::getTerminalId)
+                    .collect(Collectors.joining(","));
+            throw new RuntimeException("设备已绑定终端，无法删除（终端ID：" + terminalIds + "）");
+        }
+
+        // 3. 执行删除操作
+        deviceRepository.delete(device);
     }
 }
