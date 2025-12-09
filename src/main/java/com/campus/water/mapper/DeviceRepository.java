@@ -38,4 +38,7 @@ public interface DeviceRepository extends JpaRepository<Device, String> {
     );
 
     List<Device> findByAreaIdAndStatus(String areaId, Device.DeviceStatus deviceStatus);
+
+    // 根据制水机ID查询关联的供水机
+    List<Device> findByParentMakerIdAndDeviceType(String parentMakerId, Device.DeviceType deviceType);
 }
