@@ -101,7 +101,7 @@ public class RegisterService {
 
         RepairerAuth repairman = new RepairerAuth();
         repairman.setUsername(username);
-        repairman.setPassword(password); // 使用BCrypt加密后的密码
+        repairman.setPassword(password);
         repairman.setRepairmanId(request.getRepairmanId());
         repairman.setAccountStatus(RepairerAuth.AccountStatus.active);
 
