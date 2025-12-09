@@ -77,6 +77,10 @@ public class WorkOrder {
     }
 
     public enum OrderStatus {
-        pending, grabbed, processing, completed, closed, timeout
+        pending,       // 原pending（待抢单）调整为待处理
+        processing,     // 合并原grabbed（已抢单）和processing（处理中）
+        reviewing,      // 新增状态：维修完成后等待审核
+        completed,      // 原completed（已完成）保留
+        timeout;          // 原timeout（超时）保留
     }
 }

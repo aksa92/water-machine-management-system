@@ -61,10 +61,25 @@ public class WorkOrderController {
             @RequestParam(required = false) String imgUrl) {
         try {
             boolean result = workOrderService.submitRepairResult(orderId, repairmanId, dealNote, imgUrl);
-            return result ? ResultVO.success(true, "维修结果提交成功")
+            return result ? ResultVO.success(true, "维修结果提交成功，等待审核")
                     : ResultVO.error(400, "提交失败，工单状态异常");
         } catch (Exception e) {
             return ResultVO.error(500, "提交失败：" + e.getMessage());
+        }
+    }
+
+    // 新增：审核工单接口（管理员专用）
+    @PostMapping("/review")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN')")
+    public ResultVO<Boolean> reviewOrder(
+            @RequestParam String orderId,
+            @RequestParam boolean approved) {
+        try {
+            boolean result = workOrderService.reviewOrder(orderId, approved);
+            return result ? ResultVO.success(true, approved ? "审核通过" : "审核不通过")
+                    : ResultVO.error(400, "审核失败，工单状态异常");
+        } catch (Exception e) {
+            return ResultVO.error(500, "审核失败：" + e.getMessage());
         }
     }
 
