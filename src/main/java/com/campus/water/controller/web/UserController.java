@@ -29,7 +29,7 @@ public class UserController {
      * @param status 状态筛选（可选，值：active/inactive）
      */
     @GetMapping("/list")
-    @PreAuthorize("hasRole('ADMIN')") // 仅管理员可访问
+    @PreAuthorize("hasAnyRole('STUDENT', 'SUPER_ADMIN', 'AREA_ADMIN', 'VIEWER')")// 仅管理员可访问
     @Operation(summary = "获取学生用户列表", description = "支持按姓名和状态筛选学生")
     public ResponseEntity<ResultVO<List<User>>> getUserList(
             @RequestParam(required = false) String studentName,

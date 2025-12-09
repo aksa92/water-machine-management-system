@@ -22,7 +22,7 @@ public class WorkOrderController {
 
     // 抢单功能 - 维修人员和管理员可访问
     @PostMapping("/grab")
-    @PreAuthorize("hasAnyRole('REPAIRMAN', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('REPAIRMAN', 'SUPER_ADMIN', 'AREA_ADMIN')")
     public ResultVO<Boolean> grabOrder(
             @RequestParam String orderId,
             @RequestParam String repairmanId) {
@@ -37,7 +37,7 @@ public class WorkOrderController {
 
     // 拒单功能 - 维修人员和管理员可访问
     @PostMapping("/reject")
-    @PreAuthorize("hasAnyRole('REPAIRMAN', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('REPAIRMAN', 'SUPER_ADMIN', 'AREA_ADMIN')")
     public ResultVO<Boolean> rejectOrder(
             @RequestParam String orderId,
             @RequestParam String repairmanId,
@@ -53,7 +53,7 @@ public class WorkOrderController {
 
     // 提交维修结果 - 维修人员和管理员可访问
     @PostMapping("/submit")
-    @PreAuthorize("hasAnyRole('REPAIRMAN', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('REPAIRMAN', 'SUPER_ADMIN', 'AREA_ADMIN')")
     public ResultVO<Boolean> submitRepairResult(
             @RequestParam String orderId,
             @RequestParam String repairmanId,
@@ -70,7 +70,7 @@ public class WorkOrderController {
 
     // 获取可抢工单列表 - 维修人员和管理员可访问
     @GetMapping("/available")
-    @PreAuthorize("hasAnyRole('REPAIRMAN', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('REPAIRMAN','SUPER_ADMIN', 'AREA_ADMIN')")
     public ResultVO<List<WorkOrder>> getAvailableOrders(@RequestParam String areaId) {
         try {
             List<WorkOrder> orders = workOrderService.getAvailableOrders(areaId);
@@ -82,7 +82,7 @@ public class WorkOrderController {
 
     // 获取维修工自己的工单 - 维修人员和管理员可访问
     @GetMapping("/my")
-    @PreAuthorize("hasAnyRole('REPAIRMAN', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('REPAIRMAN', 'SUPER_ADMIN', 'AREA_ADMIN')")
     public ResultVO<List<WorkOrder>> getMyOrders(@RequestParam String repairmanId) {
         try {
             List<WorkOrder> orders = workOrderService.getMyOrders(repairmanId);
@@ -94,7 +94,7 @@ public class WorkOrderController {
 
     // 管理员手动派单接口
     @PostMapping("/assign")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN')")
     public ResultVO<Boolean> assignOrderByAdmin(
             @RequestParam String orderId,
             @RequestParam String repairmanId) {

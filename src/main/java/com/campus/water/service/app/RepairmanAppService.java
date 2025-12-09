@@ -26,7 +26,7 @@ public class RepairmanAppService {
      * @param areaId 区域ID
      * @return 可抢工单列表
      */
-    @PreAuthorize("hasAnyRole('REPAIRMAN', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('REPAIRMAN', 'SUPER_ADMIN', 'AREA_ADMIN', 'VIEWER')")
     public ResultVO<List<WorkOrder>> getAvailableOrders(String areaId) {
         try {
             // 参数校验
@@ -45,7 +45,7 @@ public class RepairmanAppService {
      * @param request 包含orderId和repairmanId的请求参数
      * @return 抢单结果
      */
-    @PreAuthorize("hasAnyRole('REPAIRMAN', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('REPAIRMAN', 'SUPER_ADMIN', 'AREA_ADMIN', 'VIEWER')")
     public ResultVO<Boolean> grabOrder(Map<String, String> request) {
         try {
             // 参数校验
@@ -74,7 +74,7 @@ public class RepairmanAppService {
      * @param request 包含orderId、repairmanId、reason的请求参数
      * @return 拒单结果
      */
-    @PreAuthorize("hasAnyRole('REPAIRMAN', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('REPAIRMAN', 'SUPER_ADMIN', 'AREA_ADMIN', 'VIEWER')")
     public ResultVO<Boolean> rejectOrder(Map<String, String> request) {
         try {
             // 参数校验
@@ -108,7 +108,7 @@ public class RepairmanAppService {
      * @param request 包含orderId、repairmanId、dealNote、imgUrl的请求参数
      * @return 提交结果
      */
-    @PreAuthorize("hasAnyRole('REPAIRMAN', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('REPAIRMAN', 'SUPER_ADMIN', 'AREA_ADMIN', 'VIEWER')")
     public ResultVO<Boolean> submitRepairResult(Map<String, String> request) {
         try {
             // 参数校验
@@ -143,7 +143,7 @@ public class RepairmanAppService {
      * @param repairmanId 维修人员ID
      * @return 维修人员名下的工单列表
      */
-    @PreAuthorize("hasAnyRole('REPAIRMAN', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('REPAIRMAN', 'SUPER_ADMIN', 'AREA_ADMIN', 'VIEWER')")
     public ResultVO<List<WorkOrder>> getMyOrders(String repairmanId) {
         try {
             // 参数校验

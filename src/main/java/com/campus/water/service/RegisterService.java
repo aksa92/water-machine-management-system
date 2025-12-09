@@ -71,7 +71,7 @@ public class RegisterService {
         admin.setPassword(BCrypt.hashpw(password, BCrypt.gensalt())); // 密码加密
         admin.setPhone(request.getPhone());
         // 从注册请求中获取角色（需在RegisterRequest添加role字段）
-        admin.setRole(Admin.AdminRole.valueOf(request.getRole()));
+        admin.setRole(Admin.AdminRole.valueOf("ROLE_" + request.getRole().toUpperCase()));
         admin.setCreatedTime(LocalDateTime.now());
         admin.setUpdatedTime(LocalDateTime.now());
 

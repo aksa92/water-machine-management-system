@@ -38,9 +38,10 @@ public class Admin {
     private LocalDateTime updatedTime = LocalDateTime.now();
 
     // 枚举类：恢复super_admin、area_admin、viewer三个角色
+    // java/com/campus/water/entity/Admin.java
     public enum AdminRole {
-        super_admin,  // 超级管理员
-        area_admin,   // 区域管理员
-        viewer        // 查看者
+        ROLE_SUPER_ADMIN,  // 超级管理员（原super_admin）
+        ROLE_AREA_ADMIN,   // 区域管理员（原area_admin）
+        ROLE_VIEWER        // 查看者（原viewer）
     }
 }

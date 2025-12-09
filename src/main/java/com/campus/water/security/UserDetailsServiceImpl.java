@@ -1,4 +1,3 @@
-// filePath：main/java/com/campus/water/security/UserDetailsServiceImpl.java
 package com.campus.water.security;
 
 import com.campus.water.entity.Admin;
@@ -39,7 +38,12 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         // 2. 查询管理员用户
         Admin admin = adminRepository.findByAdminName(username).orElse(null);
         if (admin != null) {
-            return createUserDetails(admin.getAdminName(), admin.getPassword(), RoleConstants.ROLE_ADMIN);
+            // ========== 关键改动：替换硬编码的RoleConstants.ROLE_ADMIN为admin.getRole().name() ==========
+            return createUserDetails(
+                    admin.getAdminName(),
+                    admin.getPassword(),
+                    admin.getRole().name() // 取Admin实体中实际的角色（如ROLE_SUPER_ADMIN/ROLE_AREA_ADMIN）
+            );
         }
 
         // 3. 查询维修人员用户

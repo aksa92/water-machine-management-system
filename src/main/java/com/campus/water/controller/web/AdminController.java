@@ -25,7 +25,7 @@ public class AdminController {
      * 获取管理员列表（支持姓名/角色筛选）
      */
     @GetMapping("/list")
-    @PreAuthorize("hasAnyRole('super_admin', 'area_admin')") // 超级/区域管理员可查看
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN')") // 超级/区域管理员可查看
     @Operation(summary = "获取管理员列表", description = "支持按姓名模糊搜索、按角色筛选")
     public ResponseEntity<ResultVO<List<Admin>>> getAdminList(
             @RequestParam(required = false) String name,
@@ -43,7 +43,7 @@ public class AdminController {
      * 获取所有管理员角色枚举
      */
     @GetMapping("/roles")
-    @PreAuthorize("hasAnyRole('super_admin', 'area_admin')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN')")
     @Operation(summary = "获取管理员角色列表", description = "返回所有可选角色（super_admin/area_admin/viewer）")
     public ResponseEntity<ResultVO<Admin.AdminRole[]>> getAllRoles() {
         try {
@@ -58,7 +58,7 @@ public class AdminController {
      * 新增/编辑管理员
      */
     @PostMapping("/save")
-    @PreAuthorize("hasRole('super_admin')") // 仅超级管理员可新增/编辑
+    @PreAuthorize("hasRole('SUPER_ADMIN')") // 仅超级管理员可新增/编辑
     @Operation(summary = "保存管理员", description = "新增/编辑管理员，支持指定角色")
     public ResponseEntity<ResultVO<Admin>> saveAdmin(@RequestBody Admin admin) {
         try {
@@ -73,7 +73,7 @@ public class AdminController {
      * 删除管理员
      */
     @DeleteMapping("/{adminId}")
-    @PreAuthorize("hasRole('super_admin')") // 仅超级管理员可删除
+    @PreAuthorize("hasRole('SUPER_ADMIN')") // 仅超级管理员可删除
     @Operation(summary = "删除管理员", description = "按ID删除管理员")
     public ResponseEntity<ResultVO<Void>> deleteAdmin(@PathVariable String adminId) {
         try {
