@@ -6,6 +6,7 @@ import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -13,6 +14,7 @@ import org.springframework.util.StringUtils;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.stream.Collectors;
 
 /**
  * JWT令牌生成、验证工具类
@@ -37,29 +39,34 @@ public class JwtTokenProvider {
     }
 
     /**
-     * 生成JWT令牌
+     * 从Authentication生成JWT令牌（适用于Spring Security认证流程）
      */
     public String generateToken(Authentication authentication) {
         UserDetails userPrincipal = (UserDetails) authentication.getPrincipal();
+        // 修复角色提取逻辑：获取所有权限并拼接为字符串（如 "ROLE_ADMIN" 或 "ROLE_ADMIN,ROLE_USER"）
+        String roles = userPrincipal.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.joining(","));
+
         return Jwts.builder()
                 .setSubject(userPrincipal.getUsername())
-                .claim("roles", userPrincipal.getAuthorities().toString())
+                .claim("roles", roles)  // 存储正确格式的角色字符串
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
-                .signWith(getSigningKey(), SignatureAlgorithm.HS512)  // 使用安全密钥
+                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
                 .compact();
     }
 
     /**
-     * 直接生成令牌（登录专用）
+     * 直接生成令牌（登录专用，适用于自定义登录流程）
      */
     public String generateToken(String username, String role) {
         return Jwts.builder()
                 .setSubject(username)
-                .claim("roles", role)
+                .claim("roles", role)  // 这里role已确保是正确格式（如 "ROLE_ADMIN"）
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
-                .signWith(getSigningKey(), SignatureAlgorithm.HS512)  // 使用安全密钥
+                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
                 .compact();
     }
 
@@ -68,7 +75,7 @@ public class JwtTokenProvider {
      */
     public String getUsernameFromJwtToken(String token) {
         return Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())  // 使用安全密钥
+                .setSigningKey(getSigningKey())
                 .build()
                 .parseClaimsJws(token)
                 .getBody()
@@ -76,15 +83,16 @@ public class JwtTokenProvider {
     }
 
     /**
-     * 从令牌中获取角色
+     * 从令牌中获取角色（支持多角色，返回数组）
      */
-    public String getRoleFromJwtToken(String token) {
+    public String[] getRolesFromJwtToken(String token) {  // 修改返回类型为数组，支持多角色
         Claims claims = Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())  // 使用安全密钥
+                .setSigningKey(getSigningKey())
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
-        return claims.get("roles", String.class);
+        String rolesStr = claims.get("roles", String.class);
+        return rolesStr.split(",");  // 拆分多角色
     }
 
     /**
@@ -93,7 +101,7 @@ public class JwtTokenProvider {
     public boolean validateJwtToken(String authToken) {
         try {
             Jwts.parserBuilder()
-                    .setSigningKey(getSigningKey())  // 使用安全密钥
+                    .setSigningKey(getSigningKey())
                     .build()
                     .parseClaimsJws(authToken);
             return true;
