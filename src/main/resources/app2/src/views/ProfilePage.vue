@@ -152,19 +152,23 @@
 </template>
 
 <script setup>
+// 在 ProfilePage.vue 的 script setup 部分
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const userStore = useUserStore()
 
 // 用户信息
 const userInfo = reactive({
-  lastName: '张',
-  fullName: '张三',
-  studentId: '20212601212',
+  lastName: '',
+  fullName: '',
+  studentId: '',
   college: '信息科学与工程学院',
   class: '软件2301班'
 })
+
 
 // 用户统计
 const userStats = reactive({
@@ -220,14 +224,14 @@ const goToSettings = () => {
 // 退出登录
 const handleLogout = () => {
   if (confirm('确定要退出登录吗？')) {
-    // 清除登录状态
-    localStorage.removeItem('studentId')
-    localStorage.removeItem('studentName')
+    // 清除用户状态
+    userStore.clearUser()
 
     // 跳转到登录页
     router.push('/')
   }
 }
+
 
 // 页面跳转
 const goToPage = (page) => {
@@ -245,17 +249,11 @@ const goToPage = (page) => {
 }
 
 onMounted(() => {
-  // 模拟加载用户信息（实际应该从API获取）
-  const savedStudentId = localStorage.getItem('studentId')
-  const savedStudentName = localStorage.getItem('studentName')
-
-  if (savedStudentId) {
-    userInfo.studentId = savedStudentId
-  }
-
-  if (savedStudentName) {
-    userInfo.fullName = savedStudentName
-    userInfo.lastName = savedStudentName.charAt(0)
+  // 从用户状态获取信息
+  if (userStore.isLoggedIn) {
+    userInfo.studentId = userStore.studentId
+    userInfo.fullName = userStore.username
+    userInfo.lastName = userStore.username.charAt(0)
   }
 
   // 初始化图表数据
