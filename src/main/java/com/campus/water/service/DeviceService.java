@@ -165,4 +165,58 @@ public class DeviceService {
         // 3. 执行删除操作
         deviceRepository.delete(device);
     }
+
+    // 新增：关联供水机到制水机
+    @Transactional
+    public void relateSupplierToMaker(String supplierId, String makerId) {
+        // 校验制水机是否存在且类型正确
+        Device maker = deviceRepository.findById(makerId)
+                .orElseThrow(() -> new RuntimeException("制水机不存在：" + makerId));
+        if (maker.getDeviceType() != DeviceType.water_maker) {
+            throw new RuntimeException("目标设备不是制水机：" + makerId);
+        }
+
+        // 校验供水机是否存在且类型正确
+        Device supplier = deviceRepository.findById(supplierId)
+                .orElseThrow(() -> new RuntimeException("供水机不存在：" + supplierId));
+        if (supplier.getDeviceType() != DeviceType.water_supply) {
+            throw new RuntimeException("目标设备不是供水机：" + supplierId);
+        }
+
+        // 检查供水机是否已关联其他制水机
+        if (supplier.getParentMakerId() != null) {
+            throw new RuntimeException("供水机已关联制水机：" + supplier.getParentMakerId());
+        }
+
+        // 建立关联
+        supplier.setParentMakerId(makerId);
+        deviceRepository.save(supplier);
+    }
+
+    // 新增：解除供水机与制水机的关联
+    @Transactional
+    public void unrelateSupplierFromMaker(String supplierId) {
+        Device supplier = deviceRepository.findById(supplierId)
+                .orElseThrow(() -> new RuntimeException("供水机不存在：" + supplierId));
+        if (supplier.getDeviceType() != DeviceType.water_supply) {
+            throw new RuntimeException("目标设备不是供水机：" + supplierId);
+        }
+        supplier.setParentMakerId(null);
+        deviceRepository.save(supplier);
+    }
+
+    // 新增：查询制水机关联的所有供水机
+    public List<Device> getSuppliersByMaker(String makerId) {
+        return deviceRepository.findByParentMakerIdAndDeviceType(makerId, DeviceType.water_supply);
+    }
+
+    // 新增：查询供水机所属的制水机
+    public Device getMakerBySupplier(String supplierId) {
+        Device supplier = deviceRepository.findById(supplierId)
+                .orElseThrow(() -> new RuntimeException("供水机不存在：" + supplierId));
+        if (supplier.getParentMakerId() == null) {
+            return null;
+        }
+        return deviceRepository.findById(supplier.getParentMakerId()).orElse(null);
+    }
 }

@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;  // 新增List的导入语句
 
 @RestController
 @RequestMapping("/api/web/device")
@@ -44,5 +45,33 @@ public class DeviceController {
         } catch (Exception e) {
             return ResponseEntity.ok(ResultVO.error(500, "设备删除失败: " + e.getMessage()));
         }
+    }
+
+    @PostMapping("/relate")
+    public ResponseEntity<ResultVO<Void>> relateSupplier(@RequestParam String supplierId, @RequestParam String makerId) {
+        try {
+            deviceService.relateSupplierToMaker(supplierId, makerId);
+            return ResponseEntity.ok(ResultVO.success(null, "关联成功"));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ResultVO.error(500, e.getMessage()));
+        }
+    }
+
+    // 解除关联
+    @PostMapping("/unrelate")
+    public ResponseEntity<ResultVO<Void>> unrelateSupplier(@RequestParam String supplierId) {
+        try {
+            deviceService.unrelateSupplierFromMaker(supplierId);
+            return ResponseEntity.ok(ResultVO.success(null, "解除关联成功"));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ResultVO.error(500, e.getMessage()));
+        }
+    }
+
+    // 查询制水机关联的供水机
+    @GetMapping("/maker/{makerId}/suppliers")
+    public ResponseEntity<ResultVO<List<Device>>> getSuppliers(@PathVariable String makerId) {
+        List<Device> suppliers = deviceService.getSuppliersByMaker(makerId);
+        return ResponseEntity.ok(ResultVO.success(suppliers));
     }
 }
