@@ -1,35 +1,47 @@
 package com.campus.water.service;
 
 import com.campus.water.entity.Admin;
-import com.campus.water.entity.RepairerAuth; // 改为entity包下的RepairerAuth
+import com.campus.water.entity.RepairerAuth;
 import com.campus.water.entity.User;
 import com.campus.water.entity.dto.request.RegisterRequest;
 import com.campus.water.mapper.AdminRepository;
 import com.campus.water.mapper.RepairerAuthRepository;
 import com.campus.water.mapper.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class RegisterService {
 
-    @Autowired
-    private AdminRepository adminRepository;
+    // 允许的管理员角色列表（无前缀，用于校验前端传递的值）
+    private static final List<String> ALLOWED_ADMIN_ROLES = Arrays.stream(Admin.AdminRole.values())
+            .map(role -> role.name().replace("ROLE_", "").toLowerCase())
+            .collect(Collectors.toList());
 
-    @Autowired
-    private UserRepository userRepository;
+    private final AdminRepository adminRepository;
+    private final UserRepository userRepository;
+    private final RepairerAuthRepository repairerAuthRepository;
 
-    @Autowired
-    private RepairerAuthRepository repairerAuthRepository;
+    // 构造器注入（Spring 5+ 可省略 @Autowired）
+    public RegisterService(
+            AdminRepository adminRepository,
+            UserRepository userRepository,
+            RepairerAuthRepository repairerAuthRepository) {
+        this.adminRepository = adminRepository;
+        this.userRepository = userRepository;
+        this.repairerAuthRepository = repairerAuthRepository;
+    }
 
     public boolean register(RegisterRequest request) {
         String username = request.getUsername();
-        // 使用与MD5PasswordEncoder相同的加密逻辑（UTF-8编码）
+        // 使用 MD5 预处理后再进行 BCrypt 加密（根据实际加密策略调整）
         String encryptedPwd = DigestUtils.md5DigestAsHex(
                 request.getPassword().getBytes(StandardCharsets.UTF_8)
         );
@@ -51,9 +63,8 @@ public class RegisterService {
         return true;
     }
 
-    // RegisterService中handleAdminRegister方法修改
     private void handleAdminRegister(String username, String password, RegisterRequest request) {
-        // 检查用户名/ID/手机号是否已存在
+        // 基础校验
         if (adminRepository.existsByAdminName(username)) {
             throw new RuntimeException("管理员用户名已存在");
         }
@@ -64,23 +75,39 @@ public class RegisterService {
             throw new RuntimeException("手机号已被注册");
         }
 
-        // 构建管理员对象，支持指定角色（需从request中接收role参数）
+        // 角色参数校验与转换
+        String rawRole = request.getRole();
+        if (rawRole == null || rawRole.trim().isEmpty()) {
+            throw new RuntimeException("管理员角色不能为空");
+        }
+        String cleanedRole = rawRole.trim().toLowerCase();
+        if (!ALLOWED_ADMIN_ROLES.contains(cleanedRole)) {
+            throw new RuntimeException("无效的管理员角色：" + rawRole + "，允许的值：" + ALLOWED_ADMIN_ROLES);
+        }
+
+        // 构建角色枚举值
+        Admin.AdminRole adminRole;
+        try {
+            adminRole = Admin.AdminRole.valueOf("ROLE_" + cleanedRole.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("角色转换失败：" + rawRole, e);
+        }
+
+        // 构建并保存管理员对象
         Admin admin = new Admin();
         admin.setAdminId(request.getAdminId());
         admin.setAdminName(username);
-        admin.setPassword(BCrypt.hashpw(password, BCrypt.gensalt())); // 密码加密
+        admin.setPassword(BCrypt.hashpw(password, BCrypt.gensalt())); // BCrypt 加密
         admin.setPhone(request.getPhone());
-        // 从注册请求中获取角色（需在RegisterRequest添加role字段）
-        admin.setRole(Admin.AdminRole.valueOf("ROLE_" + request.getRole().toUpperCase()));
+        admin.setRole(adminRole);
         admin.setCreatedTime(LocalDateTime.now());
         admin.setUpdatedTime(LocalDateTime.now());
 
         adminRepository.save(admin);
     }
 
-    // 学生注册逻辑保持不变
     private void handleUserRegister(String studentName, String password, RegisterRequest request) {
-        // 检查用户名和学号是否已存在（保持不变）
+        // 学生注册校验
         if (userRepository.existsByStudentName(studentName)) {
             throw new RuntimeException("用户名已存在");
         }
@@ -88,20 +115,19 @@ public class RegisterService {
             throw new RuntimeException("学号已被注册");
         }
 
-        // 创建 User 实体对象（而非 UserPO）
+        // 构建并保存用户对象
         User user = new User();
-        user.setPassword(password); // 设置密码
-        user.setStudentId(request.getStudentId()); // 设置学号
-        user.setStudentName(request.getStudentName()); // 设置学生姓名
-        user.setPhone(request.getPhone()); // 新增：保存手机号
-        user.setStatus(User.UserStatus.active); // 设置状态（使用 User 类的枚举）
+        user.setPassword(password);
+        user.setStudentId(request.getStudentId());
+        user.setStudentName(request.getStudentName());
+        user.setPhone(request.getPhone());
+        user.setStatus(User.UserStatus.active);
 
-        // 保存 User 实体（与 UserRepository 类型匹配）
         userRepository.save(user);
     }
 
-    // 维修人员注册逻辑保持不变
     private void handleRepairmanRegister(String username, String password, RegisterRequest request) {
+        // 维修人员注册校验
         if (repairerAuthRepository.existsByUsername(username)) {
             throw new RuntimeException("维修人员用户名已存在");
         }
@@ -109,9 +135,10 @@ public class RegisterService {
             throw new RuntimeException("维修人员ID已被注册");
         }
 
+        // 构建并保存维修人员对象
         RepairerAuth repairman = new RepairerAuth();
         repairman.setUsername(username);
-        repairman.setPassword(password);
+        repairman.setPassword(password); // 建议统一改为 BCrypt 加密
         repairman.setRepairmanId(request.getRepairmanId());
         repairman.setAccountStatus(RepairerAuth.AccountStatus.active);
 
