@@ -4,6 +4,8 @@ package com.campus.water.security;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -21,6 +23,7 @@ import java.util.stream.Collectors;
  */
 @Component
 public class JwtTokenProvider {
+    private static final Logger logger = LoggerFactory.getLogger(JwtTokenProvider.class);
 
     @Value("${jwt.secret}")
     private String jwtSecret;
@@ -30,7 +33,6 @@ public class JwtTokenProvider {
 
     // 生成符合HS512要求的密钥（512位以上）
     private SecretKey getSigningKey() {
-        // 确保密钥长度至少64字节（512位）
         byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
         if (keyBytes.length < 64) {
             throw new IllegalArgumentException("JWT密钥长度不足，HS512算法需要至少64字节的密钥");
@@ -43,14 +45,13 @@ public class JwtTokenProvider {
      */
     public String generateToken(Authentication authentication) {
         UserDetails userPrincipal = (UserDetails) authentication.getPrincipal();
-        // 修复角色提取逻辑：获取所有权限并拼接为字符串（如 "ROLE_ADMIN" 或 "ROLE_ADMIN,ROLE_USER"）
         String roles = userPrincipal.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
 
         return Jwts.builder()
                 .setSubject(userPrincipal.getUsername())
-                .claim("roles", roles)  // 存储正确格式的角色字符串
+                .claim("roles", roles)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS512)
@@ -58,12 +59,13 @@ public class JwtTokenProvider {
     }
 
     /**
-     * 直接生成令牌（登录专用，适用于自定义登录流程）
+     * 直接生成令牌（支持多角色）
      */
-    public String generateToken(String username, String role) {
+    public String generateToken(String username, String... roles) {
+        String rolesStr = String.join(",", roles);
         return Jwts.builder()
                 .setSubject(username)
-                .claim("roles", role)  // 这里role已确保是正确格式（如 "ROLE_ADMIN"）
+                .claim("roles", rolesStr)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS512)
@@ -85,14 +87,14 @@ public class JwtTokenProvider {
     /**
      * 从令牌中获取角色（支持多角色，返回数组）
      */
-    public String[] getRolesFromJwtToken(String token) {  // 修改返回类型为数组，支持多角色
+    public String[] getRolesFromJwtToken(String token) {
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(getSigningKey())
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
         String rolesStr = claims.get("roles", String.class);
-        return rolesStr.split(",");  // 拆分多角色
+        return rolesStr != null ? rolesStr.split(",") : new String[0];
     }
 
     /**
@@ -105,9 +107,18 @@ public class JwtTokenProvider {
                     .build()
                     .parseClaimsJws(authToken);
             return true;
-        } catch (SignatureException | MalformedJwtException | ExpiredJwtException | UnsupportedJwtException | IllegalArgumentException e) {
-            return false;
+        } catch (SignatureException e) {
+            logger.error("无效的JWT签名: {}", e.getMessage());
+        } catch (MalformedJwtException e) {
+            logger.error("无效的JWT令牌: {}", e.getMessage());
+        } catch (ExpiredJwtException e) {
+            logger.error("JWT令牌已过期: {}", e.getMessage());
+        } catch (UnsupportedJwtException e) {
+            logger.error("不支持的JWT令牌: {}", e.getMessage());
+        } catch (IllegalArgumentException e) {
+            logger.error("JWT声明字符串为空: {}", e.getMessage());
         }
+        return false;
     }
 
     /**
