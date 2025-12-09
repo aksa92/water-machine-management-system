@@ -38,16 +38,6 @@ public class LoginService {
         };
     }
 
-   /* private LoginVO handleAdminLogin(String username, String password) {
-        Admin admin = adminRepository.findByAdminName(username)
-                .orElseThrow(() -> new RuntimeException("管理员不存在"));
-
-        if (!passwordEncoder.matches(password, admin.getPassword())) {
-            throw new RuntimeException("密码错误");
-        }
-
-        return createLoginVO(admin.getAdminId(), username, "admin");
-    }*/
     private LoginVO handleAdminLogin(String username, String password) {
     Admin admin = adminRepository.findByAdminName(username)
             .orElseThrow(() -> new RuntimeException("管理员不存在"));
