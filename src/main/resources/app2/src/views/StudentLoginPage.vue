@@ -222,6 +222,20 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { authServices } from '@/services/authServices'  // 引入认证服务
+import { onMounted } from 'vue'
+
+
+onMounted(() => {
+  // 检查是否已经登录
+  const token = localStorage.getItem('token')
+  if (token) {
+    // 如果已有token，跳转到首页
+    router.push('/home')
+  }
+
+  // 初始化记住的用户信息
+  initRememberedUser()
+})
 
 const router = useRouter()
 
@@ -317,6 +331,7 @@ const validateRegister = () => {
 }
 
 // 真实的登录处理
+// 在 StudentLoginPage.vue 的 handleLogin 函数中
 const handleLogin = async () => {
   if (!validateLogin()) return
 
@@ -376,6 +391,7 @@ const handleLogin = async () => {
     loading.value = false
   }
 }
+
 
 
 // 注册处理

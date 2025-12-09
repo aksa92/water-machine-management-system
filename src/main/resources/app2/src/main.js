@@ -1,11 +1,13 @@
+// src/main.js
 import './assets/main.css'
-import './assets/mobile.css' // 添加这行
+import './assets/mobile.css'
 
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 
 import App from './App.vue'
 import router from './router'
+import './router/permission' // 确保引入了路由守卫
 
 const app = createApp(App)
 
