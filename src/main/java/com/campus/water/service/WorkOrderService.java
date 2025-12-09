@@ -21,4 +21,7 @@ public interface WorkOrderService {
 
     // 管理员手动派单（新增方法）
     boolean assignOrderByAdmin(String orderId, String repairmanId);
+
+    // 新增：审核工单方法（与实现类签名一致）
+    boolean reviewOrder(String orderId, boolean approved);
 }
