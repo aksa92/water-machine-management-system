@@ -13,7 +13,6 @@ import com.campus.water.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.util.DigestUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -42,22 +41,11 @@ public class LoginService {
         Admin admin = adminRepository.findByAdminName(username)
                 .orElseThrow(() -> new RuntimeException("管理员不存在"));
 
-        boolean matches;
-        // 临时支持 MD5 验证（仅用于测试环境）
-        if (admin.getPassword().startsWith("$2a$") || admin.getPassword().startsWith("$2y$")) {
-            // BCrypt 格式密码
-            matches = passwordEncoder.matches(password, admin.getPassword());
-        } else {
-            // MD5 格式密码
-            String md5Password = DigestUtils.md5DigestAsHex(password.getBytes());
-            matches = md5Password.equals(admin.getPassword());
-        }
-
-        if (!matches) {
+        // 使用BCrypt验证密码
+        if (!passwordEncoder.matches(password, admin.getPassword())) {
             throw new RuntimeException("密码错误");
         }
 
-        // ========== 关键改动1：调用重载的createLoginVO方法，传入Admin实体 ==========
         return createLoginVO(admin.getAdminId(), username, "admin", admin);
     }
 
@@ -84,8 +72,7 @@ public class LoginService {
     }
 
     /**
-     * 重载方法：处理管理员登录（支持获取真实角色）
-     * ========== 关键改动2：新增重载方法，接收Admin参数 ==========
+     * 处理管理员登录（支持多角色）
      */
     private LoginVO createLoginVO(String userId, String username, String userType, Admin admin) {
         LoginVO vo = new LoginVO();
@@ -93,15 +80,13 @@ public class LoginService {
         vo.setUsername(username);
         vo.setUserType(userType);
 
-        // 获取管理员真实角色（如ROLE_SUPER_ADMIN/ROLE_AREA_ADMIN）
-        String role = admin.getRole().name();
-        // 生成包含真实角色的JWT令牌
-        vo.setToken(jwtTokenProvider.generateToken(username, role));
+        // 生成包含管理员角色的JWT令牌
+        vo.setToken(jwtTokenProvider.generateToken(username, admin.getRole().name()));
         return vo;
     }
 
     /**
-     * 原有方法：处理用户/维修人员登录（保留不变）
+     * 处理用户/维修人员登录
      */
     private LoginVO createLoginVO(String userId, String username, String userType) {
         LoginVO vo = new LoginVO();
@@ -109,15 +94,13 @@ public class LoginService {
         vo.setUsername(username);
         vo.setUserType(userType);
 
-        // 根据用户类型获取对应的角色
         String role = switch (userType) {
-
             case "user" -> RoleConstants.ROLE_STUDENT;
             case "repairman" -> RoleConstants.ROLE_REPAIRMAN;
             default -> throw new RuntimeException("不支持的用户类型：" + userType);
         };
 
-        // 使用JWT生成包含角色信息的令牌
+        // 生成包含角色信息的JWT令牌
         vo.setToken(jwtTokenProvider.generateToken(username, role));
         return vo;
     }

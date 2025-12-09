@@ -26,13 +26,12 @@ import java.util.Arrays;
  */
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity() // 启用方法级权限控制
+@EnableMethodSecurity()
 public class SecurityConfig {
 
     private final UserDetailsServiceImpl userDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    // 构造函数注入
     public SecurityConfig(UserDetailsServiceImpl userDetailsService,
                           JwtAuthenticationFilter jwtAuthenticationFilter) {
         this.userDetailsService = userDetailsService;
@@ -51,14 +50,14 @@ public class SecurityConfig {
     }
 
     /**
-     * 密码加密器
+     * 密码加密器（使用BCrypt替代MD5）
      */
-    // com/campus/water/config/SecurityConfig.java
     @Bean
     public PasswordEncoder passwordEncoder() {
-        // 替换为MD5加密器
+        // 替换BCrypt加密为自定义MD5加密器
         return new MD5PasswordEncoder();
     }
+
     /**
      * 认证管理器
      */
@@ -68,71 +67,45 @@ public class SecurityConfig {
     }
 
     /**
-     * 安全过滤链 - 优先处理CORS和预检请求
+     * 安全过滤链
      */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                // 1. 优先配置CORS，确保预检请求不被拦截
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                // 2. 关闭CSRF（配合无状态会话）
                 .csrf(csrf -> csrf.disable())
-                // 3. 配置会话管理（无状态）
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                // 4. 配置URL权限
                 .authorizeHttpRequests(auth -> auth
-                        // 放行登录接口
                         .requestMatchers("/api/app/student/login", "/api/app/repair/login", "/api/web/login", "/api/common/login").permitAll()
-                        // 放行注册接口
                         .requestMatchers("/api/common/register").permitAll()
-                        // 放行静态资源
                         .requestMatchers("/static/**", "/templates/**").permitAll()
-                        // 放行预检请求（重要：避免OPTIONS请求被拦截）
                         .requestMatchers(request -> "OPTIONS".equals(request.getMethod())).permitAll()
-                        // 告警接口权限
                         .requestMatchers("/api/alerts/**").hasAnyRole("ADMIN", "REPAIRMAN")
-                        // 学生接口权限
                         .requestMatchers("/api/app/student/**").hasAnyRole("STUDENT", "ADMIN")
-                        // 维修人员接口权限
                         .requestMatchers("/api/app/repair/**").hasAnyRole("REPAIRMAN", "ADMIN")
-                        .requestMatchers("/api/web/**")
-                        .hasAnyRole(
-                                "SUPER_ADMIN",   // 对应ROLE_SUPER_ADMIN（Spring会自动加ROLE_前缀）
-                                "AREA_ADMIN",    // 对应ROLE_AREA_ADMIN
-                                "VIEWER"         // 对应ROLE_VIEWER
-                        )
-                        // 其他接口需要认证
+                        .requestMatchers("/api/web/**").hasAnyRole("SUPER_ADMIN", "AREA_ADMIN", "VIEWER")
                         .anyRequest().authenticated()
                 )
-                // 5. 添加JWT过滤器（在用户名密码过滤器之前）
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                // 6. 设置认证提供者
                 .authenticationProvider(authenticationProvider());
 
         return http.build();
     }
 
     /**
-     * CORS配置源 - 放宽跨域限制以兼容前端请求
+     * CORS配置源
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // 允许的前端源（生产环境建议指定具体域名）
         configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173"));
-        // 允许的HTTP方法
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        // 允许的请求头（包含自定义头）
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
-        // 允许携带凭证（如Cookie、JWT）
         configuration.setAllowCredentials(true);
-        // 预检请求缓存时间（减少预检请求次数）
         configuration.setMaxAge(3600L);
-        // 暴露响应头（便于前端获取自定义头）
         configuration.setExposedHeaders(Arrays.asList("Authorization", "Content-Length"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        // 应用到所有路径
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }

@@ -3,6 +3,8 @@ package com.campus.water.service;
 import com.campus.water.entity.Admin;
 import com.campus.water.mapper.AdminRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -15,6 +17,8 @@ public class AdminService {
 
     private final AdminRepository adminRepository;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
     /**
      * 获取管理员列表（支持按姓名/角色筛选）
      */
@@ -64,10 +68,9 @@ public class AdminService {
      */
     public Optional<Admin> login(String adminName, String password) {
         Optional<Admin> admin = adminRepository.findByAdminName(adminName);
-        // 实际生产环境需替换为BCrypt密码加密验证
-        return admin.filter(a -> a.getPassword().equals(password));
+        // 使用MD5加密器验证密码
+        return admin.filter(a -> passwordEncoder.matches(password, a.getPassword()));
     }
-
     /**
      * 获取所有角色枚举（供前端下拉框使用）
      */
