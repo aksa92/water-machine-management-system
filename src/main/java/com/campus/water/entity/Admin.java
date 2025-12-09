@@ -28,11 +28,21 @@ public class Admin {
     @Column(name = "phone", length = 20)
     private String phone;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", length = 50)
+    private AdminRole role = AdminRole.Admin;
+
+
+
     @Column(name = "created_time")
     private LocalDateTime createdTime = LocalDateTime.now();
 
     @Column(name = "updated_time")
     private LocalDateTime updatedTime = LocalDateTime.now();
+
+    public enum AdminRole {
+        Admin
+    }
 
 
 }

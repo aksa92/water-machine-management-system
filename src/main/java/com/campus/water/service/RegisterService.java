@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 
 @Service
 public class RegisterService {
@@ -50,17 +51,28 @@ public class RegisterService {
     }
 
     // 修正管理员注册逻辑（适配新实体Admin）
+    // 原RegisterService中handleAdminRegister方法修改
     private void handleAdminRegister(String username, String password, RegisterRequest request) {
-        // 检查用户名是否已存在
+        // 检查用户名/ID/手机号是否已存在
         if (adminRepository.existsByAdminName(username)) {
             throw new RuntimeException("管理员用户名已存在");
         }
+        if (adminRepository.existsByAdminId(request.getAdminId())) {
+            throw new RuntimeException("管理员ID已存在");
+        }
+        if (request.getPhone() != null && adminRepository.existsByPhone(request.getPhone())) {
+            throw new RuntimeException("手机号已被注册");
+        }
 
+        // 构建管理员对象，默认角色为Admin
         Admin admin = new Admin();
         admin.setAdminId(request.getAdminId());
         admin.setAdminName(username);
-        admin.setPassword(password);
-        admin.setPhone(request.getPhone()); // 假设请求中有电话字段
+        admin.setPassword(password); // 实际需加密（如BCrypt）
+        admin.setPhone(request.getPhone());
+        admin.setRole(Admin.AdminRole.Admin); // 强制设置为Admin角色
+        admin.setCreatedTime(LocalDateTime.now());
+        admin.setUpdatedTime(LocalDateTime.now());
 
         adminRepository.save(admin);
     }

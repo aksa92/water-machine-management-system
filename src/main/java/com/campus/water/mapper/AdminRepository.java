@@ -9,24 +9,23 @@ import java.util.Optional;
 
 @Repository
 public interface AdminRepository extends JpaRepository<Admin, String> {
-    // 登录核心方法
+    // 登录核心方法：按用户名查询
     Optional<Admin> findByAdminName(String adminName);
 
-    // 根据管理员ID查询
+    // 按管理员ID查询
     Optional<Admin> findByAdminId(String adminId);
 
-    // 根据管理员姓名模糊查询
+    // 按姓名模糊查询
     List<Admin> findByAdminNameContaining(String adminName);
 
-    // 根据手机号查询管理员
+    // 按手机号查询
     Optional<Admin> findByPhone(String phone);
 
-    // 检查管理员ID是否存在
+    // 检查唯一约束
     boolean existsByAdminId(String adminId);
-
-    // 检查手机号是否存在
     boolean existsByPhone(String phone);
-
-    // 检查用户名是否存在
     boolean existsByAdminName(String adminName);
+
+    // （可选）若需按角色过滤（仅Admin角色），保留此方法（单角色下可省略）
+    List<Admin> findByRole(Admin.AdminRole role);
 }
