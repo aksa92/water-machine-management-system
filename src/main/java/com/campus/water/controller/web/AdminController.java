@@ -22,21 +22,17 @@ public class AdminController {
     private final AdminService adminService;
 
     /**
-     * 获取管理员列表（支持姓名搜索）
+     * 获取管理员列表（支持姓名/角色筛选）
      */
     @GetMapping("/list")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "获取管理员列表", description = "支持按姓名模糊搜索，仅返回Admin角色管理员")
+    @PreAuthorize("hasAnyRole('super_admin', 'area_admin')") // 超级/区域管理员可查看
+    @Operation(summary = "获取管理员列表", description = "支持按姓名模糊搜索、按角色筛选")
     public ResponseEntity<ResultVO<List<Admin>>> getAdminList(
-            @RequestParam(required = false) String name
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) Admin.AdminRole role // 角色筛选参数
     ) {
         try {
-            List<Admin> adminList;
-            if (name != null && !name.isEmpty()) {
-                adminList = adminService.searchAdminsByName(name);
-            } else {
-                adminList = adminService.getAdminList();
-            }
+            List<Admin> adminList = adminService.getAdminList(name, role);
             return ResponseEntity.ok(ResultVO.success(adminList));
         } catch (Exception e) {
             return ResponseEntity.ok(ResultVO.error(500, "查询失败：" + e.getMessage()));
@@ -44,11 +40,26 @@ public class AdminController {
     }
 
     /**
+     * 获取所有管理员角色枚举
+     */
+    @GetMapping("/roles")
+    @PreAuthorize("hasAnyRole('super_admin', 'area_admin')")
+    @Operation(summary = "获取管理员角色列表", description = "返回所有可选角色（super_admin/area_admin/viewer）")
+    public ResponseEntity<ResultVO<Admin.AdminRole[]>> getAllRoles() {
+        try {
+            Admin.AdminRole[] roles = adminService.getAllRoles();
+            return ResponseEntity.ok(ResultVO.success(roles));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ResultVO.error(500, "获取角色列表失败：" + e.getMessage()));
+        }
+    }
+
+    /**
      * 新增/编辑管理员
      */
     @PostMapping("/save")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "保存管理员", description = "新增/编辑管理员，角色强制为Admin")
+    @PreAuthorize("hasRole('super_admin')") // 仅超级管理员可新增/编辑
+    @Operation(summary = "保存管理员", description = "新增/编辑管理员，支持指定角色")
     public ResponseEntity<ResultVO<Admin>> saveAdmin(@RequestBody Admin admin) {
         try {
             Admin savedAdmin = adminService.saveAdmin(admin);
@@ -62,7 +73,7 @@ public class AdminController {
      * 删除管理员
      */
     @DeleteMapping("/{adminId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('super_admin')") // 仅超级管理员可删除
     @Operation(summary = "删除管理员", description = "按ID删除管理员")
     public ResponseEntity<ResultVO<Void>> deleteAdmin(@PathVariable String adminId) {
         try {
@@ -77,7 +88,7 @@ public class AdminController {
      * 管理员登录
      */
     @PostMapping("/login")
-    @Operation(summary = "管理员登录", description = "用户名+密码验证")
+    @Operation(summary = "管理员登录", description = "用户名+密码验证，返回管理员信息（含角色）")
     public ResponseEntity<ResultVO<Admin>> login(
             @RequestParam String adminName,
             @RequestParam String password

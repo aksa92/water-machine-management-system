@@ -1,5 +1,6 @@
 package com.campus.water.entity.dto.request;
 
+import com.campus.water.entity.Admin;
 import lombok.Data;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -17,14 +18,14 @@ public class RegisterRequest {
     private String userType; // admin/user/repairer
 
     // 用户特有字段
-    private String studentId; // 学生ID（仅user类型需要）
-    private String studentName; // 学生姓名（仅user类型需要）
-    private String phone; // 新增：学生/用户手机号（仅user类型需要）
+    private String studentId;
+    private String studentName;
+    private String phone;
 
     // 管理员特有字段
-    private String adminId; // 管理员ID（仅admin类型需要）
-    // 已移除管理员角色区分（根据之前需求）
+    private String adminId;
+    private String role; // 新增：管理员角色（super_admin/area_admin/viewer）
 
     // 维修人员特有字段
-    private String repairmanId; // 维修人员ID（仅repairer类型需要）
+    private String repairmanId;
 }

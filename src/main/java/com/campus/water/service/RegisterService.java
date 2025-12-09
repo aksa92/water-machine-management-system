@@ -8,6 +8,7 @@ import com.campus.water.mapper.AdminRepository;
 import com.campus.water.mapper.RepairerAuthRepository;
 import com.campus.water.mapper.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 
@@ -50,8 +51,7 @@ public class RegisterService {
         return true;
     }
 
-    // 修正管理员注册逻辑（适配新实体Admin）
-    // 原RegisterService中handleAdminRegister方法修改
+    // RegisterService中handleAdminRegister方法修改
     private void handleAdminRegister(String username, String password, RegisterRequest request) {
         // 检查用户名/ID/手机号是否已存在
         if (adminRepository.existsByAdminName(username)) {
@@ -64,13 +64,14 @@ public class RegisterService {
             throw new RuntimeException("手机号已被注册");
         }
 
-        // 构建管理员对象，默认角色为Admin
+        // 构建管理员对象，支持指定角色（需从request中接收role参数）
         Admin admin = new Admin();
         admin.setAdminId(request.getAdminId());
         admin.setAdminName(username);
-        admin.setPassword(password); // 实际需加密（如BCrypt）
+        admin.setPassword(BCrypt.hashpw(password, BCrypt.gensalt())); // 密码加密
         admin.setPhone(request.getPhone());
-        admin.setRole(Admin.AdminRole.Admin); // 强制设置为Admin角色
+        // 从注册请求中获取角色（需在RegisterRequest添加role字段）
+        admin.setRole(Admin.AdminRole.valueOf(request.getRole()));
         admin.setCreatedTime(LocalDateTime.now());
         admin.setUpdatedTime(LocalDateTime.now());
 

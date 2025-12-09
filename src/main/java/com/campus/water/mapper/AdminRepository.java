@@ -21,11 +21,14 @@ public interface AdminRepository extends JpaRepository<Admin, String> {
     // 按手机号查询
     Optional<Admin> findByPhone(String phone);
 
+    // 按角色查询管理员（核心：恢复角色筛选）
+    List<Admin> findByRole(Admin.AdminRole role);
+
+    // 按姓名+角色组合查询（可选，增强筛选）
+    List<Admin> findByAdminNameContainingAndRole(String name, Admin.AdminRole role);
+
     // 检查唯一约束
     boolean existsByAdminId(String adminId);
     boolean existsByPhone(String phone);
     boolean existsByAdminName(String adminName);
-
-    // （可选）若需按角色过滤（仅Admin角色），保留此方法（单角色下可省略）
-    List<Admin> findByRole(Admin.AdminRole role);
 }

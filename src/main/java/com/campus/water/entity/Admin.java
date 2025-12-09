@@ -1,14 +1,12 @@
-/**
- * 管理员信息实体类
- * 对应表：admin
- * 用于存储系统管理员信息，包括角色、状态、联系方式等
- */
 package com.campus.water.entity;
 
 import lombok.Data;
 import jakarta.persistence.Column;
-
-import jakarta.persistence.*;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 @Data
@@ -28,11 +26,10 @@ public class Admin {
     @Column(name = "phone", length = 20)
     private String phone;
 
+    // 恢复三个角色枚举
     @Enumerated(EnumType.STRING)
-    @Column(name = "role", length = 50)
-    private AdminRole role = AdminRole.Admin;
-
-
+    @Column(name = "role", length = 50, nullable = false)
+    private AdminRole role;
 
     @Column(name = "created_time")
     private LocalDateTime createdTime = LocalDateTime.now();
@@ -40,9 +37,10 @@ public class Admin {
     @Column(name = "updated_time")
     private LocalDateTime updatedTime = LocalDateTime.now();
 
+    // 枚举类：恢复super_admin、area_admin、viewer三个角色
     public enum AdminRole {
-        Admin
+        super_admin,  // 超级管理员
+        area_admin,   // 区域管理员
+        viewer        // 查看者
     }
-
-
 }
