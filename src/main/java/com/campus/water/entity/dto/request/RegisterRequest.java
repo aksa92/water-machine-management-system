@@ -19,10 +19,11 @@ public class RegisterRequest {
     // 用户特有字段
     private String studentId; // 学生ID（仅user类型需要）
     private String studentName; // 学生姓名（仅user类型需要）
+    private String phone; // 新增：学生/用户手机号（仅user类型需要）
 
     // 管理员特有字段
     private String adminId; // 管理员ID（仅admin类型需要）
-    private String adminRole; // 管理员角色（仅admin类型需要，SUPER_ADMIN/NORMAL_ADMIN）
+    // 已移除管理员角色区分（根据之前需求）
 
     // 维修人员特有字段
     private String repairmanId; // 维修人员ID（仅repairer类型需要）
