@@ -1,124 +1,109 @@
 package com.campus.water.controller;
 
 import com.campus.water.entity.WorkOrder;
-import com.campus.water.mapper.WorkOrderRepository;
-import com.campus.water.mapper.RepairmanRepository;
-import com.campus.water.mapper.AlertRepository;
+import com.campus.water.service.WorkOrderService;
+import com.campus.water.util.ResultVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.stereotype.Controller;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
-@Controller
+@RestController
+@RequestMapping("/api/work-orders")
 public class WorkOrderController {
 
-    @Autowired
-    private WorkOrderRepository workOrderRepository;
+    private final WorkOrderService workOrderService;
 
     @Autowired
-    private RepairmanRepository repairmanRepository;
-
-    @Autowired
-    private AlertRepository alertRepository;
+    public WorkOrderController(WorkOrderService workOrderService) {
+        this.workOrderService = workOrderService;
+    }
 
     // 抢单功能 - 维修人员和管理员可访问
+    @PostMapping("/grab")
     @PreAuthorize("hasAnyRole('REPAIRMAN', 'ADMIN')")
-    @Transactional
-    public boolean grabOrder(String orderId, String repairmanId) {
-        Optional<WorkOrder> orderOpt = workOrderRepository.findById(orderId);
-        if (orderOpt.isPresent()) {
-            WorkOrder order = orderOpt.get();
-            if (order.getStatus() == WorkOrder.OrderStatus.pending) {
-                var repairman = repairmanRepository.findById(repairmanId);
-                if (repairman.isPresent() && repairman.get().getStatus() == repairman.get().getStatus().idle) {
-                    order.setStatus(WorkOrder.OrderStatus.grabbed);
-                    order.setAssignedRepairmanId(repairmanId);
-                    order.setGrabbedTime(LocalDateTime.now());
-                    workOrderRepository.save(order);
-
-                    var repairmanEntity = repairman.get();
-                    repairmanEntity.setStatus(repairmanEntity.getStatus().busy);
-                    repairmanRepository.save(repairmanEntity);
-                    return true;
-                }
-            }
+    public ResultVO<Boolean> grabOrder(
+            @RequestParam String orderId,
+            @RequestParam String repairmanId) {
+        try {
+            boolean result = workOrderService.grabOrder(orderId, repairmanId);
+            return result ? ResultVO.success(true, "抢单成功")
+                    : ResultVO.error(400, "抢单失败，工单可能已被抢走或状态异常");
+        } catch (Exception e) {
+            return ResultVO.error(500, "抢单失败：" + e.getMessage());
         }
-        return false;
     }
 
     // 拒单功能 - 维修人员和管理员可访问
+    @PostMapping("/reject")
     @PreAuthorize("hasAnyRole('REPAIRMAN', 'ADMIN')")
-    @Transactional
-    public boolean rejectOrder(String orderId, String repairmanId, String reason) {
-        Optional<WorkOrder> orderOpt = workOrderRepository.findById(orderId);
-        if (orderOpt.isPresent()) {
-            WorkOrder order = orderOpt.get();
-            if (order.getAssignedRepairmanId() != null &&
-                    order.getAssignedRepairmanId().equals(repairmanId) &&
-                    order.getStatus() == WorkOrder.OrderStatus.grabbed) {
-
-                order.setStatus(WorkOrder.OrderStatus.pending);
-                order.setAssignedRepairmanId(null);
-                order.setGrabbedTime(null);
-                workOrderRepository.save(order);
-
-                var repairman = repairmanRepository.findById(repairmanId);
-                if (repairman.isPresent()) {
-                    var repairmanEntity = repairman.get();
-                    repairmanEntity.setStatus(repairmanEntity.getStatus().idle);
-                    repairmanRepository.save(repairmanEntity);
-                }
-                return true;
-            }
+    public ResultVO<Boolean> rejectOrder(
+            @RequestParam String orderId,
+            @RequestParam String repairmanId,
+            @RequestParam String reason) {
+        try {
+            boolean result = workOrderService.rejectOrder(orderId, repairmanId, reason);
+            return result ? ResultVO.success(true, "拒单成功")
+                    : ResultVO.error(400, "拒单失败，工单状态异常");
+        } catch (Exception e) {
+            return ResultVO.error(500, "拒单失败：" + e.getMessage());
         }
-        return false;
     }
 
     // 提交维修结果 - 维修人员和管理员可访问
+    @PostMapping("/submit")
     @PreAuthorize("hasAnyRole('REPAIRMAN', 'ADMIN')")
-    @Transactional
-    public boolean submitRepairResult(String orderId, String repairmanId,
-                                      String dealNote, String imgUrl) {
-        Optional<WorkOrder> orderOpt = workOrderRepository.findById(orderId);
-        if (orderOpt.isPresent()) {
-            WorkOrder order = orderOpt.get();
-            if (order.getAssignedRepairmanId() != null &&
-                    order.getAssignedRepairmanId().equals(repairmanId) &&
-                    (order.getStatus() == WorkOrder.OrderStatus.grabbed ||
-                            order.getStatus() == WorkOrder.OrderStatus.processing)) {
-
-                order.setStatus(WorkOrder.OrderStatus.completed);
-                order.setCompletedTime(LocalDateTime.now());
-                order.setDealNote(dealNote);
-                order.setImgUrl(imgUrl);
-                workOrderRepository.save(order);
-
-                var repairman = repairmanRepository.findById(repairmanId);
-                if (repairman.isPresent()) {
-                    var repairmanEntity = repairman.get();
-                    repairmanEntity.setStatus(repairmanEntity.getStatus().idle);
-                    repairmanEntity.setWorkCount(repairmanEntity.getWorkCount() + 1);
-                    repairmanRepository.save(repairmanEntity);
-                }
-                return true;
-            }
+    public ResultVO<Boolean> submitRepairResult(
+            @RequestParam String orderId,
+            @RequestParam String repairmanId,
+            @RequestParam String dealNote,
+            @RequestParam(required = false) String imgUrl) {
+        try {
+            boolean result = workOrderService.submitRepairResult(orderId, repairmanId, dealNote, imgUrl);
+            return result ? ResultVO.success(true, "维修结果提交成功")
+                    : ResultVO.error(400, "提交失败，工单状态异常");
+        } catch (Exception e) {
+            return ResultVO.error(500, "提交失败：" + e.getMessage());
         }
-        return false;
     }
 
     // 获取可抢工单列表 - 维修人员和管理员可访问
+    @GetMapping("/available")
     @PreAuthorize("hasAnyRole('REPAIRMAN', 'ADMIN')")
-    public List<WorkOrder> getAvailableOrders(String areaId) {
-        return workOrderRepository.findByAreaIdAndStatus(areaId, WorkOrder.OrderStatus.pending);
+    public ResultVO<List<WorkOrder>> getAvailableOrders(@RequestParam String areaId) {
+        try {
+            List<WorkOrder> orders = workOrderService.getAvailableOrders(areaId);
+            return ResultVO.success(orders);
+        } catch (Exception e) {
+            return ResultVO.error(500, "获取工单列表失败：" + e.getMessage());
+        }
     }
 
     // 获取维修工自己的工单 - 维修人员和管理员可访问
+    @GetMapping("/my")
     @PreAuthorize("hasAnyRole('REPAIRMAN', 'ADMIN')")
-    public List<WorkOrder> getMyOrders(String repairmanId) {
-        return workOrderRepository.findByAssignedRepairmanId(repairmanId);
+    public ResultVO<List<WorkOrder>> getMyOrders(@RequestParam String repairmanId) {
+        try {
+            List<WorkOrder> orders = workOrderService.getMyOrders(repairmanId);
+            return ResultVO.success(orders);
+        } catch (Exception e) {
+            return ResultVO.error(500, "获取我的工单失败：" + e.getMessage());
+        }
+    }
+
+    // 管理员手动派单接口
+    @PostMapping("/assign")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResultVO<Boolean> assignOrderByAdmin(
+            @RequestParam String orderId,
+            @RequestParam String repairmanId) {
+        try {
+            boolean result = workOrderService.assignOrderByAdmin(orderId, repairmanId);
+            return result ? ResultVO.success(true, "派单成功")
+                    : ResultVO.error(400, "派单失败，工单或维修人员状态异常");
+        } catch (Exception e) {
+            return ResultVO.error(500, "派单失败：" + e.getMessage());
+        }
     }
 }
