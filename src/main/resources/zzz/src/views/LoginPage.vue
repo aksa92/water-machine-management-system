@@ -6,7 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 
 const authStore = useAuthStore()
 const router = useRouter()
-const usertype = ref('repairer')
+const usertype = ref('repairman')
 const username = ref('')
 const password = ref('')
 const loading = ref(false)
@@ -42,7 +42,7 @@ const handleLogin = async () => {
         username: result.data.username,
         userType: result.data.userType,
         userId: result.data.userId,
-        repairmanId: username.value
+        repairmanId: result.data.userId
       }, result.data.token);
 
       // 保存到本地存储
@@ -50,7 +50,7 @@ const handleLogin = async () => {
       localStorage.setItem('userId', result.data.userId);
       localStorage.setItem('username', result.data.username);
       localStorage.setItem('userType', result.data.userType);
-      localStorage.setItem('repairmanId', username.value);
+      localStorage.setItem('repairmanId', result.data.userId);
 
       alert('登录成功！');
       router.push('/home');
