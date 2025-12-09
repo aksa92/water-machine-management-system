@@ -16,7 +16,7 @@
       <!-- 统计卡片 -->
       <div class="stats-cards">
         <div class="stat-card">
-          <div class="stat-number">5</div>
+          <div class="stat-number">{{ processingOrders.length }}</div>
           <div class="stat-label">待处理工单</div>
         </div>
         <div class="stat-card">
@@ -41,19 +41,29 @@
           <h3>待处理工单</h3>
         </div>
         <div class="work-order-list">
-          <div class="work-order-item urgent">
-            <div class="order-badge urgent">紧急</div>
+          <div
+            v-for="order in processingOrders"
+            :key="order.orderId"
+            :class="['work-order-item', getOrderPriorityClass(order.priority)]"
+          >
+            <div :class="['order-badge', getOrderPriorityClass(order.priority)]">
+              {{ getOrderPriorityText(order.priority) }}
+            </div>
             <div class="order-content">
-              <div class="order-title">制水机#A201 - TDS超标</div>
-              <div class="order-location">教学楼A区 - 10分钟前</div>
+              <div class="order-title">{{ order.description || `工单#${order.orderId}` }}</div>
+              <!-- 修改这一行，去掉设备位置信息，只保留时间 -->
+              <div class="order-location">{{ getTimeAgo(order.createdTime) }}</div>
             </div>
           </div>
-          <div class="work-order-item normal">
-            <div class="order-badge normal">一般</div>
-            <div class="order-content">
-              <div class="order-title">供水机#B105 - 水位异常</div>
-              <div class="order-location">图书馆 - 25分钟前</div>
-            </div>
+
+          <!-- 当没有工单时显示 -->
+          <div v-if="processingOrders.length === 0 && !loading" class="no-orders">
+            暂无待处理工单
+          </div>
+
+          <!-- 加载状态 -->
+          <div v-if="loading" class="loading-orders">
+            加载中...
           </div>
         </div>
       </div>
@@ -77,13 +87,92 @@
   </div>
 </template>
 
-<script setup>
+<script setup>import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { workOrderService } from '@/services/workOrderService'
 
 const authStore = useAuthStore()
 const userInfo = authStore.getUserInfo()
 const router = useRouter()
+
+// 工单数据
+const processingOrders = ref([])
+const loading = ref(false)
+
+// 获取processing状态的工单
+const fetchProcessingOrders = async () => {
+  loading.value = true
+  try {
+    // 获取用户的实际维修人员ID，而不是用户名
+    const userInfo = authStore.getUserInfo()
+    const repairmanId = userInfo?.userId // 使用userId而不是username
+
+    if (repairmanId) {
+      const response = await workOrderService.getMyOrders(repairmanId)
+      if (response && response.code === 200) {
+        processingOrders.value = response.data.filter(order => order.status === 'processing')
+      }
+    } else {
+      console.warn('未找到维修人员ID')
+    }
+  } catch (error) {
+    console.error('获取工单失败:', error)
+    processingOrders.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+
+// 根据优先级获取CSS类名
+const getOrderPriorityClass = (priority) => {
+  switch (priority) {
+    case 'urgent':
+      return 'urgent'
+    case 'high':
+      return 'urgent'
+    case 'medium':
+      return 'normal'
+    case 'low':
+      return 'normal'
+    default:
+      return 'normal'
+  }
+}
+
+// 根据优先级获取显示文本
+const getOrderPriorityText = (priority) => {
+  switch (priority) {
+    case 'urgent':
+      return '紧急'
+    case 'high':
+      return '高'
+    case 'medium':
+      return '中'
+    case 'low':
+      return '低'
+    default:
+      return '一般'
+  }
+}
+
+// 获取设备位置信息（简化实现）
+const getDeviceLocation = (deviceId) => {
+  const locations = {
+    'A201': '教学楼A区',
+    'B105': '图书馆',
+    // 可以从设备数据中获取真实位置信息
+  }
+  return locations[deviceId] || '未知位置'
+}
+
+// 计算时间差（简化实现）
+const getTimeAgo = (createdTime) => {
+  if (!createdTime) return '未知时间'
+  // 简化处理，实际应计算具体的时间差
+  return '刚刚'
+}
 
 const goToInspection = () => {
   console.log('跳转到巡检页面')
@@ -105,6 +194,11 @@ const goToProfile = () => {
   console.log('跳转到我的页面')
   router.push('/profile')
 }
+
+// 页面加载时获取工单数据
+onMounted(() => {
+  fetchProcessingOrders()
+})
 </script>
 
 <style scoped>
@@ -328,5 +422,17 @@ const goToProfile = () => {
 .user-type {
   color: #666;
   font-size: 11px;
+}
+
+.no-orders {
+  text-align: center;
+  padding: 20px;
+  color: #999;
+}
+
+.loading-orders {
+  text-align: center;
+  padding: 20px;
+  color: #666;
 }
 </style>
