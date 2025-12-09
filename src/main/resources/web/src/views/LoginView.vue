@@ -17,8 +17,8 @@
               :disabled="loading"
               required
           >
-            <option value="user">普通用户</option>
             <option value="admin">管理员</option>
+            <option value="user">普通用户</option>
             <option value="repairer">维修人员</option>
           </select>
         </div>
@@ -84,7 +84,7 @@ const debugInfo = ref('')
 const loginForm = reactive({
   username: '',
   password: '',
-  userType: 'user', // 添加默认用户类型
+  userType: 'admin', // 添加默认用户类型
   rememberMe: false
 })
 

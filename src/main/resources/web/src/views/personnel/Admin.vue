@@ -1,4 +1,3 @@
-<!-- src/views/personnel/Admin.vue -->
 <template>
   <div class="admin-page">
     <!-- 页面标题和面包屑 -->
@@ -10,11 +9,11 @@
     <!-- 操作按钮区 -->
     <div class="action-bar">
       <button class="btn-add" @click="handleAddAdmin">新增管理员</button>
-      
+
       <div class="search-box">
-        <input 
-          type="text" 
-          placeholder="搜索姓名或账号..." 
+        <input
+          type="text"
+          placeholder="搜索姓名或账号..."
           v-model="searchKeyword"
           @input="handleSearch"
         >
@@ -47,14 +46,14 @@
               </span>
             </td>
             <td class="operation-buttons">
-              <button 
-                class="btn-edit" 
+              <button
+                class="btn-edit"
                 @click="handleEdit(admin.id)"
               >
                 编辑
               </button>
-              <button 
-                class="btn-status" 
+              <button
+                class="btn-status"
                 :class="admin.status === 'active' ? 'btn-disable' : 'btn-enable'"
                 @click="handleStatusChange(admin.id, admin.status)"
               >
@@ -71,8 +70,8 @@
 
     <!-- 分页控件 -->
     <div class="pagination">
-      <button 
-        class="page-btn" 
+      <button
+        class="page-btn"
         :disabled="currentPage === 1"
         @click="currentPage--"
       >
@@ -81,8 +80,8 @@
       <span class="page-info">
         第 {{ currentPage }} 页 / 共 {{ totalPages }} 页
       </span>
-      <button 
-        class="page-btn" 
+      <button
+        class="page-btn"
         :disabled="currentPage === totalPages"
         @click="currentPage++"
       >
@@ -93,8 +92,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
 
 // 管理员状态类型
 type AdminStatus = 'active' | 'disabled'
@@ -109,40 +109,58 @@ interface Admin {
   status: AdminStatus
 }
 
-// 模拟管理员数据
-const adminList: Admin[] = [
-  {
-    id: '1',
-    name: '张三',
-    account: 'admin01',
-    phone: '13800138000',
-    role: '超级管理员',
-    status: 'active'
-  },
-  {
-    id: '2',
-    name: '李四',
-    account: 'admin02',
-    phone: '13900139000',
-    role: '设备管理员',
-    status: 'active'
-  },
-  {
-    id: '3',
-    name: '王五',
-    account: 'admin03',
-    phone: '13700137000',
-    role: '系统管理员',
-    status: 'disabled'
-  }
-]
-
 // 响应式数据
-const admins = ref<Admin[]>(adminList)
+const admins = ref<Admin[]>([])
 const searchKeyword = ref('')
 const currentPage = ref(1)
 const pageSize = 10 // 每页显示数量
 const router = useRouter()
+const loading = ref(false)
+
+// 获取管理员列表
+const fetchAdminList = async () => {
+  loading.value = true
+  try {
+    const token = localStorage.getItem('token')
+    if (!token) {
+      console.warn('未登录或缺少令牌')
+      router.push('/login')
+      return
+    }
+
+    // 构建查询参数
+    const params = new URLSearchParams()
+    if (searchKeyword.value.trim()) {
+      params.append('name', searchKeyword.value.trim())
+    }
+
+    const response = await axios.get(`/api/web/admin/list?${params.toString()}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+
+    if (response.data.code === 200) {
+      // 适配后端返回的数据结构
+      admins.value = response.data.data.map((admin: any) => ({
+        id: admin.id,
+        name: admin.name,
+        account: admin.adminName || admin.account,
+        phone: admin.phone,
+        role: admin.role,
+        status: admin.status || 'active'
+      }))
+    } else {
+      console.error('获取管理员列表失败:', response.data.msg)
+      alert('获取管理员列表失败：' + response.data.msg)
+    }
+  } catch (error) {
+    console.error('请求异常:', error)
+    alert('网络错误，请检查网络连接')
+  } finally {
+    loading.value = false
+  }
+}
 
 // 筛选后的管理员列表
 const filteredAdmins = computed(() => {
@@ -161,13 +179,19 @@ const totalPages = computed(() => {
 
 // 搜索处理
 const handleSearch = () => {
-  currentPage.value = 1 // 重置到第一页
+  currentPage.value = 1
+  fetchAdminList()
 }
+
+// 页面加载时获取数据
+onMounted(() => {
+  fetchAdminList()
+})
 
 // 状态变更处理
 const handleStatusChange = (id: string, currentStatus: AdminStatus) => {
   const newStatus: AdminStatus = currentStatus === 'active' ? 'disabled' : 'active'
-  admins.value = admins.value.map(admin => 
+  admins.value = admins.value.map(admin =>
     admin.id === id ? { ...admin, status: newStatus } : admin
   )
   // 实际项目中这里应该调用API更新状态
@@ -359,11 +383,11 @@ const handleAddAdmin = () => {
     flex-direction: column;
     align-items: flex-start;
   }
-  
+
   .search-box {
     width: 100%;
   }
-  
+
   .search-box input {
     width: 100%;
   }
