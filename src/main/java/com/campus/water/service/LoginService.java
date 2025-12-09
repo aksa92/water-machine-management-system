@@ -33,7 +33,7 @@ public class LoginService {
         return switch (userType) {
             case "admin" -> handleAdminLogin(username, password);
             case "user" -> handleUserLogin(username, password);
-            case "repairer" -> handleRepairerLogin(username, password);
+            case "repairman" -> handleRepairmanLogin(username, password);
             default -> throw new RuntimeException("无效的用户类型：" + userType);
         };
     }
@@ -84,7 +84,7 @@ public class LoginService {
         return createLoginVO(user.getStudentId(), username, "user");
     }
 
-    private LoginVO handleRepairerLogin(String username, String password) {
+    private LoginVO handleRepairmanLogin(String username, String password) {
         // 此处将RepairerAuthPO改为RepairerAuth
         RepairerAuth repairer = repairerAuthRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("维修人员不存在"));
@@ -93,7 +93,7 @@ public class LoginService {
             throw new RuntimeException("密码错误");
         }
 
-        return createLoginVO(repairer.getRepairmanId(), username, "repairer");
+        return createLoginVO(repairer.getRepairmanId(), username, "repairman");
     }
 
     private LoginVO createLoginVO(String userId, String username, String userType) {

@@ -40,8 +40,8 @@ public class RegisterService {
             case "user":
                 handleUserRegister(username, encryptedPwd, request);
                 break;
-            case "repairer":
-                handleRepairerRegister(username, encryptedPwd, request);
+            case "repairman":
+                handleRepairmanRegister(username, encryptedPwd, request);
                 break;
             default:
                 throw new RuntimeException("无效的用户类型：" + userType);
@@ -89,7 +89,7 @@ public class RegisterService {
     }
 
     // 维修人员注册逻辑保持不变
-    private void handleRepairerRegister(String username, String password, RegisterRequest request) {
+    private void handleRepairmanRegister(String username, String password, RegisterRequest request) {
         if (repairerAuthRepository.existsByUsername(username)) {
             throw new RuntimeException("维修人员用户名已存在");
         }
@@ -97,12 +97,12 @@ public class RegisterService {
             throw new RuntimeException("维修人员ID已被注册");
         }
 
-        RepairerAuth repairer = new RepairerAuth();
-        repairer.setUsername(username);
-        repairer.setPassword(password);
-        repairer.setRepairmanId(request.getRepairmanId());
-        repairer.setAccountStatus(RepairerAuth.AccountStatus.active);
+        RepairerAuth repairman = new RepairerAuth();
+        repairman.setUsername(username);
+        repairman.setPassword(password);
+        repairman.setRepairmanId(request.getRepairmanId());
+        repairman.setAccountStatus(RepairerAuth.AccountStatus.active);
 
-        repairerAuthRepository.save(repairer);
+        repairerAuthRepository.save(repairman);
     }
 }
