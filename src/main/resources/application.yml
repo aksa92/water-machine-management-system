@@ -2,10 +2,9 @@
 mqtt:
   enabled: true  # 是否启用 MQTT 客户端
 
-# JWT 配置
 jwt:
-  secret: campusWaterSystem2024SecretKey!@#  # 替换为实际密钥
-  expiration: 86400000  # 24小时有效期（毫秒）
+  secret: "789&kLp23$87bnM90!789poI87&90lkJ78*90jhG78!90fdS78%90saD78^90xcV78&90zbN78!这是安全密钥1234567890"
+  expiration: 86400000
 
 # Spring 核心配置：允许 Bean 定义覆盖（解决 Bean 重复定义冲突）
 spring:

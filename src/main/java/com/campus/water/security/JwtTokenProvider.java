@@ -2,6 +2,7 @@
 package com.campus.water.security;
 
 import io.jsonwebtoken.*;
+import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
@@ -9,6 +10,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 /**
@@ -23,6 +26,16 @@ public class JwtTokenProvider {
     @Value("${jwt.expiration}")
     private long jwtExpirationMs;
 
+    // 生成符合HS512要求的密钥（512位以上）
+    private SecretKey getSigningKey() {
+        // 确保密钥长度至少64字节（512位）
+        byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
+        if (keyBytes.length < 64) {
+            throw new IllegalArgumentException("JWT密钥长度不足，HS512算法需要至少64字节的密钥");
+        }
+        return Keys.hmacShaKeyFor(keyBytes);
+    }
+
     /**
      * 生成JWT令牌
      */
@@ -33,7 +46,7 @@ public class JwtTokenProvider {
                 .claim("roles", userPrincipal.getAuthorities().toString())
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
-                .signWith(SignatureAlgorithm.HS512, jwtSecret)
+                .signWith(getSigningKey(), SignatureAlgorithm.HS512)  // 使用安全密钥
                 .compact();
     }
 
@@ -46,7 +59,7 @@ public class JwtTokenProvider {
                 .claim("roles", role)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
-                .signWith(SignatureAlgorithm.HS512, jwtSecret)
+                .signWith(getSigningKey(), SignatureAlgorithm.HS512)  // 使用安全密钥
                 .compact();
     }
 
@@ -54,14 +67,23 @@ public class JwtTokenProvider {
      * 从令牌中获取用户名
      */
     public String getUsernameFromJwtToken(String token) {
-        return Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(token).getBody().getSubject();
+        return Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())  // 使用安全密钥
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .getSubject();
     }
 
     /**
      * 从令牌中获取角色
      */
     public String getRoleFromJwtToken(String token) {
-        Claims claims = Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(token).getBody();
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())  // 使用安全密钥
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
         return claims.get("roles", String.class);
     }
 
@@ -70,7 +92,10 @@ public class JwtTokenProvider {
      */
     public boolean validateJwtToken(String authToken) {
         try {
-            Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(authToken);
+            Jwts.parserBuilder()
+                    .setSigningKey(getSigningKey())  // 使用安全密钥
+                    .build()
+                    .parseClaimsJws(authToken);
             return true;
         } catch (SignatureException | MalformedJwtException | ExpiredJwtException | UnsupportedJwtException | IllegalArgumentException e) {
             return false;
