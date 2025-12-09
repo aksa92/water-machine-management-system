@@ -51,18 +51,16 @@ public class RegisterService {
 
     // 修正管理员注册逻辑（适配新实体Admin）
     private void handleAdminRegister(String username, String password, RegisterRequest request) {
-        // 检查用户名是否已存在（使用新方法existsByAdminName）
+        // 检查用户名是否已存在
         if (adminRepository.existsByAdminName(username)) {
             throw new RuntimeException("管理员用户名已存在");
         }
 
         Admin admin = new Admin();
         admin.setAdminId(request.getAdminId());
-        admin.setAdminName(username); // 字段名从username改为adminName
+        admin.setAdminName(username);
         admin.setPassword(password);
-        // 角色枚举值转换（新实体角色为小写，需统一）
-        admin.setRole(Admin.AdminRole.valueOf(request.getAdminRole().toLowerCase()));
-        admin.setStatus(Admin.AdminStatus.active); // 状态枚举值改为小写
+        admin.setPhone(request.getPhone()); // 假设请求中有电话字段
 
         adminRepository.save(admin);
     }
@@ -82,6 +80,7 @@ public class RegisterService {
         user.setPassword(password); // 设置密码
         user.setStudentId(request.getStudentId()); // 设置学号
         user.setStudentName(request.getStudentName()); // 设置学生姓名
+        user.setPhone(request.getPhone()); // 新增：保存手机号
         user.setStatus(User.UserStatus.active); // 设置状态（使用 User 类的枚举）
 
         // 保存 User 实体（与 UserRepository 类型匹配）
