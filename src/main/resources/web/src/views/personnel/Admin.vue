@@ -1,4 +1,3 @@
-<!-- src/views/personnel/Admin.vue -->
 <template>
   <div class="admin-page">
     <!-- 页面标题和面包屑 -->
@@ -10,11 +9,11 @@
     <!-- 操作按钮区 -->
     <div class="action-bar">
       <button class="btn-add" @click="handleAddAdmin">新增管理员</button>
-      
+
       <div class="search-box">
-        <input 
-          type="text" 
-          placeholder="搜索姓名或账号..." 
+        <input
+          type="text"
+          placeholder="搜索姓名或账号..."
           v-model="searchKeyword"
           @input="handleSearch"
         >
@@ -47,14 +46,14 @@
               </span>
             </td>
             <td class="operation-buttons">
-              <button 
-                class="btn-edit" 
+              <button
+                class="btn-edit"
                 @click="handleEdit(admin.id)"
               >
                 编辑
               </button>
-              <button 
-                class="btn-status" 
+              <button
+                class="btn-status"
                 :class="admin.status === 'active' ? 'btn-disable' : 'btn-enable'"
                 @click="handleStatusChange(admin.id, admin.status)"
               >
@@ -71,8 +70,8 @@
 
     <!-- 分页控件 -->
     <div class="pagination">
-      <button 
-        class="page-btn" 
+      <button
+        class="page-btn"
         :disabled="currentPage === 1"
         @click="currentPage--"
       >
@@ -81,8 +80,8 @@
       <span class="page-info">
         第 {{ currentPage }} 页 / 共 {{ totalPages }} 页
       </span>
-      <button 
-        class="page-btn" 
+      <button
+        class="page-btn"
         :disabled="currentPage === totalPages"
         @click="currentPage++"
       >
@@ -93,8 +92,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
+import { request } from '@/api/request'
+// 1. 导入 useAuthStore
+import { useAuthStore } from '@/stores/auth'
+// 2. 实例化 authStore
+const authStore = useAuthStore()
 
 // 管理员状态类型
 type AdminStatus = 'active' | 'disabled'
@@ -109,40 +114,86 @@ interface Admin {
   status: AdminStatus
 }
 
-// 模拟管理员数据
-const adminList: Admin[] = [
-  {
-    id: '1',
-    name: '张三',
-    account: 'admin01',
-    phone: '13800138000',
-    role: '超级管理员',
-    status: 'active'
-  },
-  {
-    id: '2',
-    name: '李四',
-    account: 'admin02',
-    phone: '13900139000',
-    role: '设备管理员',
-    status: 'active'
-  },
-  {
-    id: '3',
-    name: '王五',
-    account: 'admin03',
-    phone: '13700137000',
-    role: '系统管理员',
-    status: 'disabled'
-  }
-]
-
 // 响应式数据
-const admins = ref<Admin[]>(adminList)
+const admins = ref<Admin[]>([])
 const searchKeyword = ref('')
 const currentPage = ref(1)
 const pageSize = 10 // 每页显示数量
 const router = useRouter()
+const loading = ref(false)
+
+// 获取管理员列表
+// 修改 fetchAdminList 函数，移除认证检查部分
+// 修改 fetchAdminList 函数，完善 Token 获取和错误处理
+const fetchAdminList = async () => {
+  loading.value = true
+  try {
+    // 1. 从 Pinia 获取 Token（推荐，与项目登录逻辑一致）
+
+    const token = authStore.token
+
+    // 检查 Token 是否存在
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
+    }
+
+    // 2. 构建查询参数
+    const params = new URLSearchParams()
+    if (searchKeyword.value.trim()) {
+      params.append('name', searchKeyword.value.trim())
+    }
+
+    // 3. 使用项目封装的 request 工具（而非直接使用 axios）
+
+    const response = await request<{
+      code: number
+      msg: string
+      data: any[]
+    }>(`/api/web/admin/list?${params.toString()}`, {
+      method: 'GET',
+      // 无需手动添加 Authorization 头，request 工具会自动处理
+    })
+
+    // 4. 处理响应（完善数据适配和错误提示）
+    if (response.code === 200) {
+      // 增加数据容错处理，避免字段不存在导致的错误
+      admins.value = (response.data || []).map((admin: any) => ({
+        id: admin.adminId || '', // 确保有默认值
+        name: admin.adminName || '未知姓名',
+        account: admin.adminName || '',
+        phone: admin.phone || '未知电话',
+        role: admin.role || '未知角色',
+        status: 'active' // 后端无状态字段时使用默认值
+      }))
+    } else {
+      // 明确错误信息，避免 "未知错误"
+      const errorMsg = response.msg || `获取失败（错误码：${response.code}）`
+      console.error('获取管理员列表失败:', errorMsg)
+      alert(`获取管理员列表失败：${errorMsg}`)
+    }
+  } catch (error: any) {
+    // 5. 完善异常捕获（网络错误、Token 无效等）
+    console.error('请求异常:', error)
+    // 区分不同错误类型，给出更明确的提示
+    const errorMsg = error.message.includes('401')
+        ? '登录已过期，请重新登录'
+        : error.message.includes('Network')
+            ? '网络连接失败，请检查网络'
+            : error.message || '获取数据失败，请稍后重试'
+    alert(`获取管理员列表失败：${errorMsg}`)
+
+    // Token 无效时跳转登录页
+    if (error.message.includes('401')) {
+      authStore.logout() // 清除无效 Token
+      router.push('/login')
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
 
 // 筛选后的管理员列表
 const filteredAdmins = computed(() => {
@@ -161,13 +212,19 @@ const totalPages = computed(() => {
 
 // 搜索处理
 const handleSearch = () => {
-  currentPage.value = 1 // 重置到第一页
+  currentPage.value = 1
+  fetchAdminList()
 }
+
+// 页面加载时获取数据
+onMounted(() => {
+  fetchAdminList()
+})
 
 // 状态变更处理
 const handleStatusChange = (id: string, currentStatus: AdminStatus) => {
   const newStatus: AdminStatus = currentStatus === 'active' ? 'disabled' : 'active'
-  admins.value = admins.value.map(admin => 
+  admins.value = admins.value.map(admin =>
     admin.id === id ? { ...admin, status: newStatus } : admin
   )
   // 实际项目中这里应该调用API更新状态
@@ -359,11 +416,11 @@ const handleAddAdmin = () => {
     flex-direction: column;
     align-items: flex-start;
   }
-  
+
   .search-box {
     width: 100%;
   }
-  
+
   .search-box input {
     width: 100%;
   }

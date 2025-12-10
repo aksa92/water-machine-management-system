@@ -9,4 +9,6 @@ public class LoginVO {
     private String userId;      // 用户ID
     private String username;    // 用户名
     private String userType;    // 用户类型
+    private String areaId; // 新增：维修人员所属区域ID
+
 }

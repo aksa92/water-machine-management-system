@@ -74,8 +74,8 @@ const menuItems: MenuItem[] = [
   { 
     id: 4, 
     name: '人员管理', 
-    icon: '👥', 
-    // 移除主菜单路由，点击主菜单只展开子菜单
+    icon: '👥',
+    route: '/home/personnel/admin', // 添加一个默认路由
     children: [
       { name: '管理员', route: '/home/personnel/admin' },
       { name: '维修人员', route: '/home/personnel/maintenance' },

@@ -2,10 +2,12 @@ package com.campus.water.service;
 
 import com.campus.water.entity.Admin;
 import com.campus.water.entity.RepairerAuth;
+import com.campus.water.entity.Repairman;
 import com.campus.water.entity.User;
 import com.campus.water.entity.vo.LoginVO;
 import com.campus.water.mapper.AdminRepository;
 import com.campus.water.mapper.RepairerAuthRepository;
+import com.campus.water.mapper.RepairmanRepository;
 import com.campus.water.mapper.UserRepository;
 import com.campus.water.entity.dto.request.LoginRequest;
 import com.campus.water.security.RoleConstants;
@@ -13,6 +15,7 @@ import com.campus.water.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +24,9 @@ public class LoginService {
     private final AdminRepository adminRepository;
     private final UserRepository userRepository;
     private final RepairerAuthRepository repairerAuthRepository;
+    // 新增：注入RepairmanRepository
+    @Autowired
+    private RepairmanRepository repairmanRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
 
@@ -60,15 +66,38 @@ public class LoginService {
         return createLoginVO(user.getStudentId(), username, "user");
     }
 
+
     private LoginVO handleRepairmanLogin(String username, String password) {
-        RepairerAuth repairer = repairerAuthRepository.findByUsername(username)
+        // 1. 查询登录信息（RepairmanAuth）
+        RepairerAuth repairerAuth = repairerAuthRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("维修人员不存在"));
 
-        if (!passwordEncoder.matches(password, repairer.getPassword())) {
+        // 2. 验证密码
+        if (!passwordEncoder.matches(password, repairerAuth.getPassword())) {
             throw new RuntimeException("密码错误");
         }
 
-        return createLoginVO(repairer.getRepairmanId(), username, "repairman");
+        // 3. 通过repairman_id查询Repairman表获取area_id
+        String repairmanId = repairerAuth.getRepairmanId();
+        Repairman repairman = repairmanRepository.findById(repairmanId)
+                .orElseThrow(() -> new RuntimeException("维修人员信息不存在"));
+        String areaId = repairman.getAreaId(); // 假设Repairman类有getAreaId()方法
+
+        // 4. 返回包含areaId的LoginVO
+        return createLoginVO(repairmanId, username, "repairman", areaId);
+    }
+
+    // 新增重载方法，支持传递areaId
+    private LoginVO createLoginVO(String userId, String username, String userType, String areaId) {
+        LoginVO vo = new LoginVO();
+        vo.setUserId(userId);
+        vo.setUsername(username);
+        vo.setUserType(userType);
+        vo.setAreaId(areaId); // 设置区域ID
+        // 生成token（保持原有逻辑）
+        String role = RoleConstants.ROLE_REPAIRMAN;
+        vo.setToken(jwtTokenProvider.generateToken(username, role));
+        return vo;
     }
 
     /**
@@ -103,5 +132,9 @@ public class LoginService {
         // 生成包含角色信息的JWT令牌
         vo.setToken(jwtTokenProvider.generateToken(username, role));
         return vo;
+    }
+
+    public void setRepairmanRepository(RepairmanRepository repairmanRepository) {
+        this.repairmanRepository = repairmanRepository;
     }
 }
