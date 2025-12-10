@@ -40,82 +40,84 @@
     <div class="main-content">
       <!-- 待抢单工单列表 -->
       <div v-if="activeTab === 'pending'" class="order-list">
-        <div class="order-item" @click="viewOrderDetail('1001')">
+        <div
+          class="order-item"
+          v-for="order in availableOrders"
+          :key="order.orderId"
+          @click="viewOrderDetail(order.orderId)"
+        >
           <div class="order-content">
-            <div class="order-title">制水机#A105 - TDS超标</div>
+            <div class="order-title">{{ order.description }}</div>
             <div class="order-info">
-              <span class="order-location">A区教学楼</span>
-              <span class="order-time">10分钟前</span>
+              <span class="order-location">{{ getOrderLocation(order.deviceId) }}</span>
+              <span class="order-time">{{ formatTime(order.createdTime) }}</span>
             </div>
           </div>
-          <button class="order-btn grab" @click.stop="grabOrder('1001')">
+          <button class="order-btn grab" @click.stop="grabOrder(order.orderId)">
             抢单
           </button>
         </div>
 
-        <div class="order-item" @click="viewOrderDetail('1002')">
-          <div class="order-content">
-            <div class="order-title">供水机#B105 - 水位异常</div>
-            <div class="order-info">
-              <span class="order-location">B区图书馆</span>
-              <span class="order-time">25分钟前</span>
-            </div>
-          </div>
-          <button class="order-btn grab" @click.stop="grabOrder('1002')">
-            抢单
-          </button>
+        <div v-if="availableOrders.length === 0" class="empty-state">
+          暂无待抢单工单
         </div>
       </div>
 
       <!-- 处理中工单列表 -->
       <div v-if="activeTab === 'processing'" class="order-list">
-        <div class="order-item" @click="viewOrderDetail('1002')">
+        <div
+          class="order-item"
+          v-for="order in processingOrders"
+          :key="order.orderId"
+          @click="viewOrderDetail(order.orderId)"
+        >
           <div class="order-content">
-            <div class="order-title">供水机#B105 - 水位异常</div>
+            <div class="order-title">{{ order.description }}</div>
             <div class="order-info">
-              <span class="order-location">B区图书馆</span>
-              <span class="order-time">抢单时间: 25分钟前</span>
+              <span class="order-location">{{ getOrderLocation(order.deviceId) }}</span>
+              <span class="order-time">抢单时间: {{ formatTime(order.grabbedTime) }}</span>
             </div>
             <div class="order-status">
               <span class="status-badge processing">处理中</span>
             </div>
           </div>
-          <button class="order-btn process" @click.stop="startProcessOrder('1002')">
+          <button class="order-btn process" @click.stop="startProcessOrder(order.orderId)">
             继续处理
           </button>
         </div>
 
-        <div class="order-item" @click="viewOrderDetail('1003')">
-          <div class="order-content">
-            <div class="order-title">制水机#A102 - TDS超标</div>
-            <div class="order-info">
-              <span class="order-location">A区教学楼</span>
-              <span class="order-time">抢单时间: 15分钟前</span>
-            </div>
-            <div class="order-status">
-              <span class="status-badge pending">待处理</span>
-            </div>
-          </div>
-          <button class="order-btn process" @click.stop="startProcessOrder('1003')">
-            开始处理
-          </button>
+        <div v-if="processingOrders.length === 0" class="empty-state">
+          暂无处理中的工单
         </div>
       </div>
 
       <!-- 历史工单列表 -->
       <div v-if="activeTab === 'history'" class="order-list">
-        <div class="order-item">
+        <div
+          class="order-item"
+          v-for="order in completedOrders"
+          :key="order.orderId"
+        >
           <div class="order-content">
-            <div class="order-title">供水机#B105 - 滤芯损坏</div>
+            <div class="order-title">{{ order.description }}</div>
             <div class="order-info">
-              <span class="order-location">B区图书馆</span>
-              <span class="order-time">2023-10-04</span>
+              <span class="order-location">{{ getOrderLocation(order.deviceId) }}</span>
+              <span class="order-time">{{ formatDate(order.completedTime) }}</span>
             </div>
           </div>
           <button class="order-btn completed">
-            已结款
+            已完成
           </button>
         </div>
+
+        <div v-if="completedOrders.length === 0" class="empty-state">
+          暂无历史工单
+        </div>
+      </div>
+
+      <!-- 加载状态 -->
+      <div v-if="loading" class="loading">
+        加载中...
       </div>
 
       <!-- 抢单成功弹窗 -->
@@ -142,13 +144,25 @@
   </div>
 </template>
 
-<script setup>
-import { ref } from 'vue'
+<script setup>import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { workOrderService } from '@/services/workOrderService'
+import { useDeviceStore } from '@/stores/device'
 
 const router = useRouter()
+const authStore = useAuthStore()
+const deviceStore = useDeviceStore()
+
 const activeTab = ref('pending')
 const showGrabSuccess = ref(false)
+const loading = ref(false)
+
+// 工单数据
+const allOrders = ref([])
+const availableOrders = ref([])
+const processingOrders = ref([])
+const completedOrders = ref([])
 
 // 切换标签页
 const switchTab = (tab) => {
@@ -172,7 +186,7 @@ const goToInspection = () => {
 const goToWorkOrders = () => {
   // 如果已经在工单页面，则刷新
   if (router.currentRoute.value.path === '/work-orders') {
-    activeTab.value = 'pending'
+    loadOrders()
   } else {
     router.push('/work-orders')
   }
@@ -188,22 +202,28 @@ const viewOrderDetail = (orderId) => {
 }
 
 // 抢单
-const grabOrder = (orderId) => {
-  console.log(`抢单 ${orderId}`)
-  // 模拟抢单成功
-  showGrabSuccess.value = true
-  // 3秒后自动关闭弹窗
-  setTimeout(() => {
-    showGrabSuccess.value = false
-    // 抢单成功后，该工单应该从待抢单列表移除，添加到处理中列表
-    switchTab('processing')
-  }, 3000)
+const grabOrder = async (orderId) => {
+  try {
+    const repairmanId = authStore.getRepairmanId
+    await workOrderService.grabOrder(orderId, repairmanId)
+
+    // 显示成功提示
+    showGrabSuccess.value = true
+
+    // 重新加载数据
+    setTimeout(async () => {
+      showGrabSuccess.value = false
+      await loadOrders()
+      switchTab('processing')
+    }, 2000)
+  } catch (error) {
+    console.error('抢单失败:', error)
+    alert('抢单失败: ' + (error.message || '未知错误'))
+  }
 }
 
 // 开始处理工单
 const startProcessOrder = (orderId) => {
-  console.log(`开始处理工单 ${orderId}`)
-  // 跳转到处理页面，传递工单ID和状态
   router.push({
     path: `/work-orders/${orderId}`,
     query: { status: 'processing' }
@@ -214,6 +234,68 @@ const startProcessOrder = (orderId) => {
 const closeGrabSuccess = () => {
   showGrabSuccess.value = false
 }
+
+// 获取订单位置信息
+const getOrderLocation = (deviceId) => {
+  const device = deviceStore.getWaterSupplierById(deviceId)
+  return device ? device.location : '未知位置'
+}
+
+// 格式化时间显示
+const formatTime = (timeStr) => {
+  if (!timeStr) return '未知时间'
+
+  const date = new Date(timeStr)
+  const now = new Date()
+  const diffMs = now - date
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMins / 60)
+  const diffDays = Math.floor(diffHours / 24)
+
+  if (diffMins < 1) return '刚刚'
+  if (diffMins < 60) return `${diffMins}分钟前`
+  if (diffHours < 24) return `${diffHours}小时前`
+  return `${diffDays}天前`
+}
+
+// 格式化日期显示
+const formatDate = (dateStr) => {
+  if (!dateStr) return '未知日期'
+  return new Date(dateStr).toLocaleDateString('zh-CN')
+}
+
+// 加载工单数据
+const loadOrders = async () => {
+  loading.value = true
+  try {
+    // 获取我的工单
+    const myOrders = await workOrderService.getMyOrders(authStore.getRepairmanId)
+
+    // 分类工单
+    allOrders.value = myOrders.data || []
+    processingOrders.value = allOrders.value.filter(order =>
+      order.status === 'processing'
+    )
+    completedOrders.value = allOrders.value.filter(order =>
+      order.status === 'completed'
+    )
+
+    // 获取可抢工单
+    // 注意：这里需要根据维修人员所在区域获取，暂时使用默认值
+    const available = await workOrderService.getAvailableOrders('A')
+    availableOrders.value = available.data || []
+  } catch (error) {
+    console.error('加载工单失败:', error)
+    alert('加载工单失败: ' + (error.message || '未知错误'))
+  } finally {
+    loading.value = false
+  }
+}
+
+// 初始化时加载数据
+onMounted(() => {
+  loadOrders()
+})
 </script>
 
 <style scoped>
@@ -261,6 +343,21 @@ const closeGrabSuccess = () => {
 
 .back-btn:hover {
   color: #096dd9;
+}
+
+/* 添加空状态样式 */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #999;
+  font-size: 14px;
+}
+
+/* 添加加载状态样式 */
+.loading {
+  text-align: center;
+  padding: 20px;
+  color: #1890ff;
 }
 
 /* 标签切换 */
