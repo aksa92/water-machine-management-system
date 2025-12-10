@@ -26,6 +26,9 @@ public class RegisterRequest {
     private String adminId;
     private String role; // 新增：管理员角色（super_admin/area_admin/viewer）
 
-    // 维修人员特有字段
+    // 维修人员特有字段（新增基本信息字段）
     private String repairmanId;
+    private String repairmanName; // 维修人员姓名
+    private String areaId; // 负责区域ID
+    private String skills; // 技能描述
 }
