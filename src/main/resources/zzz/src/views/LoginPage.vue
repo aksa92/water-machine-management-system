@@ -42,7 +42,8 @@ const handleLogin = async () => {
         username: result.data.username,
         userType: result.data.userType,
         userId: result.data.userId,
-        repairmanId: result.data.userId
+        repairmanId: result.data.userId,
+        areaId: result.data.areaId
       }, result.data.token);
 
       // 保存到本地存储
@@ -51,6 +52,7 @@ const handleLogin = async () => {
       localStorage.setItem('username', result.data.username);
       localStorage.setItem('userType', result.data.userType);
       localStorage.setItem('repairmanId', result.data.userId);
+      localStorage.setItem('areaId', result.data.areaId);
 
       alert('登录成功！');
       router.push('/home');

@@ -481,12 +481,18 @@ const loadOrderDetail = async (orderId) => {
       currentOrder.value = order
     } else {
       // 如果在我的工单中找不到，则尝试从可抢工单中查找
-      const availableRes = await workOrderService.getAvailableOrders('A') // 这里应该使用实际区域
-      const availableOrder = availableRes.data.find(o => o.orderId === orderId)
-      if (availableOrder) {
-        currentOrder.value = availableOrder
+      // 使用存储的 areaId 而不是默认值 'A'
+      const areaId = authStore.getAreaId
+      if (areaId) {
+        const availableRes = await workOrderService.getAvailableOrders(areaId)
+        const availableOrder = availableRes.data.find(o => o.orderId === orderId)
+        if (availableOrder) {
+          currentOrder.value = availableOrder
+        } else {
+          throw new Error('工单不存在')
+        }
       } else {
-        throw new Error('工单不存在')
+        throw new Error('未找到区域ID，无法获取工单信息')
       }
     }
   } catch (error) {
@@ -497,6 +503,7 @@ const loadOrderDetail = async (orderId) => {
     loading.value = false
   }
 }
+
 
 onMounted(() => {
   const orderId = route.params.id

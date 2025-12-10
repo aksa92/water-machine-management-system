@@ -281,9 +281,14 @@ const loadOrders = async () => {
     )
 
     // 获取可抢工单
-    // 注意：这里需要根据维修人员所在区域获取，暂时使用默认值
-    const available = await workOrderService.getAvailableOrders('A')
-    availableOrders.value = available.data || []
+    const areaId = authStore.getAreaId // 从认证存储中获取 areaId
+    if (areaId) {
+      const available = await workOrderService.getAvailableOrders(areaId)
+      availableOrders.value = available.data || []
+    } else {
+      console.warn('未找到区域ID，无法获取可抢工单')
+      availableOrders.value = []
+    }
   } catch (error) {
     console.error('加载工单失败:', error)
     alert('加载工单失败: ' + (error.message || '未知错误'))
@@ -291,6 +296,7 @@ const loadOrders = async () => {
     loading.value = false
   }
 }
+
 
 // 初始化时加载数据
 onMounted(() => {
