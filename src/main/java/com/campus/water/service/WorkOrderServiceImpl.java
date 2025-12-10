@@ -18,6 +18,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
     private final WorkOrderRepository workOrderRepository;
     private final RepairmanRepository repairmanRepository;
 
+
     /**
      * 维修人员抢单功能
      * 业务规则：仅允许抢"待处理"状态的工单，且维修人员需处于"空闲"状态
@@ -181,7 +182,13 @@ public class WorkOrderServiceImpl implements WorkOrderService {
      */
     @Override
     public List<WorkOrder> getAvailableOrders(String areaId) {
-        return workOrderRepository.findByAreaIdAndStatus(areaId, WorkOrder.OrderStatus.pending);
+        if (areaId == null || areaId.trim().isEmpty()) {
+            // 管理员：查所有区域的待处理工单
+            return workOrderRepository.findByStatus(WorkOrder.OrderStatus.pending);
+        } else {
+            // 维修人员：查指定区域的待处理工单
+            return workOrderRepository.findByAreaIdAndStatus(areaId, WorkOrder.OrderStatus.pending);
+        }
     }
 
     /**
