@@ -1,4 +1,3 @@
-<!-- src/views/workorder/Pending.vue -->
 <template>
   <div class="order-to-claim-page">
     <!-- 页面标题和面包屑 -->
@@ -12,12 +11,12 @@
       <!-- 工单号/设备ID搜索 -->
       <div class="filter-item search-item">
         <label>搜索：</label>
-        <input 
-          type="text" 
-          v-model="searchKeyword" 
-          class="search-input"
-          placeholder="输入工单号或设备ID搜索"
-          @input="handleSearch"
+        <input
+            type="text"
+            v-model="searchKeyword"
+            class="search-input"
+            placeholder="输入工单号或设备ID搜索"
+            @input="handleSearch"
         >
       </div>
 
@@ -34,11 +33,11 @@
       <!-- 日期筛选 -->
       <div class="filter-item">
         <label>创建日期：</label>
-        <input 
-          type="date" 
-          v-model="filterForm.createDate" 
-          class="filter-input"
-          @change="handleFilter"
+        <input
+            type="date"
+            v-model="filterForm.createDate"
+            class="filter-input"
+            @change="handleFilter"
         >
       </div>
 
@@ -50,60 +49,62 @@
     <div class="card">
       <table class="order-table">
         <thead>
-          <tr>
-            <th>工单号</th>
-            <th>设备</th>
-            <th>片区</th>
-            <th>问题描述</th>
-            <th>状态</th>
-            <th>创建时间</th>
-            <th>操作</th>
-          </tr>
+        <tr>
+          <th>工单号</th>
+          <th>设备</th>
+          <th>片区</th>
+          <th>问题描述</th>
+          <th>状态</th>
+          <th>创建时间</th>
+          <th>操作</th>
+        </tr>
         </thead>
         <tbody>
-          <tr v-for="order in filteredOrders" :key="order.id">
-            <td>{{ order.orderNo }}</td>
-            <td>
-              <div class="device-info">
-                <div class="device-type">{{ order.deviceType }}</div>
-                <div class="device-id">{{ order.deviceId }}</div>
-              </div>
-            </td>
-            <td>{{ order.area }}</td>
-            <td class="desc-cell">{{ order.problemDesc }}</td>
-            <td>
+        <tr v-for="order in paginatedOrders" :key="order.id">
+          <td>{{ order.orderNo }}</td>
+          <td>
+            <div class="device-info">
+              <div class="device-type">{{ order.deviceType }}</div>
+              <div class="device-id">{{ order.deviceId }}</div>
+            </div>
+          </td>
+          <td>{{ order.area }}</td>
+          <td class="desc-cell">{{ order.problemDesc }}</td>
+          <td>
               <span :class="`status-tag ${order.status}`">
                 {{ formatStatus(order.status) }}
               </span>
-            </td>
-            <td>{{ order.createTime }}</td>
-            <td class="operation-buttons">
-              <button class="btn-view" @click="viewOrderDetail(order)">查看详情</button>
-            </td>
-          </tr>
-          <tr v-if="filteredOrders.length === 0">
-            <td colspan="7" class="no-data">暂无待抢单工单</td>
-          </tr>
+          </td>
+          <td>{{ order.createTime }}</td>
+          <td class="operation-buttons">
+            <button class="btn-view" @click="viewOrderDetail(order)">查看详情</button>
+          </td>
+        </tr>
+        <tr v-if="filteredOrders.length === 0">
+          <td colspan="7" class="no-data">
+            {{ loading ? '正在加载数据...' : '暂无待抢单工单' }}
+          </td>
+        </tr>
         </tbody>
       </table>
     </div>
 
     <!-- 分页控件 -->
     <div class="pagination">
-      <button 
-        class="page-btn" 
-        :disabled="currentPage === 1"
-        @click="currentPage--"
+      <button
+          class="page-btn"
+          :disabled="currentPage === 1"
+          @click="currentPage--"
       >
         上一页
       </button>
       <span class="page-info">
-        第 {{ currentPage }} 页 / 共 {{ totalPages }} 页
+        第 {{ currentPage }} 页 / 共 {{ totalPages }} 页 (共 {{ filteredOrders.length }} 条记录)
       </span>
-      <button 
-        class="page-btn" 
-        :disabled="currentPage === totalPages"
-        @click="currentPage++"
+      <button
+          class="page-btn"
+          :disabled="currentPage === totalPages"
+          @click="currentPage++"
       >
         下一页
       </button>
@@ -161,12 +162,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import axios from 'axios'
 
-// 工单状态类型
-type OrderStatus = 'pending' | 'processing' | 'completed' | 'cancelled'
+// 工单状态类型 - 与后端实体保持一致
+type OrderStatus = 'pending' | 'grabbed' | 'processing' | 'completed' | 'closed' | 'timeout'
 
-// 工单数据接口（扩展了位置和最后上传时间字段）
+// 工单数据接口（适配后端WorkOrder实体）
 interface ToClaimOrder {
   id: string
   orderNo: string
@@ -178,64 +180,15 @@ interface ToClaimOrder {
   createTime: string // 创建时间（建单时间）
   lastUploadTime: string // 设备最后上传时间
   location: string // 设备位置
+  description?: string // 详细描述
+  priority?: string // 优先级
 }
 
-// 模拟待抢单工单数据（补充了位置和最后上传时间）
-const orderList: ToClaimOrder[] = [
-  {
-    id: '1',
-    orderNo: 'ORD-20231025-001',
-    deviceType: '制水机',
-    deviceId: 'WM-2023-002',
-    area: '校区',
-    problemDesc: '出水速度慢，水压不足，需要检修水泵',
-    status: 'pending',
-    createTime: '2023-10-25 08:30:15',
-    lastUploadTime: '2023-10-25 08:25:30',
-    location: '教学区A栋一楼大厅'
-  },
-  {
-    id: '2',
-    orderNo: 'ORD-20231025-002',
-    deviceType: '供水机',
-    deviceId: 'WS-2023-005',
-    area: '市区',
-    problemDesc: '设备显示故障代码E12，无法正常出水',
-    status: 'pending',
-    createTime: '2023-10-25 09:15:22',
-    lastUploadTime: '2023-10-25 09:10:05',
-    location: '市区图书馆二楼北侧'
-  },
-  {
-    id: '3',
-    orderNo: 'ORD-20231025-003',
-    deviceType: '制水机',
-    deviceId: 'WM-2023-003',
-    area: '市区',
-    problemDesc: '滤芯更换提醒，需要更换一级滤芯',
-    status: 'pending',
-    createTime: '2023-10-24 16:40:08',
-    lastUploadTime: '2023-10-24 16:35:22',
-    location: '行政楼一楼大厅'
-  },
-  {
-    id: '4',
-    orderNo: 'ORD-20231025-004',
-    deviceType: '供水机',
-    deviceId: 'WS-2023-004',
-    area: '校区',
-    problemDesc: '设备离线，无法上传数据，检查网络连接',
-    status: 'pending',
-    createTime: '2023-10-25 10:05:11',
-    lastUploadTime: '2023-10-25 09:50:45',
-    location: '学生宿舍3号楼一楼'
-  }
-]
-
 // 响应式数据
-const orders = ref<ToClaimOrder[]>(orderList)
+const orders = ref<ToClaimOrder[]>([])
 const currentPage = ref(1)
 const pageSize = 10 // 每页显示数量
+const loading = ref(false)
 
 // 搜索关键词（工单号/设备ID）
 const searchKeyword = ref('')
@@ -250,15 +203,86 @@ const filterForm = ref({
 const showDetailModal = ref(false)
 const currentOrder = ref<ToClaimOrder | null>(null)
 
-// 格式化状态显示
+// 格式化状态显示 - 适配后端状态枚举
 const formatStatus = (status: OrderStatus): string => {
   const statusMap = {
     pending: '待抢单',
+    grabbed: '已抢单',
     processing: '处理中',
     completed: '已完成',
-    cancelled: '已取消'
+    closed: '已关闭',
+    timeout: '超时未抢'
   }
-  return statusMap[status]
+  return statusMap[status] || status
+}
+
+// 加载待抢单工单数据
+const loadAvailableOrders = async () => {
+  loading.value = true
+  try {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token')
+    if (!token) {
+      console.warn('未登录或缺少令牌')
+         // 在 Pending.vue 的 loadAvailableOrders 方法中添加更多调试信息
+      console.log('Token:', token);
+      console.log('localStorage:', localStorage.getItem('token'));
+      console.log('sessionStorage:', sessionStorage.getItem('token'));
+
+      return
+    }
+
+    // 构建查询参数 - 调用 /available 接口获取可抢工单
+    const params: any = {}
+    if (filterForm.value.area) {
+      params.areaId = filterForm.value.area
+    }
+
+    // 这里假设当前用户已经登录，需要从用户信息中获取片区ID
+    // 如果当前用户是维修人员，使用其所在片区；如果是管理员，可以使用选择的片区
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
+    const areaId = filterForm.value.area || userInfo.areaId || ''
+
+    if (!areaId) {
+      console.warn('未指定片区ID')
+      orders.value = []
+      return
+    }
+
+    const response = await axios.get(`/api/work-orders/available`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      params: {
+        areaId: areaId
+      }
+    })
+
+    if (response.data.code === 200) {
+      // 适配后端返回的数据结构
+      orders.value = response.data.data.map((order: any) => ({
+        id: order.orderId,
+        orderNo: order.orderId,
+        deviceType: '未知设备', // 需要根据deviceId查询设备信息
+        deviceId: order.deviceId,
+        area: order.areaId,
+        problemDesc: order.description || '暂无描述',
+        status: order.status,
+        createTime: order.createdTime ? new Date(order.createdTime).toLocaleString('zh-CN') : '未知时间',
+        lastUploadTime: order.updatedTime ? new Date(order.updatedTime).toLocaleString('zh-CN') : '未知时间',
+        location: '未知位置', // 需要根据deviceId查询设备位置
+        description: order.description,
+        priority: order.priority
+      }))
+    } else {
+      console.error('获取待抢单工单失败:', response.data.msg)
+      alert('获取待抢单工单失败：' + response.data.msg)
+    }
+  } catch (error) {
+    console.error('请求异常:', error)
+    alert('网络错误，请检查网络连接')
+  } finally {
+    loading.value = false
+  }
 }
 
 // 筛选后的工单列表
@@ -266,18 +290,25 @@ const filteredOrders = computed(() => {
   return orders.value.filter(order => {
     // 工单号/设备ID搜索匹配
     const keywordMatch = searchKeyword.value.trim() === '' ||
-      order.orderNo.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
-      order.deviceId.toLowerCase().includes(searchKeyword.value.toLowerCase())
-    
+        order.orderNo.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
+        order.deviceId.toLowerCase().includes(searchKeyword.value.toLowerCase())
+
     // 片区筛选
     const areaMatch = filterForm.value.area === '' || order.area === filterForm.value.area
-    
+
     // 日期筛选（匹配日期部分，忽略时间）
-    const dateMatch = filterForm.value.createDate === '' || 
-      order.createTime.split(' ')[0] === filterForm.value.createDate
-    
+    const dateMatch = filterForm.value.createDate === '' ||
+        order.createTime.split(' ')[0] === filterForm.value.createDate
+
     return keywordMatch && areaMatch && dateMatch
   })
+})
+
+// 分页后的工单列表
+const paginatedOrders = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  const end = start + pageSize
+  return filteredOrders.value.slice(start, end)
 })
 
 // 分页计算
@@ -288,11 +319,14 @@ const totalPages = computed(() => {
 // 处理搜索
 const handleSearch = () => {
   currentPage.value = 1 // 搜索后重置到第一页
+  // 如果需要根据搜索关键词调用后端接口，可以在这里添加
+  // 目前是前端筛选，如果数据量大，建议调用后端搜索接口
 }
 
 // 处理筛选（片区/日期）
 const handleFilter = () => {
   currentPage.value = 1 // 筛选后重置到第一页
+  loadAvailableOrders() // 重新加载数据
 }
 
 // 重置筛选条件
@@ -303,6 +337,7 @@ const resetFilter = () => {
     createDate: ''
   }
   currentPage.value = 1
+  loadAvailableOrders()
 }
 
 // 查看工单详情（打开弹窗）
@@ -316,6 +351,11 @@ const closeDetailModal = () => {
   showDetailModal.value = false
   currentOrder.value = null
 }
+
+// 页面加载时获取数据
+onMounted(() => {
+  loadAvailableOrders()
+})
 </script>
 
 <style scoped>
@@ -453,7 +493,7 @@ const closeDetailModal = () => {
   position: relative;
 }
 
-/* 状态标签样式 */
+/* 状态标签样式 - 适配后端状态 */
 .status-tag {
   display: inline-block;
   padding: 4px 8px;
@@ -467,9 +507,14 @@ const closeDetailModal = () => {
   color: #d48806;
 }
 
-.status-tag.processing {
+.status-tag.grabbed {
   background-color: #e6f7ff;
   color: #1890ff;
+}
+
+.status-tag.processing {
+  background-color: #d6e4ff;
+  color: #1677ff;
 }
 
 .status-tag.completed {
@@ -477,9 +522,14 @@ const closeDetailModal = () => {
   color: #00875a;
 }
 
-.status-tag.cancelled {
+.status-tag.closed {
   background-color: #f5f5f5;
   color: #8c8c8c;
+}
+
+.status-tag.timeout {
+  background-color: #ffebe6;
+  color: #cf1322;
 }
 
 /* 操作按钮样式 */
@@ -634,11 +684,11 @@ const closeDetailModal = () => {
     flex-direction: column;
     align-items: flex-start;
   }
-  
+
   .filter-item {
     width: 100%;
   }
-  
+
   .search-input, .filter-select, .filter-input {
     width: 100%;
   }

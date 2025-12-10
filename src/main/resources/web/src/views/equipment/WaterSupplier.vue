@@ -1,4 +1,3 @@
-<!-- src/views/equipment/WaterSupplier.vue -->
 <template>
   <div class="water-supplier-page">
     <!-- 页面标题和面包屑 -->
@@ -10,22 +9,22 @@
     <!-- 操作按钮区 -->
     <div class="action-bar">
       <button class="btn-add">添加供水机</button>
-      
+
       <div class="filters">
         <!-- 搜索框 -->
         <div class="search-box">
-          <input 
-            type="text" 
-            placeholder="搜索设备ID或位置..." 
+          <input
+            type="text"
+            placeholder="搜索设备ID或位置..."
             v-model="searchKeyword"
             @input="handleSearch"
           >
           <button class="search-btn">搜索</button>
         </div>
-        
+
         <!-- 片区筛选 -->
-        <select 
-          v-model="selectedArea" 
+        <select
+          v-model="selectedArea"
           class="filter-select"
           @change="handleSearch"
         >
@@ -33,10 +32,10 @@
           <option value="市区">市区</option>
           <option value="校区">校区</option>
         </select>
-        
+
         <!-- 状态筛选 -->
-        <select 
-          v-model="selectedStatus" 
+        <select
+          v-model="selectedStatus"
           class="filter-select"
           @change="handleSearch"
         >
@@ -88,8 +87,8 @@
 
     <!-- 分页控件 -->
     <div class="pagination">
-      <button 
-        class="page-btn" 
+      <button
+        class="page-btn"
         :disabled="currentPage === 1"
         @click="currentPage--"
       >
@@ -98,8 +97,8 @@
       <span class="page-info">
         第 {{ currentPage }} 页 / 共 {{ totalPages }} 页
       </span>
-      <button 
-        class="page-btn" 
+      <button
+        class="page-btn"
         :disabled="currentPage === totalPages"
         @click="currentPage++"
       >
@@ -110,8 +109,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { DeviceStatusApi } from '@/api/deviceStatus'
 
 // 设备状态类型定义
 type DeviceStatus = 'online' | 'offline' | 'warning' | 'error'
@@ -125,47 +125,8 @@ interface WaterSupplierDevice {
   lastUploadTime: string
 }
 
-// 模拟供水机设备数据
-const waterSupplierDevices: WaterSupplierDevice[] = [
-  {
-    id: 'WS-2023-001',
-    area: '市区',
-    location: '行政中心大楼1楼大厅',
-    status: 'online',
-    lastUploadTime: '2023-10-25 10:15:33'
-  },
-  {
-    id: 'WS-2023-002',
-    area: '校区',
-    location: '研究生公寓3号楼一层',
-    status: 'online',
-    lastUploadTime: '2023-10-25 09:30:22'
-  },
-  {
-    id: 'WS-2023-003',
-    area: '市区',
-    location: '科技园区A座大厅',
-    status: 'warning',
-    lastUploadTime: '2023-10-25 08:45:11'
-  },
-  {
-    id: 'WS-2023-004',
-    area: '校区',
-    location: '留学生公寓1楼',
-    status: 'offline',
-    lastUploadTime: '2023-10-24 23:05:47'
-  },
-  {
-    id: 'WS-2023-005',
-    area: '市区',
-    location: '图书馆新馆2楼',
-    status: 'error',
-    lastUploadTime: '2023-10-25 07:20:35'
-  }
-]
-
 // 响应式数据
-const devices = ref<WaterSupplierDevice[]>(waterSupplierDevices)
+const devices = ref<WaterSupplierDevice[]>([])
 const searchKeyword = ref('')
 const selectedArea = ref('') // 片区筛选值
 const selectedStatus = ref('') // 状态筛选值
@@ -173,16 +134,45 @@ const currentPage = ref(1)
 const pageSize = 10 // 每页显示数量
 const router = useRouter()
 
+// 加载供水机列表
+const loadWaterSuppliers = async () => {
+  try {
+    const params = {
+      status: selectedStatus.value,
+      areaId: selectedArea.value,
+      deviceType: 'water_supply' // 供水机类型
+    }
+
+    const response = await DeviceStatusApi.getDevicesByStatus(
+      params.status || 'all',
+      params.areaId,
+      params.deviceType
+    )
+
+    // 转换后端返回的数据格式
+    devices.value = response.data.map((device: any) => ({
+      id: device.deviceId,
+      area: device.areaId,
+      location: device.installLocation,
+      status: device.status,
+      lastUploadTime: device.lastUpdateTime
+    }))
+  } catch (error) {
+    console.error('加载供水机列表失败:', error)
+    alert('获取供水机列表失败，请检查网络连接')
+  }
+}
+
 // 多条件过滤设备数据
 const filteredDevices = computed(() => {
   return devices.value.filter(device => {
     const keywordMatch = searchKeyword.value.trim() === '' ||
       device.id.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
       device.location.toLowerCase().includes(searchKeyword.value.toLowerCase())
-    
+
     const areaMatch = selectedArea.value === '' || device.area === selectedArea.value
     const statusMatch = selectedStatus.value === '' || device.status === selectedStatus.value
-    
+
     return keywordMatch && areaMatch && statusMatch
   })
 })
@@ -205,13 +195,19 @@ const formatStatus = (status: DeviceStatus): string => {
 
 // 搜索处理
 const handleSearch = () => {
-  currentPage.value = 1 // 重置到第一页
+  currentPage.value = 1 // 搜索后重置到第一页
+  loadWaterSuppliers()
 }
 
 // 查看详情
 const viewDevice = (id: string) => {
   router.push(`/home/equipment/water-supplier/${id}`)
 }
+
+// 页面加载时获取数据
+onMounted(() => {
+  loadWaterSuppliers()
+})
 </script>
 
 <style scoped>
@@ -241,7 +237,7 @@ const viewDevice = (id: string) => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
-  flex-wrap: wrap;
+  flex-wrap:wrap;
   gap: 16px;
 }
 
@@ -284,7 +280,7 @@ const viewDevice = (id: string) => {
   border: none;
   padding: 8px 16px;
   border-radius: 4px;
-  cursor: pointer;
+  cursor:pointer;
 }
 
 .filter-select {
@@ -297,7 +293,7 @@ const viewDevice = (id: string) => {
 
 .equipment-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse:collapse;
 }
 
 .equipment-table th,
@@ -355,8 +351,8 @@ const viewDevice = (id: string) => {
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 12px;
-  cursor: pointer;
-  border: none;
+  cursor:pointer;
+  border:none;
   transition: opacity 0.3s;
 }
 
@@ -390,7 +386,7 @@ const viewDevice = (id: string) => {
   border: 1px solid #ddd;
   background: white;
   border-radius: 4px;
-  cursor: pointer;
+  cursor:pointer;
 }
 
 .page-btn:disabled {
@@ -399,12 +395,12 @@ const viewDevice = (id: string) => {
 }
 
 /* 响应式调整 */
-@media (max-width: 768px) {
+@media (max-width:  768px) {
   .filters {
     flex-direction: column;
     width: 100%;
   }
-  
+
   .search-box, .filter-select {
     width: 100%;
   }

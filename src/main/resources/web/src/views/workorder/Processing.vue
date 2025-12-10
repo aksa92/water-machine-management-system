@@ -1,4 +1,3 @@
-<!-- src/views/workorder/Processing.vue -->
 <template>
   <div class="order-processing-page">
     <!-- 页面标题和面包屑 -->
@@ -12,9 +11,9 @@
       <!-- 工单号/设备ID搜索 -->
       <div class="filter-item search-item">
         <label>搜索：</label>
-        <input 
-          type="text" 
-          v-model="searchKeyword" 
+        <input
+          type="text"
+          v-model="searchKeyword"
           class="search-input"
           placeholder="输入工单号或设备ID搜索"
           @input="handleSearch"
@@ -34,9 +33,9 @@
       <!-- 日期筛选 -->
       <div class="filter-item">
         <label>创建日期：</label>
-        <input 
-          type="date" 
-          v-model="filterForm.createDate" 
+        <input
+          type="date"
+          v-model="filterForm.createDate"
           class="filter-input"
           @change="handleFilter"
         >
@@ -46,7 +45,7 @@
       <button class="btn-reset" @click="resetFilter">重置筛选</button>
     </div>
 
-    <!-- 工单表格 -->
+    <!-- 工表格 -->
     <div class="card">
       <table class="order-table">
         <thead>
@@ -90,8 +89,8 @@
 
     <!-- 分页控件 -->
     <div class="pagination">
-      <button 
-        class="page-btn" 
+      <button
+        class="page-btn"
         :disabled="currentPage === 1"
         @click="currentPage--"
       >
@@ -100,8 +99,8 @@
       <span class="page-info">
         第 {{ currentPage }} 页 / 共 {{ totalPages }} 页
       </span>
-      <button 
-        class="page-btn" 
+      <button
+        class="page-btn"
         :disabled="currentPage === totalPages"
         @click="currentPage++"
       >
@@ -169,8 +168,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
 
 // 工单状态类型
 type OrderStatus = 'timeout' | 'pending' | 'processing' | 'reviewing' | 'completed'
@@ -183,7 +183,7 @@ interface ProcessingOrder {
   deviceId: string // 设备ID
   area: string // 所属片区
   problemDesc: string // 问题描述（警告内容）
-  status: OrderStatus // 工单状态
+  status: OrderStatus // 工单state
   createTime: string // 创建时间（建单时间）
   lastUploadTime: string // 设备最后上传时间
   location: string // 设备位置
@@ -191,42 +191,10 @@ interface ProcessingOrder {
   maintenancePhone: string // 接单师傅电话
 }
 
-// 模拟处理中工单数据（补充完整信息）
-const orderList: ProcessingOrder[] = [
-  {
-    id: '9',
-    orderNo: 'ORD-20231025-007',
-    deviceType: '制水机',
-    deviceId: 'WM-2023-003',
-    area: '市区',
-    problemDesc: '正在更换一级滤芯，预计1小时内完成',
-    status: 'processing',
-    createTime: '2023-10-25 15:10:08',
-    lastUploadTime: '2023-10-25 15:45:22',
-    location: '市区商业广场B区3号柜位',
-    maintenanceName: '李师傅',
-    maintenancePhone: '13800138000'
-  },
-  {
-    id: '10',
-    orderNo: 'ORD-20231025-008',
-    deviceType: '供水机',
-    deviceId: 'WS-2023-004',
-    area: '校区',
-    problemDesc: '正在检查网络连接，设备离线问题排查中',
-    status: 'processing',
-    createTime: '2023-10-25 16:05:11',
-    lastUploadTime: '2023-10-25 13:30:05',
-    location: '校区图书馆2楼大厅',
-    maintenanceName: '王师傅',
-    maintenancePhone: '13900139000'
-  }
-]
-
 // 响应式数据
-const orders = ref<ProcessingOrder[]>(orderList)
+const orders = ref<ProcessingOrder[]>([])
 const currentPage = ref(1)
-const pageSize = 10 // 每页显示数量
+const pageSize = 10 // 每显示数量
 const router = useRouter()
 
 // 搜索关键词（工单号/设备ID）
@@ -242,7 +210,7 @@ const filterForm = ref({
 const showDetailModal = ref(false)
 const currentOrder = ref<ProcessingOrder | null>(null)
 
-// 格式化状态显示
+// 格式化state显示
 const formatStatus = (status: OrderStatus): string => {
   const statusMap = {
     timeout: '超时未抢',
@@ -254,6 +222,59 @@ const formatStatus = (status: OrderStatus): string => {
   return statusMap[status]
 }
 
+// 加载处理中工单列表
+const loadProcessingOrders = async () => {
+  try {
+    const token = localStorage.getItem('token')
+    if (!token) {
+      console.warn('未登录或缺少令牌')
+      return
+    }
+
+    // 构建查询参数
+    const params = new URLSearchParams()
+    if (filterForm.value.area) {
+      params.append('areaId', filterForm.value.area)
+    }
+
+    // 调用后端接口获取处理中工单
+    const response = await axios.get(`/api/work-orders/my`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      params: {
+        status: 'processing',
+        areaId: filterForm.value.area,
+        startDate: filterForm.value.createDate
+      }
+    })
+
+    if (response.data.code === 200) {
+      // 适配后端返回的数据结构
+      orders.value = response.data.data.map((order: any) => ({
+        id: order.orderId,
+        orderNo: order.orderId,
+        deviceType: order.deviceType,
+        deviceId: order.deviceId,
+        area: order.areaId,
+        problemDesc: order.description,
+        status: order.status,
+        createTime: order.createdTime,
+        lastUploadTime: order.updatedTime,
+        location: order.location || '未知位置',
+        maintenanceName: order.assignedRepairmanName || '未分配',
+        maintenancePhone: order.assignedRepairmanPhone || '未知'
+      }))
+    } else {
+      console.error('获取处理中工单失败:', response.data.msg)
+      alert('获取处理中工单失败：' + response.data.msg)
+    }
+  } catch (error) {
+    console.error('请求异常:', error)
+    alert('网络错误，请检查网络连接')
+  }
+}
+
 // 筛选后的工单列表
 const filteredOrders = computed(() => {
   return orders.value.filter(order => {
@@ -261,14 +282,14 @@ const filteredOrders = computed(() => {
     const keywordMatch = searchKeyword.value.trim() === '' ||
       order.orderNo.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
       order.deviceId.toLowerCase().includes(searchKeyword.value.toLowerCase())
-    
+
     // 片区筛选
     const areaMatch = filterForm.value.area === '' || order.area === filterForm.value.area
-    
+
     // 日期筛选（匹配日期部分，忽略时间）
-    const dateMatch = filterForm.value.createDate === '' || 
+    const dateMatch = filterForm.value.createDate === '' ||
       order.createTime.split(' ')[0] === filterForm.value.createDate
-    
+
     return keywordMatch && areaMatch && dateMatch
   })
 })
@@ -281,11 +302,13 @@ const totalPages = computed(() => {
 // 处理搜索
 const handleSearch = () => {
   currentPage.value = 1 // 搜索后重置到第一页
+  loadProcessingOrders()
 }
 
 // 处理筛选（片区/日期）
 const handleFilter = () => {
   currentPage.value = 1 // 筛选后重置到第一页
+  loadProcessingOrders()
 }
 
 // 重置筛选条件
@@ -296,6 +319,7 @@ const resetFilter = () => {
     createDate: ''
   }
   currentPage.value = 1
+  loadProcessingOrders()
 }
 
 // 查看工单详情（打开弹窗）
@@ -306,6 +330,11 @@ const viewOrderDetail = (id: string) => {
     showDetailModal.value = true
   }
 }
+
+// 页面加载时获取数据
+onMounted(() => {
+  loadProcessingOrders()
+})
 </script>
 
 <style scoped>
@@ -318,33 +347,33 @@ const viewOrderDetail = (id: string) => {
 .page-header h2 { font-size: 24px; font-weight: 600; color: #333; margin-bottom: 8px; }
 .breadcrumb { color: #666; font-size: 14px; }
 .filter-bar { display: flex; align-items: center; gap: 20px; padding: 16px; background-color: #f8f9fa; border-radius: 4px; margin-bottom: 16px; flex-wrap: wrap; }
-.filter-item { display: flex; align-items: center; gap: 8px; }
+.filter-item { display: flex;align-items: center; gap: 8px; }
 .filter-item label { font-size: 14px; color: #4e5969; font-weight: 500; }
 .search-input { padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; min-width: 240px; }
 .filter-select, .filter-input { padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; min-width: 160px; }
-.btn-reset { padding: 8px 16px; border: 1px solid #ddd; background-color: white; border-radius: 4px; cursor: pointer; font-size: 14px; color: #666; transition: all 0.3s; }
+.btn-reset { padding: 8px 16px; border: 1px solid #ddd; background-color: white; border-radius: 4px;cursor: pointer;font-size: 14px;color: #666; transition: all 0.3s; }
 .btn-reset:hover { background-color: #f0f0f0; }
 .order-table { width: 100%; border-collapse: collapse; }
-.order-table th, .order-table td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #f0f0f0; }
-.order-table th { background-color: #f8f9fa; font-weight: 600; color: #4e5969; font-size: 14px; }
-.order-table tbody tr:hover { background-color: #f8f9fa; }
-.device-info { display: flex; flex-direction: column; gap: 4px; }
+order-table th, order-table td { padding: 12px 16px;text-align: left;border-bottom: 1px solid #f0f0f0; }
+order-table th { background-color: #f8f9fa; font-weight: 600; color: #4e5969; font-size: 14px; }
+order-table tbody tr:hover { background-color: #f8f9fa; }
+.device-info { display: flex;flex-direction: column;gap: 4px; }
 .device-type { font-weight: 500; color: #333; }
 .device-id { font-size: 12px; color: #666; }
-.desc-cell { max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
-.desc-cell:hover { white-space: normal; overflow: visible; background-color: white; z-index: 10; position: relative; }
-.status-tag { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+.desc-cell { max-width: 200px;white-space: nowrap;overflow: hidden;text-overflow: ellipsis;cursor:pointer; }
+.desc-cell:hover { white-space: normal; overflow: visible;background-color: white;z-index: 10;position: relative; }
+.status-tag { display: inline-block;padding: 4px 8px;border-radius: 4px;font-size: 12px;font-weight: 500; }
 .status-tag.timeout { background-color: #ffebe6; color: #cf1322; }
 .status-tag.pending { background-color: #fff7e6; color: #d48806; }
 .status-tag.processing { background-color: #e6f7ff; color: #1890ff; }
 .status-tag.reviewing { background-color: #f6f7ff; color: #667eea; }
 .status-tag.completed { background-color: #e6f7ee; color: #00875a; }
-.operation-buttons { display: flex; gap: 8px; }
-.btn-view { padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer; border: none; transition: opacity 0.3s; background-color: #e6f7ff; color: #1890ff; }
+.operation-buttons { display:flex; gap: 8px; }
+.btn-view { padding: 4px 8px; border-radius: 4px;font-size: 12px;cursor:pointer;border:none;transition: opacity 0.3s; background-color: #e6f7ff; color: #1890ff; }
 .btn-view:hover { opacity: 0.9; }
 .no-data { text-align: center; padding: 40px 0; color: #8c8c8c; }
-.pagination { display: flex; justify-content: center; align-items: center; gap: 16px; margin-top: 24px; color: #666; font-size: 14px; }
-.page-btn { padding: 4px 12px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer; }
+.pagination { display:flex;justify-content: center;align-items: center; gap: 16px;margin-top: 24px; color: #666; font-size: 14px; }
+.page-btn { padding: 4px 12px; border: 1px solid #ddd; background: white; border-radius: 4px;cursor:pointer; }
 .page-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* 弹窗样式 */
@@ -355,7 +384,7 @@ const viewOrderDetail = (id: string) => {
   right: 0;
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
+  display:flex;
   justify-content: center;
   align-items: center;
   z-index: 1000;
@@ -372,7 +401,7 @@ const viewOrderDetail = (id: string) => {
 .modal-header {
   padding: 16px 20px;
   border-bottom: 1px solid #eee;
-  display: flex;
+  display:flex;
   justify-content: space-between;
   align-items: center;
 }
@@ -384,10 +413,10 @@ const viewOrderDetail = (id: string) => {
 }
 
 .modal-close {
-  background: none;
-  border: none;
+  background:none;
+  border:none;
   font-size: 20px;
-  cursor: pointer;
+  cursor:pointer;
   color: #999;
   padding: 0;
   line-height: 1;
@@ -403,7 +432,7 @@ const viewOrderDetail = (id: string) => {
 
 .detail-item {
   margin-bottom: 16px;
-  display: flex;
+  display:flex;
   align-items: flex-start;
 }
 
@@ -423,17 +452,17 @@ const viewOrderDetail = (id: string) => {
 .modal-footer {
   padding: 12px 20px;
   border-top: 1px solid #eee;
-  display: flex;
+  display:flex;
   justify-content: flex-end;
 }
 
-.btn-close {
+btn-close {
   padding: 6px 16px;
   background-color: #1890ff;
   color: white;
-  border: none;
+  border:none;
   border-radius: 4px;
-  cursor: pointer;
+  cursor:pointer;
   font-size: 14px;
 }
 
@@ -443,14 +472,14 @@ const viewOrderDetail = (id: string) => {
 
 /* 响应式调整 */
 @media (max-width: 768px) {
-  .filter-bar { flex-direction: column; align-items: flex-start; }
+  .filter-bar { flex-direction: column;align-items: flex-start; }
   .filter-item { width: 100%; }
   .search-input, .filter-select, .filter-input { width: 100%; }
-  
+
   .detail-item {
-    flex-direction: column;
+    flex-direction:column;
   }
-  
+
   .detail-label {
     width: auto;
     margin-bottom: 4px;
