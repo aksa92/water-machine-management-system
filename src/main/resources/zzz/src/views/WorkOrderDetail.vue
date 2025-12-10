@@ -1,3 +1,4 @@
+<!-- src/views/WorkOrderDetail.vue -->
 <template>
   <div class="work-order-detail">
     <!-- 顶部标题栏 -->
@@ -11,34 +12,34 @@
 
     <!-- 主要内容区域 -->
     <div class="main-content">
-      <div class="detail-container">
+      <div class="detail-container" v-if="currentOrder">
         <!-- 工单信息 -->
         <div class="detail-section">
           <div class="section-title">工单信息</div>
           <div class="detail-grid">
             <div class="detail-item">
               <div class="item-label">工单ID</div>
-              <div class="item-value">1001</div>
+              <div class="item-value">{{ currentOrder.orderId }}</div>
             </div>
             <div class="detail-item">
               <div class="item-label">设备ID</div>
-              <div class="item-value">供水机#A105</div>
+              <div class="item-value">{{ currentOrder.deviceId }}</div>
             </div>
             <div class="detail-item">
               <div class="item-label">告警项目</div>
-              <div class="item-value">水位异常</div>
+              <div class="item-value">{{ getOrderTypeName(currentOrder.orderType) }}</div>
             </div>
             <div class="detail-item">
               <div class="item-label">工单类型</div>
-              <div class="item-value">系统报修</div>
+              <div class="item-value">{{ getOrderPriorityName(currentOrder.priority) }}</div>
             </div>
             <div class="detail-item">
               <div class="item-label">上报时间</div>
-              <div class="item-value">2023-10-28 13:20</div>
+              <div class="item-value">{{ formatDate(currentOrder.createdTime) }}</div>
             </div>
             <div class="detail-item">
               <div class="item-label">安装位置</div>
-              <div class="item-value">A区教学楼 2楼走廊</div>
+              <div class="item-value">{{ getOrderLocation(currentOrder.deviceId) }}</div>
             </div>
           </div>
         </div>
@@ -49,11 +50,11 @@
           <div class="alert-content">
             <div class="alert-item">
               <div class="alert-label">告警内容</div>
-              <div class="alert-value">水位低于设定下限值，连续24小时低水位</div>
+              <div class="alert-value">{{ currentOrder.description }}</div>
             </div>
             <div class="alert-item">
               <div class="alert-label">处理建议</div>
-              <div class="alert-value">检查供水系统</div>
+              <div class="alert-value">请根据实际情况进行处理</div>
             </div>
           </div>
         </div>
@@ -64,7 +65,7 @@
           <div class="repair-content">
             <div class="repair-item">
               <div class="repair-label">报修项目</div>
-              <div class="repair-value">更换传感器</div>
+              <div class="repair-value">{{ currentOrder.description }}</div>
             </div>
 
             <!-- 标准维护项目选择 -->
@@ -133,20 +134,20 @@
         </div>
 
         <!-- 根据工单状态显示不同操作区域 -->
-        <div v-if="orderStatus === 'pending'" class="action-buttons">
+        <div v-if="currentOrder.status === 'pending' && !showRepairForm" class="action-buttons">
           <button class="action-btn grab" @click="grabOrder">
             抢单
           </button>
-          <button class="action-btn reject" @click="rejectOrder">
+          <button class="action-btn reject" @click="showRejectModal = true">
             拒单
           </button>
         </div>
 
-        <div v-if="orderStatus === 'processing' && !showRepairForm" class="action-buttons">
+        <div v-if="currentOrder.status === 'processing' && !showRepairForm" class="action-buttons">
           <button class="action-btn process" @click="startRepair">
             开始维修
           </button>
-          <button class="action-btn complete" @click="completeWithoutRepair">
+          <button class="action-btn complete" @click="showCompleteConfirm = true">
             直接完成
           </button>
         </div>
@@ -161,6 +162,30 @@
         </div>
       </div>
 
+      <!-- 拒单弹窗 -->
+      <div v-if="showRejectModal" class="confirm-modal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <div class="modal-title">拒单</div>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label class="form-label">拒单原因</label>
+              <textarea
+                v-model="rejectReason"
+                class="form-textarea"
+                placeholder="请输入拒单原因..."
+                rows="3"
+              ></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="modal-btn cancel" @click="showRejectModal = false">取消</button>
+            <button class="modal-btn confirm" @click="rejectOrder">确定</button>
+          </div>
+        </div>
+      </div>
+
       <!-- 维修完成确认弹窗 -->
       <div v-if="showCompleteConfirm" class="confirm-modal">
         <div class="modal-content">
@@ -171,7 +196,7 @@
             <div class="modal-message">确定直接完成此工单吗？此操作将跳过维修记录填写。</div>
           </div>
           <div class="modal-footer">
-            <button class="modal-btn cancel" @click="cancelComplete">取消</button>
+            <button class="modal-btn cancel" @click="showCompleteConfirm = false">取消</button>
             <button class="modal-btn confirm" @click="confirmComplete">确定</button>
           </div>
         </div>
@@ -188,6 +213,11 @@
           </button>
         </div>
       </div>
+
+      <!-- 加载状态 -->
+      <div v-if="loading" class="loading">
+        加载中...
+      </div>
     </div>
 
     <!-- 底部导航栏 -->
@@ -203,21 +233,29 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { useDeviceStore } from '@/stores/device'
+import { workOrderService } from '@/services/workOrderService'
 
 const router = useRouter()
 const route = useRoute()
+const authStore = useAuthStore()
+const deviceStore = useDeviceStore()
 
-// 从路由参数获取工单状态
-const orderStatus = ref(route.query.status || 'pending')
+// 状态
+const loading = ref(false)
+const currentOrder = ref(null)
 const showRepairForm = ref(false)
 const submitting = ref(false)
 const showSuccessModal = ref(false)
 const showCompleteConfirm = ref(false)
+const showRejectModal = ref(false)
 
 // 表单数据
 const selectedStandardItem = ref('')
 const selectedActualItem = ref('')
 const repairNotes = ref('')
+const rejectReason = ref('')
 const uploadedPhotos = ref([])
 const fileInput = ref(null)
 
@@ -244,17 +282,43 @@ const goToProfile = () => {
 }
 
 // 抢单
-const grabOrder = () => {
-  console.log('抢单')
-  showRepairForm.value = true
-  orderStatus.value = 'processing'
+const grabOrder = async () => {
+  try {
+    const repairmanId = authStore.getRepairmanId
+    await workOrderService.grabOrder(currentOrder.value.orderId, repairmanId)
+
+    // 更新本地状态
+    currentOrder.value.status = 'processing'
+    showRepairForm.value = true
+
+    alert('抢单成功')
+  } catch (error) {
+    console.error('抢单失败:', error)
+    alert('抢单失败: ' + (error.message || '未知错误'))
+  }
 }
 
 // 拒单
-const rejectOrder = () => {
-  if (confirm('确定要拒单吗？')) {
-    console.log('拒单')
+const rejectOrder = async () => {
+  if (!rejectReason.value.trim()) {
+    alert('请输入拒单原因')
+    return
+  }
+
+  try {
+    const repairmanId = authStore.getRepairmanId
+    await workOrderService.rejectOrder(
+      currentOrder.value.orderId,
+      repairmanId,
+      rejectReason.value
+    )
+
+    showRejectModal.value = false
+    alert('拒单成功')
     router.push('/work-orders')
+  } catch (error) {
+    console.error('拒单失败:', error)
+    alert('拒单失败: ' + (error.message || '未知错误'))
   }
 }
 
@@ -264,34 +328,22 @@ const startRepair = () => {
 }
 
 // 直接完成工单
-const completeWithoutRepair = () => {
-  showCompleteConfirm.value = true
-}
-
-// 确认直接完成
 const confirmComplete = async () => {
   try {
-    console.log('直接完成工单')
+    const repairmanId = authStore.getRepairmanId
+    await workOrderService.submitRepairResult(
+      currentOrder.value.orderId,
+      repairmanId,
+      '直接完成工单'
+    )
 
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    alert('工单已完成')
     showCompleteConfirm.value = false
-    // 返回工单列表，切换到历史标签
-    router.push({
-      path: '/work-orders',
-      query: { tab: 'history' }
-    })
+    alert('工单已完成')
+    router.push('/work-orders')
   } catch (error) {
     console.error('完成失败:', error)
-    alert('操作失败，请重试')
+    alert('操作失败: ' + (error.message || '未知错误'))
   }
-}
-
-// 取消直接完成
-const cancelComplete = () => {
-  showCompleteConfirm.value = false
 }
 
 // 取消维修
@@ -317,22 +369,20 @@ const submitRepair = async () => {
   submitting.value = true
 
   try {
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 1500))
-
-    console.log('提交维修结果:', {
-      standardItem: selectedStandardItem.value,
-      actualItem: selectedActualItem.value,
-      notes: repairNotes.value,
-      photos: uploadedPhotos.value.length
-    })
+    const repairmanId = authStore.getRepairmanId
+    // 注意：这里简化了图片上传逻辑，实际应用中需要上传图片并获取URL
+    await workOrderService.submitRepairResult(
+      currentOrder.value.orderId,
+      repairmanId,
+      repairNotes.value,
+      null // 图片URL，实际应用中需要处理
+    )
 
     // 显示成功弹窗
     showSuccessModal.value = true
-
   } catch (error) {
     console.error('提交失败:', error)
-    alert('提交失败，请重试')
+    alert('提交失败: ' + (error.message || '未知错误'))
   } finally {
     submitting.value = false
   }
@@ -341,11 +391,7 @@ const submitRepair = async () => {
 // 关闭成功弹窗
 const closeSuccessModal = () => {
   showSuccessModal.value = false
-  // 返回工单列表，切换到历史标签
-  router.push({
-    path: '/work-orders',
-    query: { tab: 'history' }
-  })
+  router.push('/work-orders')
 }
 
 // 照片上传
@@ -385,16 +431,90 @@ const resetForm = () => {
 
 // 根据工单状态显示标题
 const pageTitle = computed(() => {
-  return orderStatus.value === 'processing' ? '处理工单' : '工单详情'
+  if (!currentOrder.value) return '工单详情'
+  return currentOrder.value.status === 'processing' ? '处理工单' : '工单详情'
 })
+
+// 获取订单类型名称
+const getOrderTypeName = (type) => {
+  const types = {
+    repair: '维修',
+    maintenance: '保养',
+    inspection: '巡检'
+  }
+  return types[type] || type
+}
+
+// 获取优先级名称
+const getOrderPriorityName = (priority) => {
+  const priorities = {
+    low: '低',
+    medium: '中',
+    high: '高',
+    urgent: '紧急'
+  }
+  return priorities[priority] || priority
+}
+
+// 获取订单位置信息
+const getOrderLocation = (deviceId) => {
+  const device = deviceStore.getWaterSupplierById(deviceId)
+  return device ? device.location : '未知位置'
+}
+
+// 格式化日期显示
+const formatDate = (dateStr) => {
+  if (!dateStr) return '未知时间'
+  return new Date(dateStr).toLocaleString('zh-CN')
+}
+
+// 加载工单详情
+const loadOrderDetail = async (orderId) => {
+  loading.value = true
+  try {
+    // 在实际应用中，这里应该调用获取单个工单详情的API
+    // 目前我们模拟从工单列表中找到对应工单
+    const myOrdersRes = await workOrderService.getMyOrders(authStore.getRepairmanId)
+    const order = myOrdersRes.data.find(o => o.orderId === orderId)
+
+    if (order) {
+      currentOrder.value = order
+    } else {
+      // 如果在我的工单中找不到，则尝试从可抢工单中查找
+      // 使用存储的 areaId 而不是默认值 'A'
+      const areaId = authStore.getAreaId
+      if (areaId) {
+        const availableRes = await workOrderService.getAvailableOrders(areaId)
+        const availableOrder = availableRes.data.find(o => o.orderId === orderId)
+        if (availableOrder) {
+          currentOrder.value = availableOrder
+        } else {
+          throw new Error('工单不存在')
+        }
+      } else {
+        throw new Error('未找到区域ID，无法获取工单信息')
+      }
+    }
+  } catch (error) {
+    console.error('加载工单详情失败:', error)
+    alert('加载工单详情失败: ' + (error.message || '未知错误'))
+    router.push('/work-orders')
+  } finally {
+    loading.value = false
+  }
+}
+
 
 onMounted(() => {
   const orderId = route.params.id
-  const status = route.query.status
-
-  console.log('加载工单详情，工单ID:', orderId, '状态:', status)
+  if (orderId) {
+    loadOrderDetail(orderId)
+  } else {
+    router.push('/work-orders')
+  }
 })
 </script>
+
 
 <style scoped>
 .work-order-detail {
@@ -926,6 +1046,13 @@ onMounted(() => {
 }
 
 .nav-item:hover {
+  color: #1890ff;
+}
+
+/* 添加加载状态样式 */
+.loading {
+  text-align: center;
+  padding: 20px;
   color: #1890ff;
 }
 </style>

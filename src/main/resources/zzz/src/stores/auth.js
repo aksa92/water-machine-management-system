@@ -35,11 +35,15 @@ export const useAuthStore = defineStore('auth', () => {
     return user.value?.userType || localStorage.getItem('userType')
   })
 
- // 获取维修人员ID
-const getRepairmanId = computed(() => {
-  return user.value?.userId || localStorage.getItem('userId') // 使用userId而不是repairmanId
-})
+  // 获取维修人员ID
+  const getRepairmanId = computed(() => {
+    return user.value?.userId || localStorage.getItem('userId') // 使用userId而不是repairmanId
+  })
 
+  // 获取区域ID
+  const getAreaId = computed(() => {
+    return user.value?.areaId || localStorage.getItem('areaId')
+  })
 
   // 登出
   const logout = () => {
@@ -53,6 +57,7 @@ const getRepairmanId = computed(() => {
     localStorage.removeItem('repairmanId')
     localStorage.removeItem('userId')
     localStorage.removeItem('username')
+    localStorage.removeItem('areaId') // 移除 areaId
 
     // 跳转到登录页
     router.push('/')
@@ -75,6 +80,7 @@ const getRepairmanId = computed(() => {
     isAuthenticated,
     getUserType,
     getRepairmanId,
+    getAreaId, // 导出 getAreaId
     login,
     logout,
     getUserInfo,
