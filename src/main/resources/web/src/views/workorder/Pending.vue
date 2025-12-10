@@ -220,16 +220,21 @@ const formatStatus = (status: OrderStatus): string => {
 const loadAvailableOrders = async () => {
   loading.value = true
   try {
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token')
     if (!token) {
       console.warn('未登录或缺少令牌')
+         // 在 Pending.vue 的 loadAvailableOrders 方法中添加更多调试信息
+      console.log('Token:', token);
+      console.log('localStorage:', localStorage.getItem('token'));
+      console.log('sessionStorage:', sessionStorage.getItem('token'));
+
       return
     }
 
     // 构建查询参数 - 调用 /available 接口获取可抢工单
-    const params = new URLSearchParams()
+    const params: any = {}
     if (filterForm.value.area) {
-      params.append('areaId', filterForm.value.area)
+      params.areaId = filterForm.value.area
     }
 
     // 这里假设当前用户已经登录，需要从用户信息中获取片区ID

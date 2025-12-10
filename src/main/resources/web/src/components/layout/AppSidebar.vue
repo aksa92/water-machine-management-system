@@ -75,7 +75,7 @@ const menuItems: MenuItem[] = [
     id: 4, 
     name: '人员管理', 
     icon: '👥',
-    route: '/home/personnel', // 添加一个默认路由
+    route: '/home/personnel/admin', // 添加一个默认路由
     children: [
       { name: '管理员', route: '/home/personnel/admin' },
       { name: '维修人员', route: '/home/personnel/maintenance' },
