@@ -6,11 +6,19 @@ export async function request<T>(
     url: string,
     options: RequestInit = {}
 ): Promise<T> {
-    console.log(`🌐 发送请求: ${API_BASE_URL}${url}`, {
-        method: options.method || 'GET',
+    // 处理日志数据，GET/HEAD 方法不显示 body
+    const method = options.method?.toUpperCase() || 'GET';
+    const logData: Record<string, any> = {
+        method,
         headers: options.headers,
-        body: options.body ? JSON.parse(options.body as string) : undefined,
-    })
+    };
+
+    // 只对非 GET/HEAD 方法显示 body
+    if (!['GET', 'HEAD'].includes(method)) {
+        logData.body = options.body ? JSON.parse(options.body as string) : undefined;
+    }
+
+    console.log(`🌐 发送请求: ${API_BASE_URL}${url}`, logData)
 
     const defaultOptions: RequestInit = {
         headers: {
@@ -39,10 +47,13 @@ export async function request<T>(
     }
 
     try {
-        const response = await fetch(`${API_BASE_URL}${url}`, {
-            ...defaultOptions,
-            ...options,
-        })
+        // 确保 GET/HEAD 请求不包含 body
+        const fetchOptions = { ...defaultOptions, ...options };
+        if (['GET', 'HEAD'].includes(method)) {
+            delete fetchOptions.body;
+        }
+
+        const response = await fetch(`${API_BASE_URL}${url}`, fetchOptions)
 
         console.log('📥 响应状态:', response.status, response.statusText)
 
