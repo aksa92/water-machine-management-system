@@ -19,8 +19,12 @@ export const authServices = {
       const requestData = {
         username: registerData.username,
         password: registerData.password,
-        userType: 'repairman',  // 固定为repairma 类型
-        repairmanId: registerData.repairmanId
+        userType: 'repairman',
+        repairmanId: registerData.repairmanId,
+        repairmanName: registerData.repairmanName,
+        phone: registerData.phone,
+        areaId: registerData.areaId,
+        skills: registerData.skills
       }
 
       console.log('发送注册请求:', requestData)
@@ -30,7 +34,7 @@ export const authServices = {
 
       console.log('注册响应:', response.data)
       return response.data
-    } catch (error) {
+    } catch (error)  {
       console.error('注册失败:', error)
 
       // 返回标准化的错误格式
