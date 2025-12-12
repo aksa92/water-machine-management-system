@@ -21,4 +21,10 @@ public interface RepairmanRepository extends JpaRepository<Repairman, String> {
 
     // 查询评分高于阈值的维修人员
     List<Repairman> findByRatingGreaterThanEqual(Double minRating);
+
+    // 新增姓名相关查询方法
+    List<Repairman> findByRepairmanNameContaining(String name);
+    List<Repairman> findByRepairmanNameContainingAndAreaId(String name, String areaId);
+    List<Repairman> findByRepairmanNameContainingAndStatus(String name, Repairman.RepairmanStatus status);
+    List<Repairman> findByRepairmanNameContainingAndAreaIdAndStatus(String name, String areaId, Repairman.RepairmanStatus status);
 }
