@@ -10,11 +10,11 @@
     <!-- 操作按钮区 -->
     <div class="action-bar">
       <button class="btn-add" @click="handleAddMaintenance">新增维修人员</button>
-      
+
       <div class="search-box">
-        <input 
-          type="text" 
-          placeholder="搜索姓名或账号..." 
+        <input
+          type="text"
+          placeholder="搜索姓名..."
           v-model="searchKeyword"
           @input="handleSearch"
         >
@@ -28,7 +28,6 @@
         <thead>
           <tr>
             <th>姓名</th>
-            <th>账号</th>
             <th>联系电话</th>
             <th>维修片区</th>
             <th>状态</th>
@@ -36,40 +35,32 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="staff in filteredStaff" :key="staff.id">
-            <td>{{ staff.name }}</td>
-            <td>{{ staff.account }}</td>
+          <tr v-for="staff in paginatedStaff" :key="staff.repairmanId">
+            <td>{{ staff.repairmanName }}</td>
             <td>{{ staff.phone }}</td>
-            <td>{{ staff.area }}</td>
+            <td>{{ staff.areaId }}</td>
             <td>
               <span :class="`status-tag ${staff.status}`">
-                {{ staff.status === 'active' ? '启用' : '禁用' }}
+                {{ getStatusText(staff.status) }}
               </span>
             </td>
             <td class="operation-buttons">
-              <button 
-                class="btn-view" 
-                @click="handleViewRecords(staff.id)"
+              <button
+                class="btn-view"
+                @click="handleViewRecords(staff.repairmanId)"
               >
                 查看维修记录
               </button>
-              <button 
-                class="btn-edit" 
-                @click="handleEdit(staff.id)"
+              <button
+                class="btn-edit"
+                @click="handleEdit(staff.repairmanId)"
               >
                 编辑
               </button>
-              <button 
-                class="btn-status" 
-                :class="staff.status === 'active' ? 'btn-disable' : 'btn-enable'"
-                @click="handleStatusChange(staff.id, staff.status)"
-              >
-                {{ staff.status === 'active' ? '禁用' : '启用' }}
-              </button>
             </td>
           </tr>
-          <tr v-if="filteredStaff.length === 0">
-            <td colspan="6" class="no-data">暂无维修人员数据</td>
+          <tr v-if="paginatedStaff.length === 0">
+            <td colspan="5" class="no-data">暂无维修人员数据</td>
           </tr>
         </tbody>
       </table>
@@ -77,8 +68,8 @@
 
     <!-- 分页控件 -->
     <div class="pagination">
-      <button 
-        class="page-btn" 
+      <button
+        class="page-btn"
         :disabled="currentPage === 1"
         @click="currentPage--"
       >
@@ -87,8 +78,8 @@
       <span class="page-info">
         第 {{ currentPage }} 页 / 共 {{ totalPages }} 页
       </span>
-      <button 
-        class="page-btn" 
+      <button
+        class="page-btn"
         :disabled="currentPage === totalPages"
         @click="currentPage++"
       >
@@ -99,84 +90,118 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-
-// 维修人员状态类型
-type StaffStatus = 'active' | 'disabled'
+import { request } from '@/api/request'
+import { useAuthStore } from '@/stores/auth'
+import type { RepairmanStatus } from '@/api/types/repairman'
 
 // 维修人员数据接口
 interface MaintenanceStaff {
-  id: string
-  name: string
-  account: string
+  repairmanId: string
+  repairmanName: string
   phone: string
-  area: string
-  status: StaffStatus
+  areaId: string
+  status: RepairmanStatus
 }
 
-// 模拟维修人员数据
-const staffList: MaintenanceStaff[] = [
-  {
-    id: '1',
-    name: '赵六',
-    account: 'repair01',
-    phone: '13500135000',
-    area: '市区',
-    status: 'active'
-  },
-  {
-    id: '2',
-    name: '孙七',
-    account: 'repair02',
-    phone: '13600136000',
-    area: '校区',
-    status: 'active'
-  },
-  {
-    id: '3',
-    name: '周八',
-    account: 'repair03',
-    phone: '13400134000',
-    area: '市区',
-    status: 'disabled'
-  }
-]
+const authStore = useAuthStore()
+const router = useRouter()
 
 // 响应式数据
-const staff = ref<MaintenanceStaff[]>(staffList)
+const staffList = ref<MaintenanceStaff[]>([])
 const searchKeyword = ref('')
 const currentPage = ref(1)
 const pageSize = 10 // 每页显示数量
-const router = useRouter()
+const loading = ref(false)
+
+// 获取维修人员列表
+const fetchMaintenanceStaff = async () => {
+  loading.value = true
+  try {
+    // 检查是否有token
+    if (!authStore.token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
+    }
+
+    // 构建查询参数
+    const params = new URLSearchParams()
+    if (searchKeyword.value.trim()) {
+      params.append('name', searchKeyword.value.trim())
+    }
+
+    // 使用封装的request工具发送请求
+    const response = await request<{
+      code: number
+      msg: string
+      data: MaintenanceStaff[]
+    }>(`/api/web/repairman/list?${params.toString()}`, {
+      method: 'GET'
+    })
+
+    // 处理响应
+    if (response.code === 200) {
+      staffList.value = response.data || []
+    } else {
+      const errorMsg = response.msg || `获取失败（错误码：${response.code}）`
+      console.error('获取维修人员列表失败:', errorMsg)
+      alert(`获取维修人员列表失败：${errorMsg}`)
+    }
+  } catch (error: any) {
+    console.error('请求异常:', error)
+    const errorMsg = error.message.includes('401')
+        ? '登录已过期，请重新登录'
+        : error.message.includes('Network')
+            ? '网络连接失败，请检查网络'
+            : error.message || '获取数据失败，请稍后重试'
+    alert(`获取维修人员列表失败：${errorMsg}`)
+
+    // Token 无效时跳转登录页
+    if (error.message.includes('401')) {
+      authStore.logout()
+      router.push('/login')
+    }
+  } finally {
+    loading.value = false
+  }
+}
 
 // 筛选后的维修人员列表
 const filteredStaff = computed(() => {
-  return staff.value.filter(person => {
+  return staffList.value.filter(person => {
     const keywordMatch = searchKeyword.value.trim() === '' ||
-      person.name.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
-      person.account.toLowerCase().includes(searchKeyword.value.toLowerCase())
+      person.repairmanName.toLowerCase().includes(searchKeyword.value.toLowerCase())
     return keywordMatch
   })
 })
 
 // 分页计算
+const paginatedStaff = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  const end = start + pageSize
+  return filteredStaff.value.slice(start, end)
+})
+
 const totalPages = computed(() => {
   return Math.ceil(filteredStaff.value.length / pageSize)
 })
 
 // 搜索处理
 const handleSearch = () => {
-  currentPage.value = 1 // 重置到第一页
+  currentPage.value = 1
+  fetchMaintenanceStaff()
 }
 
-// 状态变更处理
-const handleStatusChange = (id: string, currentStatus: StaffStatus) => {
-  const newStatus: StaffStatus = currentStatus === 'active' ? 'disabled' : 'active'
-  staff.value = staff.value.map(person => 
-    person.id === id ? { ...person, status: newStatus } : person
-  )
-  // 实际项目中这里应该调用API更新状态
+// 获取状态文本
+const getStatusText = (status: RepairmanStatus) => {
+  const statusMap: Record<RepairmanStatus, string> = {
+    'idle': '空闲',
+    'busy': '忙碌',
+    'vacation': '休假'
+  }
+  return statusMap[status] || status
 }
 
 // 编辑处理
@@ -193,6 +218,11 @@ const handleViewRecords = (id: string) => {
 const handleAddMaintenance = () => {
   router.push('/home/personnel/maintenance/add')
 }
+
+// 页面加载时获取数据
+onMounted(() => {
+  fetchMaintenanceStaff()
+})
 </script>
 
 <style scoped>
@@ -292,13 +322,18 @@ const handleAddMaintenance = () => {
   font-weight: 500;
 }
 
-.status-tag.active {
+.status-tag.idle {
   background-color: #e6f7ee;
   color: #00875a;
 }
 
-.status-tag.disabled {
-  background-color: #f5f5f5;
+.status-tag.busy {
+  background-color: #fffbe6;
+  color: #d48806;
+}
+
+.status-tag.vacation {
+  background-color: #f0f0f0;
   color: #8c8c8c;
 }
 
@@ -328,16 +363,6 @@ const handleAddMaintenance = () => {
 .btn-edit {
   background-color: #e6f7ff;
   color: #1890ff;
-}
-
-.btn-enable {
-  background-color: #e6f7ee;
-  color: #00875a;
-}
-
-.btn-disable {
-  background-color: #ffebe6;
-  color: #cf1322;
 }
 
 .no-data {
@@ -375,11 +400,11 @@ const handleAddMaintenance = () => {
     flex-direction: column;
     align-items: flex-start;
   }
-  
+
   .search-box {
     width: 100%;
   }
-  
+
   .search-box input {
     width: 100%;
   }

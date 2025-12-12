@@ -60,7 +60,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="order in filteredOrders" :key="order.id">
+          <tr v-for="order in paginatedOrders" :key="order.id">
             <td>{{ order.orderNo }}</td>
             <td>
               <div class="device-info">
@@ -81,7 +81,7 @@
             </td>
           </tr>
           <tr v-if="filteredOrders.length === 0">
-            <td colspan="7" class="no-data">暂无处理中工单</td>
+            <td colspan="7" class="no-data">{{ loading ? '正在加载数据...' : '暂无处理中工单' }}</td>
           </tr>
         </tbody>
       </table>
@@ -97,7 +97,7 @@
         上一页
       </button>
       <span class="page-info">
-        第 {{ currentPage }} 页 / 共 {{ totalPages }} 页
+        第 {{ currentPage }} 页 / 共 {{ totalPages }} 页 (共 {{ filteredOrders.length }} 条记录)
       </span>
       <button
         class="page-btn"
@@ -109,11 +109,11 @@
     </div>
 
     <!-- 详情弹窗 -->
-    <div v-if="showDetailModal" class="modal-overlay">
-      <div class="modal-container">
+    <div v-if="showDetailModal" class="modal-overlay" @click="closeDetailModal">
+      <div class="modal-container" @click.stop>
         <div class="modal-header">
           <h3>工单详情</h3>
-          <button class="modal-close" @click="showDetailModal = false">×</button>
+          <button class="modal-close" @click="closeDetailModal">×</button>
         </div>
         <div class="modal-body">
           <div class="detail-item">
@@ -160,7 +160,7 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn-close" @click="showDetailModal = false">关闭</button>
+          <button class="btn-close" @click="closeDetailModal">关闭</button>
         </div>
       </div>
     </div>
@@ -170,7 +170,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import { request } from '@/api/request'
+import { useAuthStore } from '@/stores/auth'
 
 // 工单状态类型
 type OrderStatus = 'timeout' | 'pending' | 'processing' | 'reviewing' | 'completed'
@@ -196,6 +197,8 @@ const orders = ref<ProcessingOrder[]>([])
 const currentPage = ref(1)
 const pageSize = 10 // 每显示数量
 const router = useRouter()
+const authStore = useAuthStore()
+const loading = ref(false)
 
 // 搜索关键词（工单号/设备ID）
 const searchKeyword = ref('')
@@ -224,54 +227,64 @@ const formatStatus = (status: OrderStatus): string => {
 
 // 加载处理中工单列表
 const loadProcessingOrders = async () => {
+  loading.value = true
   try {
-    const token = localStorage.getItem('token')
+    const token = authStore.token
     if (!token) {
       console.warn('未登录或缺少令牌')
+      router.push('/login')
       return
     }
 
     // 构建查询参数
     const params = new URLSearchParams()
+    params.append('status', 'processing')
+
     if (filterForm.value.area) {
       params.append('areaId', filterForm.value.area)
     }
 
+    if (filterForm.value.createDate) {
+      params.append('startDate', filterForm.value.createDate)
+    }
+
+    const queryString = params.toString()
+    const url = `/api/work-orders/my${queryString ? `?${queryString}` : ''}`
+
     // 调用后端接口获取处理中工单
-    const response = await axios.get(`/api/work-orders/my`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      },
-      params: {
-        status: 'processing',
-        areaId: filterForm.value.area,
-        startDate: filterForm.value.createDate
-      }
+    const response = await request<{
+      code: number
+      msg: string
+      data: any[]
+    }>(url, {
+      method: 'GET'
     })
 
-    if (response.data.code === 200) {
+    if (response.code === 200) {
       // 适配后端返回的数据结构
-      orders.value = response.data.data.map((order: any) => ({
+      orders.value = response.data.map((order: any) => ({
         id: order.orderId,
         orderNo: order.orderId,
-        deviceType: order.deviceType,
+        deviceType: order.deviceType || '未知设备',
         deviceId: order.deviceId,
         area: order.areaId,
-        problemDesc: order.description,
+        problemDesc: order.description || '暂无描述',
         status: order.status,
-        createTime: order.createdTime,
-        lastUploadTime: order.updatedTime,
+        createTime: order.createdTime ? new Date(order.createdTime).toLocaleString('zh-CN') : '未知时间',
+        lastUploadTime: order.updatedTime ? new Date(order.updatedTime).toLocaleString('zh-CN') : '未知时间',
         location: order.location || '未知位置',
         maintenanceName: order.assignedRepairmanName || '未分配',
         maintenancePhone: order.assignedRepairmanPhone || '未知'
       }))
     } else {
-      console.error('获取处理中工单失败:', response.data.msg)
-      alert('获取处理中工单失败：' + response.data.msg)
+      console.error('获取处理中工单失败:', response.msg)
+      alert('获取处理中工单失败：' + response.msg)
     }
   } catch (error) {
     console.error('请求异常:', error)
     alert('网络错误，请检查网络连接')
+  } finally {
+    loading.value = false
   }
 }
 
@@ -299,10 +312,16 @@ const totalPages = computed(() => {
   return Math.ceil(filteredOrders.value.length / pageSize)
 })
 
+// 分页后的订单列表
+const paginatedOrders = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  const end = start + pageSize
+  return filteredOrders.value.slice(start, end)
+})
+
 // 处理搜索
 const handleSearch = () => {
   currentPage.value = 1 // 搜索后重置到第一页
-  loadProcessingOrders()
 }
 
 // 处理筛选（片区/日期）
@@ -331,6 +350,12 @@ const viewOrderDetail = (id: string) => {
   }
 }
 
+// 关闭详情弹窗
+const closeDetailModal = () => {
+  showDetailModal.value = false
+  currentOrder.value = null
+}
+
 // 页面加载时获取数据
 onMounted(() => {
   loadProcessingOrders()
@@ -354,9 +379,9 @@ onMounted(() => {
 .btn-reset { padding: 8px 16px; border: 1px solid #ddd; background-color: white; border-radius: 4px;cursor: pointer;font-size: 14px;color: #666; transition: all 0.3s; }
 .btn-reset:hover { background-color: #f0f0f0; }
 .order-table { width: 100%; border-collapse: collapse; }
-order-table th, order-table td { padding: 12px 16px;text-align: left;border-bottom: 1px solid #f0f0f0; }
-order-table th { background-color: #f8f9fa; font-weight: 600; color: #4e5969; font-size: 14px; }
-order-table tbody tr:hover { background-color: #f8f9fa; }
+.order-table th, .order-table td { padding: 12px 16px;text-align: left;border-bottom: 1px solid #f0f0f0; }
+.order-table th { background-color: #f8f9fa; font-weight: 600; color: #4e5969; font-size: 14px; }
+.order-table tbody tr:hover { background-color: #f8f9fa; }
 .device-info { display: flex;flex-direction: column;gap: 4px; }
 .device-type { font-weight: 500; color: #333; }
 .device-id { font-size: 12px; color: #666; }
@@ -456,7 +481,7 @@ order-table tbody tr:hover { background-color: #f8f9fa; }
   justify-content: flex-end;
 }
 
-btn-close {
+.btn-close {
   padding: 6px 16px;
   background-color: #1890ff;
   color: white;
