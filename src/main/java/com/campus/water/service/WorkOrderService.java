@@ -24,4 +24,8 @@ public interface WorkOrderService {
 
     // 新增：审核工单方法（与实现类签名一致）
     boolean reviewOrder(String orderId, boolean approved);
+
+    // 按状态查询工单的方法
+    List<WorkOrder> getOrdersByStatus(WorkOrder.OrderStatus status);
+    List<WorkOrder> getOrdersByAreaAndStatus(String areaId, WorkOrder.OrderStatus status);
 }
