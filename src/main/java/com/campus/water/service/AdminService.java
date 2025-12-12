@@ -49,10 +49,6 @@ public class AdminService {
      * 新增/修改管理员（支持指定角色）
      */
     public Admin saveAdmin(Admin admin) {
-        // 新增：校验adminId非空
-        if (admin.getAdminId() == null || admin.getAdminId().isEmpty()) {
-            throw new IllegalArgumentException("管理员ID（adminId）不能为空");
-        }
         admin.setUpdatedTime(LocalDateTime.now());
         if (admin.getCreatedTime() == null) {
             admin.setCreatedTime(LocalDateTime.now());
