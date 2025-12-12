@@ -241,4 +241,15 @@ public class WorkOrderServiceImpl implements WorkOrderService {
         }
         return false; // 派单失败（工单不存在/状态异常/维修人员不满足条件）
     }
+
+    // 按状态查询工单的方法
+    @Override
+    public List<WorkOrder> getOrdersByStatus(WorkOrder.OrderStatus status) {
+        return workOrderRepository.findByStatus(status);
+    }
+
+    @Override
+    public List<WorkOrder> getOrdersByAreaAndStatus(String areaId, WorkOrder.OrderStatus status) {
+        return workOrderRepository.findByAreaIdAndStatus(areaId, status);
+    }
 }
