@@ -124,6 +124,27 @@ public class WorkOrderController {
         }
     }
 
+    // 管理员按状态查询工单
+    @GetMapping("/by-status")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN')")
+    public ResultVO<List<WorkOrder>> getOrdersByStatus(
+            @RequestParam WorkOrder.OrderStatus status,
+            @RequestParam(required = false) String areaId) {
+        try {
+            List<WorkOrder> orders;
+            if (areaId == null || areaId.trim().isEmpty()) {
+                // 查所有区域的指定状态工单
+                orders = workOrderService.getOrdersByStatus(status);
+            } else {
+                // 查指定区域的指定状态工单
+                orders = workOrderService.getOrdersByAreaAndStatus(areaId, status);
+            }
+            return ResultVO.success(orders);
+        } catch (Exception e) {
+            return ResultVO.error(500, "获取工单失败：" + e.getMessage());
+        }
+    }
+
     // 获取维修工自己的工单 - 维修人员和管理员可访问
     @GetMapping("/my")
     @PreAuthorize("hasAnyRole('REPAIRMAN', 'SUPER_ADMIN', 'AREA_ADMIN')")
