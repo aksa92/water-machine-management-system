@@ -83,7 +83,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/alerts/**").hasAnyRole("ADMIN", "REPAIRMAN")
                         .requestMatchers("/api/app/student/**").hasAnyRole("STUDENT", "ADMIN")
                         .requestMatchers("/api/app/repair/**").hasAnyRole("REPAIRMAN", "ADMIN")
-                        .requestMatchers("/api/web/**").hasAnyRole("SUPER_ADMIN", "AREA_ADMIN", "VIEWER")
+                        .requestMatchers("/api/web/**").hasAnyRole("SUPER_ADMIN", "AREA_ADMIN", "VIEWER","REPAIRMAN")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
