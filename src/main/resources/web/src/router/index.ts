@@ -4,6 +4,7 @@ import LoginView from '../views/LoginView.vue'
 import MainLayout from '../components/layout/MainLayout.vue'
 import { useAuthStore } from '@/stores/auth'
 
+
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
     routes: [
@@ -122,22 +123,42 @@ const router = createRouter({
                     }
                 },
                 // 人员管理相关路由
+                // 在 personnel/admin 路由下添加子路由
                 {
-                    path: 'personnel/admin',
-                    name: 'personnel-admin',
-                    component: () => import('../views/personnel/Admin.vue'),
-                    meta: {
-                        title: '管理员管理'
-                    }
+                path: 'personnel/admin',
+                name: 'personnel-admin',
+                component: () => import('../views/personnel/Admin.vue'),
+                meta: {
+                       title: '管理员管理'
                 },
+                children: [
+                {
+                      path: 'add',
+                      name: 'admin-add',
+                      component: () => import('../views/personnel/addAdmin.vue'),
+                      meta: {
+                      title: '新增管理员'
+            }
+        }
+    ]
+},
                 {
                     path: 'personnel/maintenance',
                     name: 'personnel-maintenance',
-                    component: () => import('../views/personnel/Maintenance.vue'),
+                    component: () => import('@/views/personnel/Maintenance.vue'),
                     meta: {
-                        title: '运维人员管理'
+                        title: '维修人员管理'
                     }
                 },
+                {
+                    path: 'personnel/maintenance/records/:id',
+                    name: 'MaintenanceRecord',
+                    component: () => import('@/views/personnel/MaintenanceRecord.vue'),
+                    meta: {
+                        title: '维修记录详情'
+                    }
+                }
+,
                 {
                     path: 'personnel/user',
                     name: 'personnel-user',
