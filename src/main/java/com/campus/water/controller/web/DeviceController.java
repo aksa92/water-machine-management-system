@@ -1,6 +1,8 @@
 package com.campus.water.controller.web;
 
 import com.campus.water.entity.Device;
+import com.campus.water.entity.RepairerAuth;
+import com.campus.water.mapper.RepairerAuthRepository;
 import com.campus.water.service.DeviceService;
 import com.campus.water.entity.Repairman;
 import com.campus.water.mapper.RepairmanRepository;
@@ -24,6 +26,8 @@ public class DeviceController {
 
     private final DeviceService deviceService;
     private final RepairmanRepository repairmanRepository;
+    private final RepairerAuthRepository repairerAuthRepository;
+
     /**
      * 新增设备
      */
@@ -83,17 +87,23 @@ public class DeviceController {
     /**
      * 维修人员查询本辖区设备（按类型筛选）
      */
+    // 在DeviceController.java中修改getAreaDevicesByTypeForRepairman方法
     @GetMapping("/repairman/area-devices-by-type")
-    @PreAuthorize("hasRole('REPAIRMAN')") // 仅维修人员角色可访问
+    @PreAuthorize("hasRole('REPAIRMAN')")
     @Operation(summary = "维修人员查询辖区设备（按类型）", description = "维修人员查看本辖区内指定类型的设备列表")
     public ResponseEntity<ResultVO<List<Device>>> getAreaDevicesByTypeForRepairman(
-            @RequestParam String deviceType, // 必选参数：设备类型（water_maker/water_supply）
+            @RequestParam String deviceType,
             Authentication authentication) {
         try {
-            // 1. 获取当前登录维修人员ID（从Spring Security上下文）
-            String repairmanId = authentication.getName();
+            // 1. 获取当前登录用户名（username）
+            String username = authentication.getName();
 
-            // 2. 查询维修人员所属区域ID
+            // 2. 通过用户名查询RepairerAuth获取维修人员ID
+            RepairerAuth repairerAuth = repairerAuthRepository.findByUsername(username)
+                    .orElseThrow(() -> new RuntimeException("维修人员认证信息不存在"));
+            String repairmanId = repairerAuth.getRepairmanId();
+
+            // 3. 通过维修人员ID查询所属区域
             Repairman repairman = repairmanRepository.findById(repairmanId)
                     .orElseThrow(() -> new RuntimeException("维修人员信息不存在"));
             String areaId = repairman.getAreaId();
@@ -101,10 +111,8 @@ public class DeviceController {
                 return ResponseEntity.ok(ResultVO.error(400, "维修人员未分配辖区"));
             }
 
-            // 3. 转换设备类型参数为枚举
+            // 4. 转换设备类型并查询
             Device.DeviceType type = Device.DeviceType.valueOf(deviceType);
-
-            // 4. 调用现有Service方法查询（仅传areaId和deviceType，status传null）
             List<Device> devices = deviceService.queryDevices(areaId, type, null);
 
             return ResponseEntity.ok(ResultVO.success(devices));
