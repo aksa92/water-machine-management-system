@@ -4,8 +4,9 @@ import com.campus.water.entity.Repairman;
 import com.campus.water.mapper.RepairmanRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 维修人员服务类（合并接口+实现）
@@ -24,7 +25,7 @@ public class RepairmanService {
      * @return 符合条件的维修人员列表
      */
     public List<Repairman> getRepairmanList(String name, String areaId, Repairman.RepairmanStatus status) {
-        // 组合查询条件（与原实现逻辑完全一致）
+        // 组合查询条件
         if (name != null && !name.isEmpty() && areaId != null && !areaId.isEmpty() && status != null) {
             return repairmanRepository.findByRepairmanNameContainingAndAreaIdAndStatus(name, areaId, status);
         } else if (name != null && !name.isEmpty() && areaId != null && !areaId.isEmpty()) {
@@ -51,5 +52,36 @@ public class RepairmanService {
      */
     public Repairman.RepairmanStatus[] getAllStatus() {
         return Repairman.RepairmanStatus.values();
+    }
+
+    /**
+     * 新增/编辑维修人员
+     */
+    public Repairman saveRepairman(Repairman repairman) {
+        // 设置时间戳
+        if (repairman.getCreatedTime() == null) {
+            repairman.setCreatedTime(LocalDateTime.now());
+        }
+
+        // 新增时默认状态为空闲
+        if (repairman.getRepairmanId() == null && repairman.getStatus() == null) {
+            repairman.setStatus(Repairman.RepairmanStatus.idle);
+        }
+
+        return repairmanRepository.save(repairman);
+    }
+
+    /**
+     * 删除维修人员
+     */
+    public void deleteRepairman(String repairmanId) {
+        repairmanRepository.deleteById(repairmanId);
+    }
+
+    /**
+     * 根据ID查询维修人员
+     */
+    public Optional<Repairman> getRepairmanById(String repairmanId) {
+        return repairmanRepository.findById(repairmanId);
     }
 }
