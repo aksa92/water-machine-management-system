@@ -1,20 +1,19 @@
 package com.campus.water.entity;
 
+import jakarta.persistence.*;
 import lombok.Data;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+
 import java.time.LocalDateTime;
+import org.hibernate.annotations.GenericGenerator;
 
 @Data
 @Entity
 @Table(name = "admin")
 public class Admin {
     @Id
-    @Column(name = "admin_id", length = 50)
+    @GeneratedValue(generator = "uuid")
+    @GenericGenerator(name = "uuid", strategy = "org.hibernate.id.UUIDGenerator")
+    @Column(name = "admin_id", length = 50, nullable = false)
     private String adminId;
 
     @Column(name = "admin_name", length = 50)
