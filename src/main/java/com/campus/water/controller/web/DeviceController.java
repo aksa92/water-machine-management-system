@@ -84,7 +84,7 @@ public class DeviceController {
      * 维修人员查询本辖区设备（按类型筛选）
      */
     @GetMapping("/repairman/area-devices-by-type")
-    @PreAuthorize("hasRole('REPAIRMAN')") // 仅维修人员角色可访问
+    @PreAuthorize("hasRole('ROLE_REPAIRMAN')") // 仅维修人员角色可访问
     @Operation(summary = "维修人员查询辖区设备（按类型）", description = "维修人员查看本辖区内指定类型的设备列表")
     public ResponseEntity<ResultVO<List<Device>>> getAreaDevicesByTypeForRepairman(
             @RequestParam String deviceType, // 必选参数：设备类型（water_maker/water_supply）
