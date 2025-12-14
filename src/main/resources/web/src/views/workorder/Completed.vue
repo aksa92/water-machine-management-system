@@ -1,4 +1,4 @@
-<!-- src/views/order/OrderCompleted.vue -->
+<!-- src/views/workorder/Completed.vue -->
 <template>
   <div class="order-completed-page">
     <!-- 页面标题和面包屑 -->
@@ -12,9 +12,9 @@
       <!-- 工单号/设备ID搜索 -->
       <div class="filter-item search-item">
         <label>搜索：</label>
-        <input 
-          type="text" 
-          v-model="searchKeyword" 
+        <input
+          type="text"
+          v-model="searchKeyword"
           class="search-input"
           placeholder="输入工单号或设备ID搜索"
           @input="handleSearch"
@@ -34,9 +34,9 @@
       <!-- 日期筛选 -->
       <div class="filter-item">
         <label>创建日期：</label>
-        <input 
-          type="date" 
-          v-model="filterForm.createDate" 
+        <input
+          type="date"
+          v-model="filterForm.createDate"
           class="filter-input"
           @change="handleFilter"
         >
@@ -61,7 +61,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="order in filteredOrders" :key="order.id">
+          <tr v-for="order in paginatedOrders" :key="order.id">
             <td>{{ order.orderNo }}</td>
             <td>
               <div class="device-info">
@@ -82,7 +82,9 @@
             </td>
           </tr>
           <tr v-if="filteredOrders.length === 0">
-            <td colspan="7" class="no-data">暂无已结单工单</td>
+            <td colspan="7" class="no-data">
+              {{ loading ? '正在加载数据...' : '暂无已结单工单' }}
+            </td>
           </tr>
         </tbody>
       </table>
@@ -90,18 +92,18 @@
 
     <!-- 分页控件 -->
     <div class="pagination">
-      <button 
-        class="page-btn" 
+      <button
+        class="page-btn"
         :disabled="currentPage === 1"
         @click="currentPage--"
       >
         上一页
       </button>
       <span class="page-info">
-        第 {{ currentPage }} 页 / 共 {{ totalPages }} 页
+        第 {{ currentPage }} 页 / 共 {{ totalPages }} 页 (共 {{ filteredOrders.length }} 条记录)
       </span>
-      <button 
-        class="page-btn" 
+      <button
+        class="page-btn"
         :disabled="currentPage === totalPages"
         @click="currentPage++"
       >
@@ -112,8 +114,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { request } from '@/api/request'
+import { useAuthStore } from '@/stores/auth'
 
 // 工单状态类型
 type OrderStatus = 'timeout' | 'pending' | 'processing' | 'reviewing' | 'completed'
@@ -130,45 +134,13 @@ interface CompletedOrder {
   createTime: string // 创建时间
 }
 
-// 模拟已结单工单数据
-const orderList: CompletedOrder[] = [
-  {
-    id: '11',
-    orderNo: 'ORD-20231023-001',
-    deviceType: '制水机',
-    deviceId: 'WM-2023-001',
-    area: '市区',
-    problemDesc: '更换密封垫后漏水问题已解决，设备运行正常',
-    status: 'completed',
-    createTime: '2023-10-23 08:10:05'
-  },
-  {
-    id: '12',
-    orderNo: 'ORD-20231023-002',
-    deviceType: '供水机',
-    deviceId: 'WS-2023-001',
-    area: '校区',
-    problemDesc: '水质检测合格，出水口感异常问题已解决',
-    status: 'completed',
-    createTime: '2023-10-23 14:20:33'
-  },
-  {
-    id: '13',
-    orderNo: 'ORD-20231024-003',
-    deviceType: '制水机',
-    deviceId: 'WM-2023-002',
-    area: '校区',
-    problemDesc: '水泵检修完成，出水速度恢复正常，已审核通过',
-    status: 'completed',
-    createTime: '2023-10-24 11:30:15'
-  }
-]
-
 // 响应式数据
-const orders = ref<CompletedOrder[]>(orderList)
+const orders = ref<CompletedOrder[]>([])
 const currentPage = ref(1)
 const pageSize = 10 // 每页显示数量
 const router = useRouter()
+const authStore = useAuthStore()
+const loading = ref(false)
 
 // 搜索关键词（工单号/设备ID）
 const searchKeyword = ref('')
@@ -179,6 +151,84 @@ const filterForm = ref({
   createDate: '' // 日期筛选
 })
 
+// 加载已结单工单数据
+const loadCompletedOrders = async () => {
+  loading.value = true
+  try {
+    // 检查 Token 是否存在
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
+    }
+
+    console.log('当前 Token:', token.substring(0, 20) + '...')
+
+    // 构建查询参数
+    let url = '/api/work-orders/by-status?status=completed'
+    const params = new URLSearchParams()
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
+    const areaId = filterForm.value.area || userInfo.areaId || ''
+    if (areaId) {
+      params.append('areaId', areaId)
+    }
+    // 只有当有参数时才添加问号
+    const queryString = params.toString()
+    if (queryString) {
+      url += `&${queryString}`
+    }
+
+    // 使用项目封装的 request 工具
+    const response = await request<{
+      code: number
+      msg: string
+      data: any[]
+    }>(url, {
+      method: 'GET',
+    })
+
+    // 处理响应
+    if (response.code === 200) {
+      orders.value = (response.data || []).map((order: any) => ({
+        id: order.orderId || '',
+        orderNo: order.orderId || '',
+        deviceType: order.deviceType || '未知设备',
+        deviceId: order.deviceId || '',
+        area: order.areaId || '',
+        problemDesc: order.description || '暂无描述',
+        status: order.status || 'completed',
+        createTime: order.createdTime ? new Date(order.createdTime).toLocaleString('zh-CN') : '未知时间'
+      }))
+    } else {
+      const errorMsg = response.msg || `获取失败（错误码：${response.code}）`
+      console.error('获取已结单工单失败:', errorMsg)
+      alert(`获取已结单工单失败：${errorMsg}`)
+    }
+  } catch (error: any) {
+    console.error('请求异常:', error)
+    console.error('错误详情:', {
+      message: error.message,
+      status: error.status,
+      response: error.response
+    })
+
+    const errorMsg = error.message.includes('401') || error.message.includes('403')
+        ? '权限不足或登录已过期，请重新登录'
+        : error.message.includes('Network')
+            ? '网络连接失败，请检查网络'
+            : error.message || '获取数据失败，请稍后重试'
+    alert(`获取已结单工单失败：${errorMsg}`)
+
+    if (error.message.includes('401') || error.message.includes('403')) {
+      authStore.logout()
+      router.push('/login')
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
 // 格式化状态显示
 const formatStatus = (status: OrderStatus): string => {
   const statusMap = {
@@ -188,7 +238,7 @@ const formatStatus = (status: OrderStatus): string => {
     reviewing: '待审核',
     completed: '已结单'
   }
-  return statusMap[status]
+  return statusMap[status] || status
 }
 
 // 筛选后的工单列表
@@ -198,16 +248,23 @@ const filteredOrders = computed(() => {
     const keywordMatch = searchKeyword.value.trim() === '' ||
       order.orderNo.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
       order.deviceId.toLowerCase().includes(searchKeyword.value.toLowerCase())
-    
+
     // 片区筛选
     const areaMatch = filterForm.value.area === '' || order.area === filterForm.value.area
-    
+
     // 日期筛选（匹配日期部分，忽略时间）
-    const dateMatch = filterForm.value.createDate === '' || 
+    const dateMatch = filterForm.value.createDate === '' ||
       order.createTime.split(' ')[0] === filterForm.value.createDate
-    
+
     return keywordMatch && areaMatch && dateMatch
   })
+})
+
+// 分页后的工单列表
+const paginatedOrders = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  const end = start + pageSize
+  return filteredOrders.value.slice(start, end)
 })
 
 // 分页计算
@@ -223,6 +280,7 @@ const handleSearch = () => {
 // 处理筛选（片区/日期）
 const handleFilter = () => {
   currentPage.value = 1 // 筛选后重置到第一页
+  loadCompletedOrders() // 重新加载数据
 }
 
 // 重置筛选条件
@@ -233,12 +291,19 @@ const resetFilter = () => {
     createDate: ''
   }
   currentPage.value = 1
+  loadCompletedOrders()
 }
 
 // 查看工单详情
 const viewOrderDetail = (id: string) => {
    router.push(`/home/work-order/completed/${id}`)
 }
+
+// 页面加载时获取数据
+onMounted(() => {
+  console.log('Token:', authStore.token)
+  loadCompletedOrders()
+})
 </script>
 
 <style scoped>

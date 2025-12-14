@@ -249,7 +249,9 @@ const loadProcessingOrders = async () => {
     }
 
     const queryString = params.toString()
-    const url = `/api/work-orders/my${queryString ? `?${queryString}` : ''}`
+    // 修改后
+    const url = `/api/work-orders/by-status?status=processing${queryString ? `&${queryString}` : ''}`
+
 
     // 调用后端接口获取处理中工单
     const response = await request<{
