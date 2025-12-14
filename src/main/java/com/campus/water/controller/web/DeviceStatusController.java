@@ -100,24 +100,20 @@ public class DeviceStatusController {
     }
 
     @GetMapping("/by-status")
-    @Operation(summary = "按状态查询设备", description = "根据状态查询设备列表")
+    @Operation(summary = "按状态查询设备", description = "根据状态和设备类型查询设备列表")
     public ResponseEntity<ResultVO<List<Device>>> getDevicesByStatus(
-    @RequestParam String status,
-    @RequestParam(required = false) String areaId,
-    @RequestParam(required = false) String deviceType) {
+            @RequestParam String status,
+            @RequestParam(required = false) String areaId,
+            @RequestParam(required = false) String deviceType) { // 保留设备类型参数，去除默认值
 
-    // 添加默认值处理
-    if (deviceType == null || deviceType.isEmpty()) {
-        deviceType = "water_maker"; // 默认值
+        try {
+            // 调用服务层方法时传递所有参数（包括可能为null的deviceType）
+            List<Device> devices = deviceStatusService.getDevicesByStatus(status, areaId, deviceType);
+            return ResponseEntity.ok(ResultVO.success(devices));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ResultVO.error(500, "查询设备失败: " + e.getMessage()));
+        }
     }
-
-    try {
-        List<Device> devices = deviceStatusService.getDevicesByStatus(status, areaId, deviceType);
-        return ResponseEntity.ok(ResultVO.success(devices));
-    } catch (Exception e) {
-        return ResponseEntity.ok(ResultVO.error(500, "查询设备失败: " + e.getMessage()));
-    }
-}
 
 
     @GetMapping("/status-count")

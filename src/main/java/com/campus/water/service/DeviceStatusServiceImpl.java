@@ -76,8 +76,24 @@ public class DeviceStatusServiceImpl implements DeviceStatusService {
     @Override
     public List<Device> getDevicesByStatus(String status, String areaId, String deviceType) {
         Device.DeviceStatus targetStatus = Device.DeviceStatus.valueOf(status);
-        Device.DeviceType targetType = Device.DeviceType.valueOf(deviceType);
-        return deviceRepository.findByStatusAndAreaIdAndDeviceType(targetStatus, areaId, targetType);
+
+        // 处理设备类型参数（允许为null）
+        Device.DeviceType targetType = null;
+        if (deviceType != null && !deviceType.isEmpty()) {
+            targetType = Device.DeviceType.valueOf(deviceType);
+        }
+
+        // 根据设备类型是否为null执行不同查询
+        if (targetType != null) {
+            return deviceRepository.findByStatusAndAreaIdAndDeviceType(targetStatus, areaId, targetType);
+        } else {
+            // 仅按状态和区域查询（如果有区域ID）
+            if (areaId != null && !areaId.isEmpty()) {
+                return deviceRepository.findByStatusAndAreaId(targetStatus, areaId);
+            } else {
+                return deviceRepository.findByStatus(targetStatus);
+            }
+        }
     }
 
     @Override
