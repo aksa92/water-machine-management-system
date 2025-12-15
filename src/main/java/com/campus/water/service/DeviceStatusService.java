@@ -23,8 +23,13 @@ public interface DeviceStatusService {
     // 批量更新设备状态
     boolean batchUpdateDeviceStatus(List<String> deviceIds, String status, String remark);
 
-    // 按状态查询设备
-    List<Device> getDevicesByStatus(String status, String areaId, String deviceType);
+
+
+    // 按状态加载设备（新增）
+    List<Device> getDevicesByStatusWithArea(String status, String areaId);
+
+    // 按设备类型加载设备（新增）
+    List<Device> getDevicesByTypeWithArea(String deviceType, String areaId);
 
     // 统计各状态设备数量
     Map<String, Object> getDeviceStatusCount(String areaId, String deviceType);

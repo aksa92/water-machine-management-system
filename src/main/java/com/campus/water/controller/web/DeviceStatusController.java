@@ -6,7 +6,7 @@
  *   1. 状态更新：单设备状态变更
  *   2. 状态标记：在线/离线/故障快捷操作
  *   3. 批量操作：批量更新设备状态
- *   4. 状态查询：按状态筛选设备列表
+ *   4. 状态查询：按状态/类型筛选设备列表（拆分独立接口）
  *   5. 离线检测：查询超时离线设备
  *   6. 自动检测：触发离线设备检测任务
  * 安全：需要权限验证，记录操作日志
@@ -99,22 +99,42 @@ public class DeviceStatusController {
         }
     }
 
+    // ========== 替换原有复合查询接口，拆分为两个独立接口 ==========
+    /**
+     * 按状态查询设备（仅状态筛选，支持区域）
+     */
     @GetMapping("/by-status")
-    @Operation(summary = "按状态查询设备", description = "根据状态和设备类型查询设备列表")
+    @Operation(summary = "按状态查询设备", description = "根据设备状态筛选设备列表，可选区域筛选")
     public ResponseEntity<ResultVO<List<Device>>> getDevicesByStatus(
             @RequestParam String status,
-            @RequestParam(required = false) String areaId,
-            @RequestParam(required = false) String deviceType) { // 保留设备类型参数，去除默认值
-
+            @RequestParam(required = false) String areaId) {
         try {
-            // 调用服务层方法时传递所有参数（包括可能为null的deviceType）
-            List<Device> devices = deviceStatusService.getDevicesByStatus(status, areaId, deviceType);
-            return ResponseEntity.ok(ResultVO.success(devices));
+            List<Device> devices = deviceStatusService.getDevicesByStatusWithArea(status, areaId);
+            return ResponseEntity.ok(ResultVO.success(devices, "按状态查询设备成功"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.ok(ResultVO.error(400, e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.ok(ResultVO.error(500, "查询设备失败: " + e.getMessage()));
+            return ResponseEntity.ok(ResultVO.error(500, "按状态查询设备失败: " + e.getMessage()));
         }
     }
 
+    /**
+     * 按类型查询设备（仅类型筛选，支持区域）
+     */
+    @GetMapping("/by-type")
+    @Operation(summary = "按类型查询设备", description = "根据设备类型筛选设备列表，可选区域筛选")
+    public ResponseEntity<ResultVO<List<Device>>> getDevicesByType(
+            @RequestParam String deviceType,
+            @RequestParam(required = false) String areaId) {
+        try {
+            List<Device> devices = deviceStatusService.getDevicesByTypeWithArea(deviceType, areaId);
+            return ResponseEntity.ok(ResultVO.success(devices, "按类型查询设备成功"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.ok(ResultVO.error(400, e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ResultVO.error(500, "按类型查询设备失败: " + e.getMessage()));
+        }
+    }
 
     @GetMapping("/status-count")
     @Operation(summary = "设备状态数量统计", description = "统计各状态设备数量")
