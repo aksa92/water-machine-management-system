@@ -20,12 +20,19 @@ import java.util.List;
 @RequestMapping("/api/alerts")
 @RequiredArgsConstructor
 @Tag(name = "告警管理接口")
+
 public class AlertController {
 
     private final AlertRepository alertRepository;
 
+    @GetMapping("/test")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','AREA_ADMIN', 'REPAIRMAN')")
+    public ResultVO<String> testAuth() {
+        return ResultVO.success("权限验证通过");
+    }
+
     @GetMapping("/history")
-    @PreAuthorize("hasAnyRole('ADMIN', 'REPAIRMAN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','AREA_ADMIN', 'REPAIRMAN')")
     @Operation(summary = "分页查询告警历史（支持多条件筛选）")
     public ResultVO<List<Alert>> getAlertHistory(
             @Parameter(description = "设备ID（可选）") @RequestParam(required = false) String deviceId,
@@ -58,7 +65,7 @@ public class AlertController {
      * 查询未处理告警（紧急优先）
      */
     @GetMapping("/pending")
-    @PreAuthorize("hasAnyRole('ADMIN', 'REPAIRMAN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','AREA_ADMIN', 'REPAIRMAN')")
     public ResultVO<List<Alert>> getPendingAlerts(
             @Parameter(description = "区域ID（可选）") @RequestParam(required = false) String areaId) {
         List<Alert> pendingAlerts = areaId != null
