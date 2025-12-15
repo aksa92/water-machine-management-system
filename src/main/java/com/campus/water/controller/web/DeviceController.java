@@ -122,4 +122,19 @@ public class DeviceController {
             return ResponseEntity.ok(ResultVO.error(500, "查询设备失败: " + e.getMessage()));
         }
     }
+
+    /**
+     * 根据设备ID查询设备详情
+     */
+    @GetMapping("/{deviceId}")
+    @Operation(summary = "查询设备详情", description = "根据设备ID获取设备的详细信息")
+    public ResponseEntity<ResultVO<Device>> getDeviceDetail(@PathVariable String deviceId) {
+        try {
+            Device device = deviceService.getDeviceById(deviceId);
+            return ResponseEntity.ok(ResultVO.success(device, "设备查询成功"));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ResultVO.error(500, "设备查询失败: " + e.getMessage()));
+        }
+    }
+
 }
