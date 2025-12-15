@@ -202,19 +202,16 @@ const deviceId = computed(() => route.params.id)
 // 计算属性：判断是否显示各个模块
 const showWaterLevelInfo = computed(() => {
   return deviceInfo.value.waterLevel !== undefined ||
-    deviceInfo.value.storageCapacity !== undefined ||
-    deviceInfo.value.deviceType === 'water_supply'
+    deviceInfo.value.storageCapacity !== undefined
 })
 
 const showFloatValveInfo = computed(() => {
   return deviceInfo.value.highValve !== undefined ||
-    deviceInfo.value.lowValve !== undefined ||
-    deviceInfo.value.deviceType === 'water_supply'
+    deviceInfo.value.lowValve !== undefined
 })
 
 const showLeakDetection = computed(() => {
-  return deviceInfo.value.leakStatus !== undefined ||
-    deviceInfo.value.deviceType === 'water_supply'
+  return deviceInfo.value.leakStatus !== undefined
 })
 
 // 获取设备详情
@@ -307,7 +304,7 @@ const formatValveStatus = (valveStatus) => {
     'closed': '关闭',
     'fault': '故障'
   }
-  return valveMap[valveStatus] || valveStatus
+  return valveMap[valveStatus] || '未知'
 }
 
 // 获取阀门状态样式类
@@ -331,7 +328,7 @@ const formatLeakStatus = (leakStatus) => {
     'leaking': '漏水检测',
     'fault': '传感器故障'
   }
-  return leakMap[leakStatus] || leakStatus
+  return leakMap[leakStatus] || '未知'
 }
 
 // 获取漏水状态样式类
@@ -403,6 +400,7 @@ onMounted(() => {
   fetchDeviceDetail()
 })
 </script>
+
 
 
 <style scoped>

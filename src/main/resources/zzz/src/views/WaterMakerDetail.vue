@@ -148,11 +148,11 @@ const fetchDeviceDetail = async () => {
         createTime: data.createTime,
         deviceType: data.deviceType,
         // 水质数据（如果存在）
-        waterQuality: {
+        waterQuality: data.tapWaterTDS !== undefined || data.pureWaterTDS !== undefined || data.mineralWaterTDS !== undefined ? {
           tapWaterTDS: data.tapWaterTDS,
           pureWaterTDS: data.pureWaterTDS,
           mineralWaterTDS: data.mineralWaterTDS
-        }
+        } : undefined
       }
     } else {
       error.value = response.message || '获取设备详情失败'
@@ -164,6 +164,7 @@ const fetchDeviceDetail = async () => {
     loading.value = false
   }
 }
+
 // 状态格式化
 const formatStatus = (status) => {
   const statusMap = {
@@ -221,6 +222,7 @@ onMounted(() => {
   }
 })
 </script>
+
 
 
 <style scoped>
