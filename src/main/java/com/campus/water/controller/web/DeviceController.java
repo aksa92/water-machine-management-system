@@ -6,6 +6,7 @@ import com.campus.water.mapper.RepairerAuthRepository;
 import com.campus.water.service.DeviceService;
 import com.campus.water.entity.Repairman;
 import com.campus.water.mapper.RepairmanRepository;
+import com.campus.water.service.DeviceStatusService;
 import com.campus.water.util.ResultVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -16,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.access.prepost.PreAuthorize;
 
-import java.util.List;  // 新增List的导入语句
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/web/device")
@@ -25,6 +26,7 @@ import java.util.List;  // 新增List的导入语句
 public class DeviceController {
 
     private final DeviceService deviceService;
+    private final DeviceStatusService deviceStatusService;
     private final RepairmanRepository repairmanRepository;
     private final RepairerAuthRepository repairerAuthRepository;
 
@@ -87,7 +89,6 @@ public class DeviceController {
     /**
      * 维修人员查询本辖区设备（按类型筛选）
      */
-    // 在DeviceController.java中修改getAreaDevicesByTypeForRepairman方法
     @GetMapping("/repairman/area-devices-by-type")
     @PreAuthorize("hasRole('REPAIRMAN')")
     @Operation(summary = "维修人员查询辖区设备（按类型）", description = "维修人员查看本辖区内指定类型的设备列表")
@@ -134,6 +135,44 @@ public class DeviceController {
             return ResponseEntity.ok(ResultVO.success(device, "设备查询成功"));
         } catch (Exception e) {
             return ResponseEntity.ok(ResultVO.error(500, "设备查询失败: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 按状态查询设备列表（支持区域筛选）
+     * 管理员/运维人员通用接口
+     */
+    @GetMapping("/by-status")
+    @Operation(summary = "按状态查询设备", description = "根据设备状态筛选设备列表，可选区域筛选")
+    public ResponseEntity<ResultVO<List<Device>>> getDevicesByStatus(
+            @RequestParam String status,
+            @RequestParam(required = false) String areaId) {
+        try {
+            List<Device> devices = deviceStatusService.getDevicesByStatusWithArea(status, areaId);
+            return ResponseEntity.ok(ResultVO.success(devices, "按状态查询设备成功"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.ok(ResultVO.error(400, e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ResultVO.error(500, "按状态查询设备失败: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 按类型查询设备列表（支持区域筛选）
+     * 管理员/运维人员通用接口
+     */
+    @GetMapping("/by-type")
+    @Operation(summary = "按类型查询设备", description = "根据设备类型筛选设备列表，可选区域筛选")
+    public ResponseEntity<ResultVO<List<Device>>> getDevicesByType(
+            @RequestParam String deviceType,
+            @RequestParam(required = false) String areaId) {
+        try {
+            List<Device> devices = deviceStatusService.getDevicesByTypeWithArea(deviceType, areaId);
+            return ResponseEntity.ok(ResultVO.success(devices, "按类型查询设备成功"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.ok(ResultVO.error(400, e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ResultVO.error(500, "按类型查询设备失败: " + e.getMessage()));
         }
     }
 
