@@ -163,7 +163,14 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import axios from 'axios'
+// 1. 导入必要的工具和状态管理
+import { useRouter } from 'vue-router'
+import { request } from '@/api/request'  // 导入项目封装的请求工具
+import { useAuthStore } from '@/stores/auth'  // 导入 authStore
+
+// 2. 实例化路由和 authStore
+const router = useRouter()
+const authStore = useAuthStore()
 
 // 工单状态类型 - 与后端实体保持一致
 type OrderStatus = 'pending' | 'grabbed' | 'processing' | 'completed' | 'closed' | 'timeout'
@@ -217,70 +224,90 @@ const formatStatus = (status: OrderStatus): string => {
 }
 
 // 加载待抢单工单数据
+// 3. 重构 loadAvailableOrders 方法，与 Admin.vue 保持一致的 Token 处理逻辑
 const loadAvailableOrders = async () => {
   loading.value = true
   try {
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token')
-    if (!token) {
-      console.warn('未登录或缺少令牌')
-         // 在 Pending.vue 的 loadAvailableOrders 方法中添加更多调试信息
-      console.log('Token:', token);
-      console.log('localStorage:', localStorage.getItem('token'));
-      console.log('sessionStorage:', sessionStorage.getItem('token'));
+    // 从 Pinia 获取 Token（与 Admin.vue 一致）
+    const token = authStore.token
 
+    // 检查 Token 是否存在，不存在则跳转登录
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
       return
     }
 
-    // 构建查询参数 - 调用 /available 接口获取可抢工单
-    const params: any = {}
-    if (filterForm.value.area) {
-      params.areaId = filterForm.value.area
-    }
+    console.log('当前 Token:', token.substring(0, 20) + '...') // 只显示部分，避免安全风险
 
-    // 这里假设当前用户已经登录，需要从用户信息中获取片区ID
-    // 如果当前用户是维修人员，使用其所在片区；如果是管理员，可以使用选择的片区
+
+    // 构建查询参数
+    let url = '/api/work-orders/available'
+    const params = new URLSearchParams()
     const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
     const areaId = filterForm.value.area || userInfo.areaId || ''
-
-    if (!areaId) {
-      console.warn('未指定片区ID')
-      orders.value = []
-      return
+    if (areaId) {
+      params.append('areaId', areaId)
+    }
+    // 只有当有参数时才添加问号
+    const queryString = params.toString()
+    if (queryString) {
+      url += `?${queryString}`
     }
 
-    const response = await axios.get(`/api/work-orders/available`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      },
-      params: {
-        areaId: areaId
-      }
-    })
+    // 使用项目封装的 request 工具（而非直接使用 axios）
+    // 在 loadAvailableOrders 函数中，显式传递认证头部
+const response = await request<{
+  code: number
+  msg: string
+  data: any[]
+}>(url,{
+  method: 'GET',
+})
 
-    if (response.data.code === 200) {
-      // 适配后端返回的数据结构
-      orders.value = response.data.data.map((order: any) => ({
-        id: order.orderId,
-        orderNo: order.orderId,
-        deviceType: '未知设备', // 需要根据deviceId查询设备信息
-        deviceId: order.deviceId,
-        area: order.areaId,
+
+    // 处理响应（完善错误处理）
+    if (response.code === 200) {
+      orders.value = (response.data || []).map((order: any) => ({
+        id: order.orderId || '',
+        orderNo: order.orderId || '',
+        deviceType: '未知设备',
+        deviceId: order.deviceId || '',
+        area: order.areaId || '',
         problemDesc: order.description || '暂无描述',
-        status: order.status,
+        status: order.status || 'pending',
         createTime: order.createdTime ? new Date(order.createdTime).toLocaleString('zh-CN') : '未知时间',
         lastUploadTime: order.updatedTime ? new Date(order.updatedTime).toLocaleString('zh-CN') : '未知时间',
-        location: '未知位置', // 需要根据deviceId查询设备位置
+        location: '未知位置',
         description: order.description,
         priority: order.priority
       }))
     } else {
-      console.error('获取待抢单工单失败:', response.data.msg)
-      alert('获取待抢单工单失败：' + response.data.msg)
+      const errorMsg = response.msg || `获取失败（错误码：${response.code}）`
+      console.error('获取待抢单工单失败:', errorMsg)
+      alert(`获取待抢单工单失败：${errorMsg}`)
     }
-  } catch (error) {
-    console.error('请求异常:', error)
-    alert('网络错误，请检查网络连接')
-  } finally {
+  } catch (error: any) {
+  console.error('请求异常:', error)
+  console.error('错误详情:', {
+    message: error.message,
+    status: error.status,
+    response: error.response
+  })
+
+  const errorMsg = error.message.includes('401') || error.message.includes('403')
+      ? '权限不足或登录已过期，请重新登录'
+      : error.message.includes('Network')
+          ? '网络连接失败，请检查网络'
+          : error.message || '获取数据失败，请稍后重试'
+  alert(`获取待抢单工单失败：${errorMsg}`)
+
+  /*if (error.message.includes('401') || error.message.includes('403')) {
+    authStore.logout()
+    router.push('/login')
+  }*/
+}
+ finally {
     loading.value = false
   }
 }
@@ -354,6 +381,7 @@ const closeDetailModal = () => {
 
 // 页面加载时获取数据
 onMounted(() => {
+  console.log('Token:', authStore.token)
   loadAvailableOrders()
 })
 </script>

@@ -15,19 +15,19 @@
         <!-- 搜索框 -->
         <div class="search-box">
           <input
-            type="text"
-            placeholder="搜索设备ID或位置..."
-            v-model="searchKeyword"
-            @input="handleSearch"
+              type="text"
+              placeholder="搜索设备ID或位置..."
+              v-model="searchKeyword"
+              @input="handleSearch"
           >
           <button class="search-btn" @click="handleSearch">搜索</button>
         </div>
 
         <!-- 片区筛选 -->
         <select
-          v-model="selectedArea"
-          class="filter-select"
-          @change="handleSearch"
+            v-model="selectedArea"
+            class="filter-select"
+            @change="handleSearch"
         >
           <option value="">全部片区</option>
           <option value="市区">市区</option>
@@ -36,9 +36,9 @@
 
         <!-- 状态筛选 -->
         <select
-          v-model="selectedStatus"
-          class="filter-select"
-          @change="handleSearch"
+            v-model="selectedStatus"
+            class="filter-select"
+            @change="handleSearch"
         >
           <option value="">全部状态</option>
           <option value="online">在线</option>
@@ -53,57 +53,57 @@
     <div class="card">
       <table class="equipment-table">
         <thead>
-          <tr>
-            <th>设备ID</th>
-            <th>设备机型</th> <!-- 新增机型列 -->
-            <th>所属片区</th>
-            <th>详细位置</th>
-            <th>状态</th>
-            <th>最后上传时间</th>
-            <th>操作</th>
-          </tr>
+        <tr>
+          <th>设备ID</th>
+          <th>设备机型</th> <!-- 新增机型列 -->
+          <th>所属片区</th>
+          <th>详细位置</th>
+          <th>状态</th>
+          <th>最后上传时间</th>
+          <th>操作</th>
+        </tr>
         </thead>
         <tbody>
-          <tr v-for="device in paginatedDevices" :key="device.deviceId">
-            <td>{{ device.deviceId }}</td>
-            <td>{{ device.deviceType === 'WATER_MAKER' ? '制水机' : device.deviceType }}</td>
-            <td>{{ device.areaId }}</td>
-            <td>{{ device.installLocation }}</td>
-            <td>
+        <tr v-for="device in paginatedDevices" :key="device.deviceId">
+          <td>{{ device.deviceId }}</td>
+          <td>{{ device.deviceType === 'WATER_MAKER' ? '制水机' : device.deviceType }}</td>
+          <td>{{ device.areaId }}</td>
+          <td>{{ device.installLocation }}</td>
+          <td>
               <span :class="`status-tag ${device.status}`">
                 {{ formatStatus(device.status) }}
               </span>
-            </td>
-            <td>{{ formatDate(device.lastHeartbeatTime) }}</td>
-            <td class="operation-buttons">
-              <button class="btn-view" @click="viewDevice(device.deviceId)">查看详情</button>
-              <button
+          </td>
+          <td>{{ formatDate(device.lastHeartbeatTime) }}</td>
+          <td class="operation-buttons">
+            <button class="btn-view" @click="viewDevice(device.deviceId)">查看详情</button>
+            <button
                 class="btn-online"
                 @click="updateDeviceStatus(device.deviceId, 'online')"
                 :disabled="device.status === 'online'"
-              >
-                设为在线
-              </button>
-              <button
+            >
+              设为在线
+            </button>
+            <button
                 class="btn-offline"
                 @click="showOfflineModal(device.deviceId)"
                 :disabled="device.status === 'offline'"
-              >
-                设为离线
-              </button>
-              <button
+            >
+              设为离线
+            </button>
+            <button
                 class="btn-fault"
                 @click="showFaultModalFunc(device.deviceId)"
                 :disabled="device.status === 'fault'"
-              >
+            >
               设为故障
-              </button>
+            </button>
 
-            </td>
-          </tr>
-          <tr v-if="paginatedDevices.length === 0">
-            <td colspan="7" class="no-data">暂无设备数据</td> <!-- colspan从6改为7 -->
-          </tr>
+          </td>
+        </tr>
+        <tr v-if="paginatedDevices.length === 0">
+          <td colspan="7" class="no-data">暂无设备数据</td>
+        </tr>
         </tbody>
       </table>
     </div>
@@ -111,9 +111,9 @@
     <!-- 分页控件 -->
     <div class="pagination">
       <button
-        class="page-btn"
-        :disabled="currentPage === 1"
-        @click="currentPage--"
+          class="page-btn"
+          :disabled="currentPage === 1"
+          @click="currentPage--"
       >
         上一页
       </button>
@@ -121,9 +121,9 @@
         第 {{ currentPage }} 页 / 共 {{ totalPages }} 页 (共 {{ filteredDevices.length }} 条记录)
       </span>
       <button
-        class="page-btn"
-        :disabled="currentPage === totalPages"
-        @click="currentPage++"
+          class="page-btn"
+          :disabled="currentPage === totalPages"
+          @click="currentPage++"
       >
         下一页
       </button>
@@ -204,7 +204,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { DeviceStatusApi } from '@/api/deviceStatus'
+import { useAuthStore } from '@/stores/auth'  // 引入auth store
+import { request } from '@/api/request'  // 引入统一请求工具
 
 // 设备状态类型定义
 type DeviceStatus = 'online' | 'offline' | 'fault'
@@ -229,6 +230,7 @@ const selectedStatus = ref('') // 状态筛选值
 const currentPage = ref(1)
 const pageSize = 10 // 每页显示数量
 const router = useRouter()
+const authStore = useAuthStore()  // 初始化auth store
 
 // 模态框相关
 const showAddModal = ref(false)
@@ -254,16 +256,24 @@ const faultInfo = ref({
 })
 
 // 加载设备数据
-// 加载设备数据 - 修改 loadDevices 函数
-// 在 loadDevices 函数中确保 deviceType 参数正确传递
 const loadDevices = async (): Promise<WaterMakerDevice[]> => {
   try {
+    // 检查登录状态
+    if (!authStore.isLoggedIn) {
+      router.push('/login')
+      return []
+    }
+
     const statuses = ['online', 'offline', 'fault']
     const allDevices: WaterMakerDevice[] = []
 
     for (const status of statuses) {
-      // 明确指定 deviceType 参数
-      const result = await DeviceStatusApi.getDevicesByStatus(status, undefined, 'water_maker')
+      // 使用统一请求工具，自动携带token
+      const result = await request<{
+        code: number
+        message: string
+        data: any[]
+      }>(`/api/device/status/${status}?deviceType=water_maker`)
 
       if (result.code === 200 && result.data && Array.isArray(result.data)) {
         allDevices.push(...result.data.map((item: any) => ({
@@ -282,19 +292,21 @@ const loadDevices = async (): Promise<WaterMakerDevice[]> => {
     return allDevices
   } catch (error) {
     console.error('加载设备数据失败:', error)
+    // 处理认证失败情况
+    if ((error as Error).message.includes('401')) {
+      authStore.logout()
+      router.push('/login')
+    }
     return []
   }
 }
-
-
-
 
 // 多条件过滤设备数据
 const filteredDevices = computed(() => {
   return devices.value.filter(device => {
     const keywordMatch = searchKeyword.value.trim() === '' ||
-      device.deviceId.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
-      device.installLocation.toLowerCase().includes(searchKeyword.value.toLowerCase())
+        device.deviceId.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
+        device.installLocation.toLowerCase().includes(searchKeyword.value.toLowerCase())
 
     const areaMatch = selectedArea.value === '' || device.areaId === selectedArea.value
     const statusMatch = selectedStatus.value === '' || device.status === selectedStatus.value
@@ -315,7 +327,6 @@ const totalPages = computed(() => {
 })
 
 // 状态格式化
-// 状态格式化 - 位置在 script setup 部分中
 const formatStatus = (status: DeviceStatus): string => {
   const statusMap: Record<string, string> = {
     online: '在线',
@@ -324,7 +335,6 @@ const formatStatus = (status: DeviceStatus): string => {
   }
   return statusMap[status] || status
 }
-
 
 // 时间格式化
 const formatDate = (dateString?: string): string => {
@@ -358,10 +368,13 @@ const showFaultModalFunc = (deviceId: string) => {
 // 确认设置为离线
 const confirmOffline = async () => {
   try {
-    const result = await DeviceStatusApi.markDeviceOffline(
-      currentDeviceId.value,
-      offlineReason.value
-    )
+    const result = await request<{
+      code: number
+      message: string
+    }>(`/api/device/${currentDeviceId.value}/offline`, {
+      method: 'POST',
+      body: JSON.stringify({ reason: offlineReason.value })
+    })
 
     if (result.code === 200) {
       const device = devices.value.find(d => d.deviceId === currentDeviceId.value)
@@ -373,17 +386,23 @@ const confirmOffline = async () => {
     }
   } catch (error) {
     console.error('设置设备离线失败:', error)
+    if ((error as Error).message.includes('401')) {
+      authStore.logout()
+      router.push('/login')
+    }
   }
 }
 
 // 确认设置为故障
 const confirmFault = async () => {
   try {
-    const result = await DeviceStatusApi.markDeviceFault(
-      currentDeviceId.value,
-      faultInfo.value.faultType,
-      faultInfo.value.description
-    )
+    const result = await request<{
+      code: number
+      message: string
+    }>(`/api/device/${currentDeviceId.value}/fault`, {
+      method: 'POST',
+      body: JSON.stringify(faultInfo.value)
+    })
 
     if (result.code === 200) {
       const device = devices.value.find(d => d.deviceId === currentDeviceId.value)
@@ -395,25 +414,47 @@ const confirmFault = async () => {
     }
   } catch (error) {
     console.error('设置设备故障失败:', error)
+    if ((error as Error).message.includes('401')) {
+      authStore.logout()
+      router.push('/login')
+    }
   }
 }
 
 // 更新设备状态
-// 更新设备状态 - 修改 updateDeviceStatus 函数
 const updateDeviceStatus = async (deviceId: string, status: string, remark: string = '') => {
   try {
-    let result: any;
+    let result;
 
     switch (status) {
       case 'online':
-        result = await DeviceStatusApi.markDeviceOnline(deviceId)
+        result = await request<{
+          code: number
+          message: string
+        }>(`/api/device/${deviceId}/online`, {
+          method: 'POST'
+        })
         break
       case 'offline':
-        result = await DeviceStatusApi.markDeviceOffline(deviceId, remark)
+        result = await request<{
+          code: number
+          message: string
+        }>(`/api/device/${deviceId}/offline`, {
+          method: 'POST',
+          body: JSON.stringify({ reason: remark })
+        })
         break
       case 'fault':
-        // 注意：对于故障状态，需要提供故障类型和描述
-        result = await DeviceStatusApi.markDeviceFault(deviceId, 'MANUAL_FAULT', remark || '手动设置故障')
+        result = await request<{
+          code: number
+          message: string
+        }>(`/api/device/${deviceId}/fault`, {
+          method: 'POST',
+          body: JSON.stringify({
+            faultType: 'MANUAL_FAULT',
+            description: remark || '手动设置故障'
+          })
+        })
         break
       default:
         throw new Error('不支持的状态类型')
@@ -431,10 +472,13 @@ const updateDeviceStatus = async (deviceId: string, status: string, remark: stri
     }
   } catch (error) {
     console.error('更新设备状态失败:', error)
+    if ((error as Error).message.includes('401')) {
+      authStore.logout()
+      router.push('/login')
+    }
     throw error
   }
 }
-
 
 // 添加设备
 const addDevice = async () => {
@@ -448,14 +492,14 @@ const addDevice = async () => {
       deviceType: newDevice.value.deviceType
     };
 
-    // 调用后端API添加设备
-    const result = await fetch('/api/web/device/add', {
+    // 使用统一请求工具，自动携带token
+    const result = await request<{
+      code: number
+      message: string
+    }>('/api/web/device/add', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify(deviceToAdd)
-    }).then(response => response.json());
+    })
 
     if (result.code === 200) {
       // 添加成功后重新加载设备列表
@@ -468,7 +512,7 @@ const addDevice = async () => {
         deviceName: '',
         areaId: '市区',
         installLocation: '',
-        deviceType: 'WATER_MAKER'
+        deviceType: 'water_maker'
       };
 
       console.log('设备添加成功');
@@ -477,21 +521,29 @@ const addDevice = async () => {
     }
   } catch (error) {
     console.error('添加设备失败:', error);
+    if ((error as Error).message.includes('401')) {
+      authStore.logout()
+      router.push('/login')
+    }
   }
 };
 
-
 // 组件挂载时加载数据
-// 在 onMounted 中添加更多调试信息
 onMounted(async () => {
   console.log('🚀 开始加载设备数据...')
+
+  // 检查登录状态
+  if (!authStore.isLoggedIn) {
+    router.push('/login')
+    return
+  }
 
   try {
     const result = await loadDevices()
     console.log('🌐 API返回 data:', result)
 
     if (result.length === 0) {
-      console.warn('⚠️ 数据库中无设备数据')
+      console.log('⚠️ 数据库中无设备数据')
     } else {
       console.log('✅ 成功加载设备数据:', result)
     }
@@ -499,9 +551,6 @@ onMounted(async () => {
     console.error('❌ 加载设备数据失败:', error)
   }
 })
-
-
-
 </script>
 
 <style scoped>

@@ -7,9 +7,10 @@ import type { LoginRequest, LoginVO, ResultVO } from '@/api/types/auth'
 interface UserInfo {
     id: number
     username: string
-    realName: string
-    role: string
+    realName?: string
+    role?: string
     avatar?: string
+    areaId?: string
 }
 
 export const useAuthStore = defineStore('auth', () => {
