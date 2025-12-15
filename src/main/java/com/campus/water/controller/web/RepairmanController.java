@@ -115,4 +115,22 @@ public class RepairmanController {
             return ResponseEntity.ok(ResultVO.error(500, "查询维修人员详情失败: " + e.getMessage()));
         }
     }
+
+    /**
+     * 根据片区ID查询维修人员
+     * 专门用于仅按片区筛选维修人员的场景，返回指定片区内的所有维修人员
+     */
+    @GetMapping("/by-area/{areaId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN')") // 保持与其他查询接口一致的权限控制
+    @Operation(summary = "根据片区查询维修人员", description = "根据指定的片区ID，查询该片区内的所有维修人员")
+    public ResponseEntity<ResultVO<List<Repairman>>> getRepairmenByArea(@PathVariable String areaId) {
+        try {
+            // 调用现有服务层方法，仅传入areaId，其他参数为null（表示不筛选）
+            List<Repairman> repairmen = repairmanService.getRepairmanList(null, areaId, null);
+            return ResponseEntity.ok(ResultVO.success(repairmen));
+        } catch (Exception e) {
+            // 统一异常处理，与其他接口保持一致
+            return ResponseEntity.ok(ResultVO.error(500, "根据片区查询维修人员失败: " + e.getMessage()));
+        }
+    }
 }
