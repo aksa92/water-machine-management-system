@@ -1,10 +1,10 @@
 package com.campus.water.controller.web;
 
-import com.campus.water.entity.Device;
-import com.campus.water.entity.RepairerAuth;
+import com.campus.water.entity.*;
 import com.campus.water.mapper.RepairerAuthRepository;
+import com.campus.water.mapper.WaterMakerRealtimeDataRepository;
+import com.campus.water.mapper.WaterSupplyRealtimeDataRepository;
 import com.campus.water.service.DeviceService;
-import com.campus.water.entity.Repairman;
 import com.campus.water.mapper.RepairmanRepository;
 import com.campus.water.service.DeviceStatusService;
 import com.campus.water.util.ResultVO;
@@ -12,12 +12,16 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.access.prepost.PreAuthorize;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/web/device")
@@ -29,6 +33,11 @@ public class DeviceController {
     private final DeviceStatusService deviceStatusService;
     private final RepairmanRepository repairmanRepository;
     private final RepairerAuthRepository repairerAuthRepository;
+    @Autowired
+    private WaterMakerRealtimeDataRepository waterMakerRealtimeDataRepository;
+
+    @Autowired
+    private WaterSupplyRealtimeDataRepository waterSupplyRealtimeDataRepository;
 
     /**
      * 新增设备
@@ -124,18 +133,36 @@ public class DeviceController {
         }
     }
 
-    /**
-     * 根据设备ID查询设备详情
-     */
     @GetMapping("/{deviceId}")
-    @Operation(summary = "查询设备详情", description = "根据设备ID获取设备的详细信息")
-    public ResponseEntity<ResultVO<Device>> getDeviceDetail(@PathVariable String deviceId) {
+    @Operation(summary = "查询设备详情", description = "根据设备ID获取设备的详细信息及实时数据")
+    public ResponseEntity<ResultVO<Map<String, Object>>> getDeviceDetail(@PathVariable String deviceId) {
         try {
+            // 1. 获取设备基本信息
             Device device = deviceService.getDeviceById(deviceId);
-            return ResponseEntity.ok(ResultVO.success(device, "设备查询成功"));
+
+            // 2. 构建返回结果Map
+            Map<String, Object> resultMap = new HashMap<>();
+            resultMap.put("deviceInfo", device);
+
+            // 3. 根据设备类型查询对应实时数据
+            if (Device.DeviceType.water_maker.equals(device.getDeviceType())) {
+                // 制水机实时数据
+                Optional<WaterMakerRealtimeData> realtimeData = waterMakerRealtimeDataRepository.findLatestByDeviceId(deviceId);
+                realtimeData.ifPresent(data -> resultMap.put("realtimeData", data));
+            } else if (Device.DeviceType.water_supply.equals(device.getDeviceType())) {
+                // 供水机实时数据
+                Optional<WaterSupplyRealtimeData> realtimeData = waterSupplyRealtimeDataRepository.findLatestByDeviceId(deviceId);
+                realtimeData.ifPresent(data -> resultMap.put("realtimeData", data));
+            }
+
+            return ResponseEntity.ok(ResultVO.success(resultMap, "设备查询成功"));
         } catch (Exception e) {
             return ResponseEntity.ok(ResultVO.error(500, "设备查询失败: " + e.getMessage()));
         }
+    }
+
+    public DeviceStatusService getDeviceStatusService() {
+        return deviceStatusService;
     }
 
     /**
