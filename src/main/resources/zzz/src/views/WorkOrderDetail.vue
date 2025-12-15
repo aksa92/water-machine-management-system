@@ -68,32 +68,44 @@
               <div class="repair-value">{{ currentOrder.description }}</div>
             </div>
 
-            <!-- 标准维护项目选择 -->
+            <!-- 标准维护项目选择（改为多选） -->
             <div class="form-group" v-if="showRepairForm">
               <div class="form-label">标准维护项目</div>
-              <select v-model="selectedStandardItem" class="form-select">
-                <option value="">点击以选择</option>
-                <option value="更换传感器">更换传感器</option>
-                <option value="更换滤芯1">更换滤芯1</option>
-                <option value="更换滤芯2">更换滤芯2</option>
-                <option value="更换滤芯3">更换滤芯3</option>
-                <option value="更换滤芯4">更换滤芯4</option>
-                <option value="更换D8滤芯1">更换D8滤芯1</option>
-              </select>
+              <div class="checkbox-group">
+                <label
+                  v-for="item in standardItems"
+                  :key="item.value"
+                  class="checkbox-item"
+                >
+                  <input
+                    type="checkbox"
+                    :value="item.value"
+                    v-model="selectedStandardItems"
+                    class="form-checkbox"
+                  />
+                  <span class="checkbox-label">{{ item.label }}</span>
+                </label>
+              </div>
             </div>
 
-            <!-- 实际维修项目选择 -->
+            <!-- 实际维修项目选择（改为多选） -->
             <div class="form-group" v-if="showRepairForm">
               <div class="form-label">实际维修项目</div>
-              <select v-model="selectedActualItem" class="form-select">
-                <option value="">点击以选择</option>
-                <option value="无">无</option>
-                <option value="更换前置滤芯1">1.更换前置滤芯1 -材料费50￥+检修费60￥= 110￥</option>
-                <option value="更换前置滤芯2">2.更换前置滤芯2 -材料费50￥+检修费60￥= 110￥</option>
-                <option value="更换前置滤芯3">3.更换前置滤芯3 -材料费50￥+检修费60￥= 110￥</option>
-                <option value="更换前置滤芯4">4.更换前置滤芯4 -材料费50￥+检修费60￥= 110￥</option>
-                <option value="更换D8滤芯1">5.更换D8滤芯1 -材料费50￥+检修费60￥= 110￥</option>
-              </select>
+              <div class="checkbox-group">
+                <label
+                  v-for="item in actualItems"
+                  :key="item.value"
+                  class="checkbox-item"
+                >
+                  <input
+                    type="checkbox"
+                    :value="item.value"
+                    v-model="selectedActualItems"
+                    class="form-checkbox"
+                  />
+                  <span class="checkbox-label">{{ item.label }}</span>
+                </label>
+              </div>
             </div>
 
             <!-- 现场照片 -->
@@ -107,8 +119,7 @@
                 type="file"
                 ref="fileInput"
                 @change="handleFileUpload"
-                accept="image/*"
-                style="display: none"
+                accept="image/*"          style="display: none"
               />
 
               <!-- 照片预览 -->
@@ -132,6 +143,7 @@
             </div>
           </div>
         </div>
+
 
         <!-- 根据工单状态显示不同操作区域 -->
         <div v-if="currentOrder.status === 'pending' && !showRepairForm" class="action-buttons">
@@ -252,13 +264,32 @@ const showCompleteConfirm = ref(false)
 const showRejectModal = ref(false)
 
 // 表单数据
-const selectedStandardItem = ref('')
-const selectedActualItem = ref('')
+const selectedStandardItems = ref([])
+const selectedActualItems = ref([])
 const repairNotes = ref('')
 const rejectReason = ref('')
 const uploadedPhotos = ref([])
 const fileInput = ref(null)
 
+// 标准维护项目选项
+const standardItems = [
+  { value: '更换传感器', label: '更换传感器' },
+  { value: '更换滤芯1', label: '更换滤芯1' },
+  { value: '更换滤芯2', label: '更换滤芯2' },
+  { value: '更换滤芯3', label: '更换滤芯3' },
+  { value: '更换滤芯4', label: '更换滤芯4' },
+  { value: '更换D8滤芯1', label: '更换D8滤芯1' }
+]
+
+// 实际维修项目选项
+const actualItems = [
+  { value: '无', label: '无' },
+  { value: '更换前置滤芯1', label: '1.更换前置滤芯1 -材料费50￥+检修费60￥= 110￥' },
+  { value: '更换前置滤芯2', label: '2.更换前置滤芯2 -材料费50￥+检修费60￥= 110￥' },
+  { value: '更换前置滤芯3', label: '3.更换前置滤芯3 -材料费50￥+检修费60￥= 110￥' },
+  { value: '更换前置滤芯4', label: '4.更换前置滤芯4 -材料费50￥+检修费60￥= 110￥' },
+  { value: '更换D8滤芯1', label: '5.更换D8滤芯1 -材料费50￥+检修费60￥= 110￥' }
+]
 // 返回上一页
 const goBack = () => {
   router.back()
@@ -356,8 +387,8 @@ const cancelRepair = () => {
 
 // 提交维修结果
 const submitRepair = async () => {
-  if (!selectedActualItem.value) {
-    alert('请选择实际维修项目')
+  if (selectedActualItems.value.length === 0) {
+    alert('请至少选择一个实际维修项目')
     return
   }
 
@@ -370,11 +401,24 @@ const submitRepair = async () => {
 
   try {
     const repairmanId = authStore.getRepairmanId
+
+    // 构建维修项目描述
+    let repairDescription = ''
+    if (selectedStandardItems.value.length > 0) {
+      repairDescription += '标准维护项目: ' + selectedStandardItems.value.join(', ') + '\n'
+    }
+    if (selectedActualItems.value.length > 0) {
+      repairDescription += '实际维修项目: ' + selectedActualItems.value.join(', ')
+    }
+
+    // 合并备注和维修项目描述
+    const fullNotes = repairDescription + (repairNotes.value ? '\n\n备注: ' + repairNotes.value : '')
+
     // 注意：这里简化了图片上传逻辑，实际应用中需要上传图片并获取URL
     await workOrderService.submitRepairResult(
       currentOrder.value.orderId,
       repairmanId,
-      repairNotes.value,
+      fullNotes,
       null // 图片URL，实际应用中需要处理
     )
 
@@ -423,8 +467,8 @@ const removePhoto = (index) => {
 
 // 重置表单
 const resetForm = () => {
-  selectedStandardItem.value = ''
-  selectedActualItem.value = ''
+  selectedStandardItems.value = [] // 重置为数组
+  selectedActualItems.value = []   // 重置为数组
   repairNotes.value = ''
   uploadedPhotos.value = []
 }
@@ -1054,5 +1098,29 @@ onMounted(() => {
   text-align: center;
   padding: 20px;
   color: #1890ff;
+}
+
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.checkbox-label {
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
 }
 </style>

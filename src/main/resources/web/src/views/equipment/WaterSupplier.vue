@@ -63,7 +63,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="device in filteredDevices" :key="device.id">
+          <tr v-for="device in paginatedDevices" :key="device.id">
             <td>{{ device.id }}</td>
             <td>供水机</td> <!-- 固定显示供水机机型 -->
             <td>{{ device.area }}</td>
@@ -78,7 +78,7 @@
               <button class="btn-view" @click="viewDevice(device.id)">查看详情</button>
             </td>
           </tr>
-          <tr v-if="filteredDevices.length === 0">
+          <tr v-if="paginatedDevices.length === 0">
             <td colspan="7" class="no-data">暂无设备数据</td> <!-- colspan从6改为7 -->
           </tr>
         </tbody>
@@ -95,7 +95,7 @@
         上一页
       </button>
       <span class="page-info">
-        第 {{ currentPage }} 页 / 共 {{ totalPages }} 页
+        第 {{ currentPage }} 页 / 共 {{ totalPages }} 页 (共 {{ filteredDevices.length }} 条记录)
       </span>
       <button
         class="page-btn"
@@ -111,7 +111,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { DeviceStatusApi } from '@/api/deviceStatus'
+import { request } from '@/api/request'
+import type { ResultVO } from '@/api/types/auth'
+import { useAuthStore } from '@/stores/auth'
 
 // 设备状态类型定义
 type DeviceStatus = 'online' | 'offline' | 'warning' | 'error'
@@ -133,33 +135,54 @@ const selectedStatus = ref('') // 状态筛选值
 const currentPage = ref(1)
 const pageSize = 10 // 每页显示数量
 const router = useRouter()
+const authStore = useAuthStore()
 
 // 加载供水机列表
 const loadWaterSuppliers = async () => {
   try {
-    const params = {
-      status: selectedStatus.value,
-      areaId: selectedArea.value,
-      deviceType: 'water_supply' // 供水机类型
+    // 检查token
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
     }
 
-    const response = await DeviceStatusApi.getDevicesByStatus(
-      params.status || 'all',
-      params.areaId,
-      params.deviceType
-    )
+    // 构建请求参数
+    const params = new URLSearchParams();
+    if (selectedStatus.value && selectedStatus.value !== '') {
+      params.append('status', selectedStatus.value);
+    }
+    if (selectedArea.value && selectedArea.value !== '') {
+      params.append('areaId', selectedArea.value);
+    }
+    params.append('deviceType', 'water_supply'); // 供水机类型
 
-    // 转换后端返回的数据格式
-    devices.value = response.data.map((device: any) => ({
-      id: device.deviceId,
-      area: device.areaId,
-      location: device.installLocation,
-      status: device.status,
-      lastUploadTime: device.lastUpdateTime
-    }))
+    const queryString = params.toString();
+    const url = `/api/web/device-status/by-type${queryString ? `?${queryString}` : ''}`;
+
+    // 发起请求
+    const response = await request<ResultVO<any[]>>(url, { method: 'GET' });
+
+    if (response.code === 200 && response.data && Array.isArray(response.data)) {
+      devices.value = response.data.map((device: any) => ({
+        id: device.deviceId,
+        area: device.areaId,
+        location: device.installLocation,
+        status: device.status,
+        lastUploadTime: device.lastHeartbeatTime || device.lastUpdateTime || '-'
+      }));
+    } else {
+      console.error('获取供水机列表失败:', response.message);
+      alert('获取供水机列表失败: ' + response.message);
+    }
   } catch (error) {
-    console.error('加载供水机列表失败:', error)
-    alert('获取供水机列表失败，请检查网络连接')
+    console.error('加载供水机列表失败:', error);
+    alert('获取供水机列表失败，请检查网络连接');
+    if (error instanceof Error && error.message.includes('401')) {
+      authStore.logout();
+      router.push('/login');
+    }
   }
 }
 
@@ -178,6 +201,12 @@ const filteredDevices = computed(() => {
 })
 
 // 分页计算
+const paginatedDevices = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  const end = start + pageSize
+  return filteredDevices.value.slice(start, end)
+})
+
 const totalPages = computed(() => {
   return Math.ceil(filteredDevices.value.length / pageSize)
 })

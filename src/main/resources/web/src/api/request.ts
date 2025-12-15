@@ -61,7 +61,7 @@ export async function request<T>(
         let responseText = ''
         try {
             responseText = await response.text()
-            console.log('📥 响应内容:', responseText)
+            //console.log('📥 响应内容:', responseText)
         } catch (e) {
             console.log('📥 无法读取响应文本')
         }

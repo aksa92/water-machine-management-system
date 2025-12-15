@@ -20,12 +20,19 @@ import java.util.List;
 @RequestMapping("/api/alerts")
 @RequiredArgsConstructor
 @Tag(name = "告警管理接口")
+
 public class AlertController {
 
     private final AlertRepository alertRepository;
 
+    @GetMapping("/test")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','AREA_ADMIN', 'REPAIRMAN')")
+    public ResultVO<String> testAuth() {
+        return ResultVO.success("权限验证通过");
+    }
+
     @GetMapping("/history")
-    @PreAuthorize("hasAnyRole('ADMIN', 'REPAIRMAN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','AREA_ADMIN', 'REPAIRMAN')")
     @Operation(summary = "分页查询告警历史（支持多条件筛选）")
     public ResultVO<List<Alert>> getAlertHistory(
             @Parameter(description = "设备ID（可选）") @RequestParam(required = false) String deviceId,
@@ -57,15 +64,18 @@ public class AlertController {
     /**
      * 查询未处理告警（紧急优先）
      */
+    // AlertController.java
+
     @GetMapping("/pending")
-    @PreAuthorize("hasAnyRole('ADMIN', 'REPAIRMAN')")
+    @PreAuthorize("hasAnyRole('ROLE_SUPER_ADMIN','ROLE_AREA_ADMIN', 'ROLE_REPAIRMAN')") // 添加 ROLE_ 前缀
     public ResultVO<List<Alert>> getPendingAlerts(
             @Parameter(description = "区域ID（可选）") @RequestParam(required = false) String areaId) {
+
         List<Alert> pendingAlerts = areaId != null
                 ? alertRepository.findByAreaIdAndStatus(areaId, Alert.AlertStatus.pending)
                 : alertRepository.findByStatus(Alert.AlertStatus.pending);
 
-        // 按优先级排序（紧急在前）- 使用方法引用替代lambda
+        // 按优先级排序（紧急在前）
         pendingAlerts.sort((a1, a2) ->
                 Integer.compare(a2.getAlertLevel().getPriority(), a1.getAlertLevel().getPriority()));
 

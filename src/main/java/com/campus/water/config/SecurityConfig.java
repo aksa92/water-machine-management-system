@@ -80,7 +80,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/common/register").permitAll()
                         .requestMatchers("/static/**", "/templates/**").permitAll()
                         .requestMatchers(request -> "OPTIONS".equals(request.getMethod())).permitAll()
-                        .requestMatchers("/api/alerts/**").hasAnyRole("ADMIN", "REPAIRMAN")
+                        .requestMatchers("/api/alerts/**").hasAnyRole("SUPER_ADMIN","AREA_ADMIN", "REPAIRMAN")
                         .requestMatchers("/api/app/student/**").hasAnyRole("STUDENT", "ADMIN")
                         .requestMatchers("/api/app/repair/**").hasAnyRole("REPAIRMAN", "ADMIN")
                         .requestMatchers("/api/web/**").hasAnyRole("SUPER_ADMIN", "AREA_ADMIN", "VIEWER","REPAIRMAN")

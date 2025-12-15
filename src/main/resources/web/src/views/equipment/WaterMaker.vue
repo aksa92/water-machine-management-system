@@ -204,8 +204,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'  // 引入auth store
-import { request } from '@/api/request'  // 引入统一请求工具
+import { useAuthStore } from '@/stores/auth'
+import { request } from '@/api/request'
+import type { ResultVO } from '@/api/types/auth'
 
 // 设备状态类型定义
 type DeviceStatus = 'online' | 'offline' | 'fault'
@@ -230,7 +231,7 @@ const selectedStatus = ref('') // 状态筛选值
 const currentPage = ref(1)
 const pageSize = 10 // 每页显示数量
 const router = useRouter()
-const authStore = useAuthStore()  // 初始化auth store
+const authStore = useAuthStore() // 初始化auth store
 
 // 模态框相关
 const showAddModal = ref(false)
@@ -246,7 +247,7 @@ const newDevice = ref({
   deviceName: '',
   areaId: '市区',
   installLocation: '',
-  deviceType: 'WATER_MAKER'
+  deviceType: 'water_maker'
 })
 
 const offlineReason = ref('')
@@ -256,48 +257,48 @@ const faultInfo = ref({
 })
 
 // 加载设备数据
-const loadDevices = async (): Promise<WaterMakerDevice[]> => {
+const loadDevices = async (): Promise<void> => {
   try {
-    // 检查登录状态
-    if (!authStore.isLoggedIn) {
+    // 显式检查token而不是仅仅依赖isLoggedIn
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
       router.push('/login')
-      return []
+      return
     }
 
-    const statuses = ['online', 'offline', 'fault']
-    const allDevices: WaterMakerDevice[] = []
+    console.log('开始加载制水机设备数据...')
 
-    for (const status of statuses) {
-      // 使用统一请求工具，自动携带token
-      const result = await request<{
-        code: number
-        message: string
-        data: any[]
-      }>(`/api/device/status/${status}?deviceType=water_maker`)
+    // 直接按设备类型查询所有制水机
+    const result = await request<ResultVO<WaterMakerDevice[]>>(
+      `/api/web/device-status/by-type?deviceType=water_maker`,
+      { method: 'GET' }
+    )
 
-      if (result.code === 200 && result.data && Array.isArray(result.data)) {
-        allDevices.push(...result.data.map((item: any) => ({
-          deviceId: item.deviceId,
-          deviceName: item.deviceName,
-          deviceType: item.deviceType,
-          areaId: item.areaId,
-          installLocation: item.installLocation,
-          status: item.status,
-          lastHeartbeatTime: item.lastHeartbeatTime
-        })))
-      }
+    console.log('制水机设备请求结果:', result)
+
+    if (result.code === 200 && result.data && Array.isArray(result.data)) {
+      console.log(`获取到${result.data.length}个制水机设备`)
+      devices.value = result.data.map((item: any) => ({
+        deviceId: item.deviceId,
+        deviceName: item.deviceName,
+        deviceType: item.deviceType,
+        areaId: item.areaId,
+        installLocation: item.installLocation,
+        status: item.status,
+        lastHeartbeatTime: item.lastHeartbeatTime
+      }))
     }
 
-    devices.value = allDevices
-    return allDevices
+    if (devices.value.length === 0) {
+      console.log('提示：未找到任何制水机设备，请确认是否已添加设备')
+    }
   } catch (error) {
     console.error('加载设备数据失败:', error)
-    // 处理认证失败情况
     if ((error as Error).message.includes('401')) {
       authStore.logout()
       router.push('/login')
     }
-    return []
   }
 }
 
@@ -368,10 +369,15 @@ const showFaultModalFunc = (deviceId: string) => {
 // 确认设置为离线
 const confirmOffline = async () => {
   try {
-    const result = await request<{
-      code: number
-      message: string
-    }>(`/api/device/${currentDeviceId.value}/offline`, {
+    // 显式检查token
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
+    }
+
+    const result = await request<ResultVO<boolean>>(`/api/web/device-status/${currentDeviceId.value}/offline`, {
       method: 'POST',
       body: JSON.stringify({ reason: offlineReason.value })
     })
@@ -383,9 +389,13 @@ const confirmOffline = async () => {
       }
       showOfflineReasonModal.value = false
       offlineReason.value = ''
+      alert('设备已标记为离线')
+    } else {
+      alert(`设置设备离线失败: ${result.message}`)
     }
   } catch (error) {
     console.error('设置设备离线失败:', error)
+    alert('设置设备离线失败')
     if ((error as Error).message.includes('401')) {
       authStore.logout()
       router.push('/login')
@@ -396,10 +406,15 @@ const confirmOffline = async () => {
 // 确认设置为故障
 const confirmFault = async () => {
   try {
-    const result = await request<{
-      code: number
-      message: string
-    }>(`/api/device/${currentDeviceId.value}/fault`, {
+    // 显式检查token
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
+    }
+
+    const result = await request<ResultVO<boolean>>(`/api/web/device-status/${currentDeviceId.value}/fault`, {
       method: 'POST',
       body: JSON.stringify(faultInfo.value)
     })
@@ -411,9 +426,13 @@ const confirmFault = async () => {
       }
       showFaultModal.value = false
       faultInfo.value = { faultType: '', description: '' }
+      alert('设备已标记为故障')
+    } else {
+      alert(`设置设备故障失败: ${result.message}`)
     }
   } catch (error) {
     console.error('设置设备故障失败:', error)
+    alert('设置设备故障失败')
     if ((error as Error).message.includes('401')) {
       authStore.logout()
       router.push('/login')
@@ -421,44 +440,40 @@ const confirmFault = async () => {
   }
 }
 
-// 更新设备状态
-const updateDeviceStatus = async (deviceId: string, status: string, remark: string = '') => {
+// 更新设备状态为在线
+const updateDeviceStatus = async (deviceId: string, status: string) => {
   try {
-    let result;
+    // 显式检查token
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
+    }
+
+    let url = ''
+    let body = {}
 
     switch (status) {
       case 'online':
-        result = await request<{
-          code: number
-          message: string
-        }>(`/api/device/${deviceId}/online`, {
-          method: 'POST'
-        })
+        url = `/api/web/device-status/${deviceId}/online`
         break
       case 'offline':
-        result = await request<{
-          code: number
-          message: string
-        }>(`/api/device/${deviceId}/offline`, {
-          method: 'POST',
-          body: JSON.stringify({ reason: remark })
-        })
+        url = `/api/web/device-status/${deviceId}/offline`
+        body = { reason: '手动设置为离线' }
         break
       case 'fault':
-        result = await request<{
-          code: number
-          message: string
-        }>(`/api/device/${deviceId}/fault`, {
-          method: 'POST',
-          body: JSON.stringify({
-            faultType: 'MANUAL_FAULT',
-            description: remark || '手动设置故障'
-          })
-        })
+        url = `/api/web/device-status/${deviceId}/fault`
+        body = { faultType: 'MANUAL', description: '手动设置为故障' }
         break
       default:
         throw new Error('不支持的状态类型')
     }
+
+    const result = await request<ResultVO<boolean>>(url, {
+      method: 'POST',
+      body: JSON.stringify(body)
+    })
 
     if (result.code === 200) {
       // 更新本地数据
@@ -466,23 +481,31 @@ const updateDeviceStatus = async (deviceId: string, status: string, remark: stri
       if (device) {
         device.status = status as DeviceStatus
       }
-      return true
+      alert(`设备已标记为${formatStatus(status as DeviceStatus)}`)
     } else {
-      throw new Error(result.message || '操作失败')
+      alert(`更新设备状态失败: ${result.message}`)
     }
   } catch (error) {
     console.error('更新设备状态失败:', error)
+    alert('更新设备状态失败')
     if ((error as Error).message.includes('401')) {
       authStore.logout()
       router.push('/login')
     }
-    throw error
   }
 }
 
 // 添加设备
 const addDevice = async () => {
   try {
+    // 显式检查token
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
+    }
+
     // 构造设备对象
     const deviceToAdd = {
       deviceId: newDevice.value.deviceId,
@@ -490,66 +513,46 @@ const addDevice = async () => {
       areaId: newDevice.value.areaId,
       installLocation: newDevice.value.installLocation,
       deviceType: newDevice.value.deviceType
-    };
+    }
 
     // 使用统一请求工具，自动携带token
-    const result = await request<{
-      code: number
-      message: string
-    }>('/api/web/device/add', {
+    const result = await request<ResultVO<any>>('/api/web/device/add', {
       method: 'POST',
       body: JSON.stringify(deviceToAdd)
     })
 
     if (result.code === 200) {
       // 添加成功后重新加载设备列表
-      await loadDevices();
+      await loadDevices()
 
       // 重置表单并关闭模态框
-      showAddModal.value = false;
+      showAddModal.value = false
       newDevice.value = {
         deviceId: '',
         deviceName: '',
         areaId: '市区',
         installLocation: '',
         deviceType: 'water_maker'
-      };
+      }
 
-      console.log('设备添加成功');
+      alert('设备添加成功')
     } else {
-      console.error('设备添加失败:', result.message);
+      alert(`设备添加失败: ${result.message}`)
     }
   } catch (error) {
-    console.error('添加设备失败:', error);
+    console.error('添加设备失败:', error)
+    alert('添加设备失败')
     if ((error as Error).message.includes('401')) {
       authStore.logout()
       router.push('/login')
     }
   }
-};
+}
 
 // 组件挂载时加载数据
 onMounted(async () => {
   console.log('🚀 开始加载设备数据...')
-
-  // 检查登录状态
-  if (!authStore.isLoggedIn) {
-    router.push('/login')
-    return
-  }
-
-  try {
-    const result = await loadDevices()
-    console.log('🌐 API返回 data:', result)
-
-    if (result.length === 0) {
-      console.log('⚠️ 数据库中无设备数据')
-    } else {
-      console.log('✅ 成功加载设备数据:', result)
-    }
-  } catch (error) {
-    console.error('❌ 加载设备数据失败:', error)
-  }
+  await loadDevices()
 })
 </script>
 

@@ -22,6 +22,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -104,6 +105,7 @@ public class DeviceStatusController {
      * 按状态查询设备（仅状态筛选，支持区域）
      */
     @GetMapping("/by-status")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','AREA_ADMIN')")
     @Operation(summary = "按状态查询设备", description = "根据设备状态筛选设备列表，可选区域筛选")
     public ResponseEntity<ResultVO<List<Device>>> getDevicesByStatus(
             @RequestParam String status,
@@ -122,6 +124,7 @@ public class DeviceStatusController {
      * 按类型查询设备（仅类型筛选，支持区域）
      */
     @GetMapping("/by-type")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','AREA_ADMIN')")
     @Operation(summary = "按类型查询设备", description = "根据设备类型筛选设备列表，可选区域筛选")
     public ResponseEntity<ResultVO<List<Device>>> getDevicesByType(
             @RequestParam String deviceType,
@@ -137,6 +140,7 @@ public class DeviceStatusController {
     }
 
     @GetMapping("/status-count")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','AREA_ADMIN')")
     @Operation(summary = "设备状态数量统计", description = "统计各状态设备数量")
     public ResponseEntity<ResultVO<Map<String, Object>>> getDeviceStatusCount(
             @RequestParam(required = false) String areaId,

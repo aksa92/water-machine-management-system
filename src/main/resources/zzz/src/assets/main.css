@@ -1,13 +1,15 @@
+/* main.css - 修改后的版本 */
 @import './base.css';
 
 /* 重置app样式以适应移动端框架 */
 #app {
-  max-width: 100%;
+  width: 100%;
+  height: 100vh; /* 保持全屏高度 */
   margin: 0;
   padding: 0;
   font-weight: normal;
-  width: 100%;
-  height: 100vh;
+  display: flex;
+  flex-direction: column; /* 添加flex布局 */
 }
 
 /* 确保body和html占满全屏 */
@@ -16,6 +18,7 @@ html, body {
   padding: 0;
   width: 100%;
   height: 100%;
+  overflow: hidden; /* 防止整体页面滚动 */
 }
 
 /* 移除原有的桌面端布局 */
@@ -28,10 +31,11 @@ html, body {
   }
 
   #app {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 0;
+    max-width: 480px; /* 桌面端限制宽度 */
+    height: 90vh; /* 桌面端适当高度 */
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    overflow: hidden; /* 防止溢出 */
   }
 }
 
