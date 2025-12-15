@@ -36,12 +36,13 @@
     </div>
 
     <!-- 警告通知 -->
-    <div v-if="latestAlert" class="alert-warning">
+    <div v-if="latestAlert && showAlertNotification" class="alert-warning">
       <div class="alert-icon">⚠️</div>
       <div class="alert-content">
         <span>设备 {{ latestAlert.deviceId }} 异常，请关注！</span>
+        <div class="alert-detail">{{ latestAlert.alertMessage }}</div>
       </div>
-      <div class="alert-close">×</div>
+      <div class="alert-close" @click="showAlertNotification = false">×</div>
     </div>
 
     <!-- 主要内容区域 - 修改为单列布局 -->
@@ -49,10 +50,38 @@
       <!-- 最新告警 - 居中显示 -->
       <div class="content-card">
         <h3 class="card-title">最新告警</h3>
-        <div class="alert-list">
-          <div v-for="alert in recentAlerts" :key="alert.id" class="alert-item">
-            <div class="alert-text">{{ alert.deviceId }}：{{ alert.message }}</div>
-            <div :class="['alert-level', alert.level.toLowerCase()]">{{ formatAlertLevel(alert.level) }}</div>
+
+        <!-- 加载状态 -->
+        <div v-if="loadingAlerts" class="loading-state">
+          <div class="loading-spinner"></div>
+          <div class="loading-text">加载告警数据中...</div>
+        </div>
+
+        <!-- 权限错误提示 -->
+        <div v-else-if="alertPermissionError" class="permission-error">
+          <div class="error-icon">🔒</div>
+          <div class="error-content">
+            <div class="error-title">权限受限</div>
+            <div class="error-text">当前用户无告警查看权限</div>
+          </div>
+        </div>
+
+        <!-- 空状态 -->
+        <div v-else-if="recentAlerts.length === 0" class="empty-state">
+          <div class="empty-icon">✅</div>
+          <div class="empty-text">暂无告警信息</div>
+        </div>
+
+        <!-- 告警列表 -->
+        <div v-else class="alert-list">
+          <div v-for="alert in recentAlerts" :key="alert.alertId" class="alert-item">
+            <div class="alert-text">{{ alert.deviceId }}：{{ alert.alertMessage }}</div>
+            <div class="alert-meta">
+              <div :class="['alert-level', alert.alertLevel?.toLowerCase()]">
+                {{ formatAlertLevel(alert.alertLevel) }}
+              </div>
+              <div v-if="alert.areaId" class="alert-area">{{ alert.areaId }}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -62,7 +91,7 @@
         <h3 class="card-title">工单状态统计</h3>
         <div class="chart-placeholder">
           <div class="placeholder-text">
-            <div style="font-size: 16px; margin-bottom: 8px;">Axhub Charts</div>
+            <div style="font-size: 16px; margin-bottom: 8px;">待处理工单数: {{ stats.pendingWorkOrders }}</div>
             <div style="font-size: 24px; margin-bottom: 12px;">柱状图</div>
             <div style="color: #666; font-size: 12px;">
               通过Group内data和config中继器可更改数据及配置
@@ -84,7 +113,7 @@ import { request } from '@/api/request'
 import { useAuthStore } from '@/stores/auth'
 import type { ResultVO } from '@/api/types/auth'
 
-// 定义数据结构
+// 定义数据结构 - 修正为与后端实体匹配
 interface StatsData {
   totalDevices: number
   onlineDevices: number
@@ -93,12 +122,18 @@ interface StatsData {
   pendingWorkOrders: number
 }
 
+// 修正：与后端 Alert 实体字段保持一致
 interface Alert {
-  id: string
+  alertId: number
   deviceId: string
-  message: string
-  level: string
+  alertType: string
+  alertLevel: string  // 'info' | 'warning' | 'error' | 'critical'
+  alertMessage: string
+  areaId: string
+  status: string      // 'pending' | 'processing' | 'resolved' | 'closed'
   timestamp: string
+  resolvedTime?: string
+  resolvedBy?: string
 }
 
 // 响应式数据
@@ -112,7 +147,9 @@ const stats = ref<StatsData>({
 
 const recentAlerts = ref<Alert[]>([])
 const latestAlert = ref<Alert | null>(null)
-const onlinePercentage = ref<number>(0)
+const loadingAlerts = ref(false)
+const showAlertNotification = ref(true)
+const alertPermissionError = ref(false)
 
 // 获取路由和认证store实例
 const router = useRouter()
@@ -121,11 +158,12 @@ const authStore = useAuthStore()
 // 格式化告警级别
 const formatAlertLevel = (level: string): string => {
   const levelMap: Record<string, string> = {
-    'CRITICAL': '紧急',
-    'ERROR': '错误',
-    'WARNING': '警告'
+    'critical': '紧急',
+    'error': '错误',
+    'warning': '警告',
+    'info': '信息'
   }
-  return levelMap[level] || level
+  return levelMap[level?.toLowerCase()] || level
 }
 
 // 获取统计数据
@@ -142,8 +180,8 @@ const fetchStatsData = async () => {
 
     // 获取设备状态统计
     const statusCountResult = await request<ResultVO<Record<string, number>>>(
-      '/api/web/device-status/status-count',
-      { method: 'GET' }
+        '/api/web/device-status/status-count',
+        { method: 'GET' }
     )
 
     if (statusCountResult.code === 200 && statusCountResult.data) {
@@ -152,19 +190,12 @@ const fetchStatsData = async () => {
       stats.value.offlineDevices = data.offline || 0
       stats.value.alertDevices = data.fault || 0
       stats.value.totalDevices = (data.online || 0) + (data.offline || 0) + (data.fault || 0)
-
-      // 计算在线设备百分比
-      if (stats.value.totalDevices > 0) {
-        onlinePercentage.value = Math.round((stats.value.onlineDevices / stats.value.totalDevices) * 100)
-      } else {
-        onlinePercentage.value = 0
-      }
     }
 
     // 获取待处理工单数
     const workOrderResult = await request<ResultVO<any[]>>(
-      '/api/work-orders/by-status?status=pending',
-      { method: 'GET' }
+        '/api/work-orders/by-status?status=pending',
+        { method: 'GET' }
     )
 
     if (workOrderResult.code === 200 && workOrderResult.data) {
@@ -189,6 +220,9 @@ const fetchStatsData = async () => {
 
 // 获取告警数据
 const fetchAlertData = async () => {
+  loadingAlerts.value = true
+  alertPermissionError.value = false
+
   try {
     const token = authStore.token
 
@@ -199,17 +233,37 @@ const fetchAlertData = async () => {
       return
     }
 
-    // 获取最新告警
+    // 获取最新告警 - 使用正确的接口
     const alertResult = await request<ResultVO<Alert[]>>(
-      '/api/alerts/pending',
-      { method: 'GET' }
+        '/api/alerts/pending',
+        { method: 'GET' }
     )
 
+    console.log('告警接口返回:', alertResult)
+
     if (alertResult.code === 200 && alertResult.data) {
-      recentAlerts.value = alertResult.data.slice(0, 5) // 只取前5条
+      // 确保数据是数组
+      const alerts = Array.isArray(alertResult.data) ? alertResult.data : []
+
+      // 只取前5条
+      recentAlerts.value = alerts.slice(0, 5)
+
+      // 如果有告警，设置最新告警
       if (recentAlerts.value.length > 0) {
-        latestAlert.value = recentAlerts.value[0] || null;
-      }
+  const sortedAlerts = [...recentAlerts.value].sort((a, b) => {
+    const priorityMap: Record<string, number> = {
+      'critical': 4,
+      'error': 3,
+      'warning': 2,
+      'info': 1
+    };
+    return (priorityMap[b.alertLevel?.toLowerCase()] || 0) - (priorityMap[a.alertLevel?.toLowerCase()] || 0);
+  });
+  latestAlert.value = sortedAlerts[0] ?? null; // 明确处理 undefined 情况
+} else {
+  latestAlert.value = null;
+}
+
     }
   } catch (error: any) {
     console.error('获取告警数据失败:', error)
@@ -217,7 +271,7 @@ const fetchAlertData = async () => {
     // 特别处理403权限错误
     if (error.message?.includes('403')) {
       console.warn('当前用户无权限访问告警数据')
-      // 清空告警数据但不显示错误提示
+      alertPermissionError.value = true
       recentAlerts.value = []
       latestAlert.value = null
       return
@@ -234,9 +288,10 @@ const fetchAlertData = async () => {
       authStore.logout()
       router.push('/login')
     }
+  } finally {
+    loadingAlerts.value = false
   }
 }
-
 
 // 组件挂载时获取数据
 onMounted(() => {
@@ -325,10 +380,21 @@ onMounted(() => {
   color: #333;
 }
 
+.alert-detail {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+}
+
 .alert-close {
   font-size: 20px;
   cursor: pointer;
   color: #999;
+  padding: 0 8px;
+}
+
+.alert-close:hover {
+  color: #666;
 }
 
 /* 修改为单列布局 */
@@ -341,7 +407,7 @@ onMounted(() => {
 .content-card {
   background: white;
   border-radius: 8px;
-  padding: 20px;
+  padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
@@ -349,25 +415,116 @@ onMounted(() => {
   font-size: 18px;
   font-weight: 600;
   color: #1a1a1a;
-  margin-bottom: 16px;
-  text-align: center; /* 标题居中 */
+  margin-bottom: 20px;
+  text-align: center;
 }
 
+/* 加载状态 */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 12px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-size: 14px;
+  color: #666;
+}
+
+/* 权限错误提示 */
+.permission-error {
+  display: flex;
+  align-items: center;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  margin: 10px 0;
+}
+
+.error-icon {
+  font-size: 24px;
+  margin-right: 12px;
+  color: #6c757d;
+}
+
+.error-content {
+  flex: 1;
+}
+
+.error-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 4px;
+}
+
+.error-text {
+  font-size: 12px;
+  color: #6c757d;
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.empty-icon {
+  font-size: 40px;
+  margin-bottom: 12px;
+}
+
+.empty-text {
+  font-size: 14px;
+  color: #666;
+}
+
+/* 告警列表样式 */
 .alert-list {
   display: flex;
   flex-direction: column;
 }
 
 .alert-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 0;
+  padding: 16px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.alert-item:last-child {
+  border-bottom: none;
 }
 
 .alert-text {
   font-size: 14px;
   color: #333;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.alert-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .alert-level {
@@ -375,6 +532,8 @@ onMounted(() => {
   padding: 4px 8px;
   border-radius: 4px;
   font-weight: 500;
+  min-width: 50px;
+  text-align: center;
 }
 
 .alert-level.critical {
@@ -392,9 +551,17 @@ onMounted(() => {
   color: #ff8f00;
 }
 
-.alert-divider {
-  height: 1px;
-  background: #f0f0f0;
+.alert-level.info {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.alert-area {
+  font-size: 12px;
+  color: #666;
+  background: #f5f5f5;
+  padding: 4px 8px;
+  border-radius: 4px;
 }
 
 .chart-placeholder {
@@ -414,6 +581,12 @@ onMounted(() => {
 @media (max-width: 768px) {
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .alert-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
   }
 }
 </style>
