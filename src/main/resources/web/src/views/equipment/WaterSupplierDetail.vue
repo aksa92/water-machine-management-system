@@ -1,15 +1,15 @@
-<!-- src/views/equipment/WaterMakerDetail.vue -->
+<!-- src/views/equipment/WaterSupplierDetail.vue -->
 <template>
-  <div class="water-maker-detail-page">
+  <div class="water-supplier-detail-page">
     <!-- 页面标题和面包屑 -->
     <div class="page-header">
-      <h2>制水机详情</h2>
-      <div class="breadcrumb">校园矿化水平台 / 设备监控 / 制水机 / 详情</div>
+      <h2>供水机详情</h2>
+      <div class="breadcrumb">校园矿化水平台 / 设备监控 / 供水机 / 详情</div>
     </div>
 
     <!-- 返回按钮 -->
     <div class="back-button-container">
-      <button class="btn-back" @click="goBack">← 返回制水机列表</button>
+      <button class="btn-back" @click="goBack">← 返回供水机列表</button>
     </div>
 
     <!-- 设备基本信息卡片 -->
@@ -60,56 +60,32 @@
       <h3>实时数据</h3>
       <div class="detail-grid">
         <div class="detail-item">
-          <span class="label">原水TDS:</span>
-          <span class="value">{{ deviceDetail.realtimeData?.tdsValue1 || '-' }} ppm</span>
-        </div>
-        <div class="detail-item">
-          <span class="label">纯水TDS:</span>
-          <span class="value">{{ deviceDetail.realtimeData?.tdsValue2 || '-' }} ppm</span>
-        </div>
-        <div class="detail-item">
-          <span class="label">矿化水TDS:</span>
-          <span class="value">{{ deviceDetail.realtimeData?.tdsValue3 || '-' }} ppm</span>
-        </div>
-        <div class="detail-item">
-          <span class="label">流量1:</span>
-          <span class="value">{{ deviceDetail.realtimeData?.waterFlow1 || '-' }} m³/h</span>
-        </div>
-        <div class="detail-item">
-          <span class="label">流量2:</span>
-          <span class="value">{{ deviceDetail.realtimeData?.waterFlow2 || '-' }} m³/h</span>
-        </div>
-        <div class="detail-item">
           <span class="label">水压:</span>
           <span class="value">{{ deviceDetail.realtimeData?.waterPress || '-' }} MPa</span>
         </div>
         <div class="detail-item">
-          <span class="label">滤芯寿命:</span>
-          <span class="value">{{ deviceDetail.realtimeData?.filterLife || '-' }}%</span>
+          <span class="label">流量:</span>
+          <span class="value">{{ deviceDetail.realtimeData?.waterFlow || '-' }} m³/h</span>
         </div>
         <div class="detail-item">
-          <span class="label">漏水检测:</span>
-          <span class="value">
-            <span :class="`status-tag ${deviceDetail.realtimeData?.leakage ? 'warning' : 'normal'}`">
-              {{ deviceDetail.realtimeData?.leakage ? '检测到漏水' : '正常' }}
-            </span>
-          </span>
+          <span class="label">温度:</span>
+          <span class="value">{{ deviceDetail.realtimeData?.temperature || '-' }} °C</span>
         </div>
         <div class="detail-item">
-          <span class="label">水质:</span>
-          <span class="value">{{ deviceDetail.realtimeData?.waterQuality || '-' }}</span>
+          <span class="label">水质(TDS):</span>
+          <span class="value">{{ deviceDetail.realtimeData?.tds || '-' }} ppm</span>
         </div>
         <div class="detail-item">
           <span class="label">运行状态:</span>
           <span class="value">
             <span :class="`status-tag ${deviceDetail.realtimeData?.status || 'normal'}`">
-              {{ formatRealtimeStatus(deviceDetail.realtimeData?.status) }}
+              {{ formatRunningStatus(deviceDetail.realtimeData?.status) }}
             </span>
           </span>
         </div>
         <div class="detail-item">
           <span class="label">数据记录时间:</span>
-          <span class="value">{{ formatDate(deviceDetail.realtimeData?.recordTime) }}</span>
+          <span class="value">{{ formatDate(deviceDetail.realtimeData?.timestamp) }}</span>
         </div>
       </div>
     </div>
@@ -145,25 +121,20 @@ interface DeviceInfo {
   lastHeartbeatTime?: string
 }
 
-// 根据 WaterMakerRealtimeData 实体类定义
-interface WaterMakerRealtimeData {
-  tdsValue1?: number  // 原水TDS
-  tdsValue2?: number  // 纯水TDS
-  tdsValue3?: number  // 矿化水TDS
-  waterFlow1?: number // 流量1
-  waterFlow2?: number // 流量2
+// 根据 WaterSupplyRealtimeData 实体类定义
+interface WaterSupplyRealtimeData {
+  waterFlow?: number // 流量
   waterPress?: number // 水压
-  filterLife?: number // 滤芯寿命
-  leakage?: boolean   // 漏水检测
-  waterQuality?: string // 水质
+  waterLevel?: number // 水位
+  temperature?: number // 温度
   status?: string     // 设备状态
-  recordTime?: string // 记录时间
+  timestamp?: string // 记录时间
   createdTime?: string // 创建时间
 }
 
 interface DeviceDetail {
   deviceInfo: DeviceInfo
-  realtimeData?: WaterMakerRealtimeData
+  realtimeData?: WaterSupplyRealtimeData
 }
 
 // 响应式数据
@@ -199,8 +170,8 @@ const formatStatus = (status: string | undefined): string => {
   return statusMap[status] || status
 }
 
-// 格式化实时数据状态
-const formatRealtimeStatus = (status: string | undefined): string => {
+// 格式化运行状态
+const formatRunningStatus = (status: string | undefined): string => {
   if (!status) return '正常'
   const statusMap: Record<string, string> = {
     'normal': '正常',
@@ -275,7 +246,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.water-maker-detail-page {
+.water-supplier-detail-page {
   padding: 20px;
 }
 
@@ -405,7 +376,7 @@ onMounted(() => {
     grid-template-columns: 1fr;
   }
 
-  .water-maker-detail-page {
+  .water-supplier-detail-page {
     padding: 16px;
   }
 }

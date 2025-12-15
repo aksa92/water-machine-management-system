@@ -42,6 +42,12 @@ const router = createRouter({
                     }
                 },
                 {
+                    path: '/home/equipment/water-maker/:id',
+                    name: 'WaterMakerDetail',
+                    component: () => import('@/views/equipment/WaterMakerDetail.vue'),
+                    meta: { requiresAuth: true }
+                },
+                {
                     path: 'equipment/water-maker',
                     name: 'water-maker',
                     component: () => import('../views/equipment/WaterMaker.vue'),
@@ -49,6 +55,13 @@ const router = createRouter({
                         title: '制水设备'
                     }
                 },
+                {
+                path: '/home/equipment/water-supplier/:id',
+                name: 'WaterSupplierDetail',
+                component: () => import('@/views/equipment/WaterSupplierDetail.vue'),
+                meta: { requiresAuth: true }
+                },
+
                 {
                     path: 'equipment/water-supplier',
                     name: 'water-supplier',
