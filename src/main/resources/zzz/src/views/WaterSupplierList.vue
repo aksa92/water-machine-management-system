@@ -13,32 +13,37 @@
 
     <!-- 主要内容区域 -->
     <div class="main-content">
-      <div class="device-list">
-        <div class="device-item">
-          <div class="device-info">
-            <div class="device-name">供水机#A105</div>
-            <div class="device-status">上次巡检时间2023-9-10</div>
-          </div>
-          <div class="device-actions">
-            <button class="action-btn detail" @click="viewDeviceDetail('A105')">
-              详情
-            </button>
-            <button class="action-btn inspect" @click="startInspection('A105')">
-              开始巡检
-            </button>
-          </div>
-        </div>
+      <!-- 加载状态 -->
+      <div v-if="loading" class="loading-container">
+        <div class="loading-spinner"></div>
+        <div>加载中...</div>
+      </div>
 
-        <div class="device-item">
+      <!-- 错误状态 -->
+      <div v-else-if="error" class="error-container">
+        <div class="error-icon">❌</div>
+        <div class="error-message">{{ error }}</div>
+        <button class="retry-btn" @click="fetchWaterSuppliers">重试</button>
+      </div>
+
+      <!-- 正常状态 -->
+      <div v-else class="device-list">
+        <div v-for="device in deviceList" :key="device.id" class="device-item">
           <div class="device-info">
-            <div class="device-name">供水机#A106</div>
-            <div class="device-status">上次巡检时间2023-9-10</div>
+            <div class="device-name">{{ device.name }}</div>
+            <div class="device-location">{{ device.location }}</div>
+            <div class="device-status" :class="getStatusClass(device.status)">
+              状态: {{ formatStatus(device.status) }}
+            </div>
+            <div class="device-last-check">
+              上次巡检: {{ device.lastInspectionTime }}
+            </div>
           </div>
           <div class="device-actions">
-            <button class="action-btn detail" @click="viewDeviceDetail('A106')">
+            <button class="action-btn detail" @click="viewDeviceDetail(device.id)">
               详情
             </button>
-            <button class="action-btn inspect" @click="startInspection('A106')">
+            <button class="action-btn inspect" @click="startInspection(device.id)">
               开始巡检
             </button>
           </div>
@@ -57,10 +62,75 @@
 </template>
 
 <script setup>
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { deviceService } from '@/services/deviceService'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const authStore = useAuthStore()
 
+// 设备数据
+const deviceList = ref([])
+const loading = ref(true)
+const error = ref(null)
+
+// 获取供水机列表
+const fetchWaterSuppliers = async () => {
+  try {
+    loading.value = true
+    error.value = null
+
+    const response = await deviceService.getAreaDevicesByType('water_supply')
+
+    if (response.code === 200) {
+      deviceList.value = response.data.map(device => ({
+        id: device.deviceId,
+        name: device.deviceName || `供水机#${device.deviceId}`,
+        location: device.installLocation || '未指定位置',
+        lastInspectionTime: device.lastCheckTime || '2023-9-10',
+        status: device.status,
+        waterLevel: device.waterLevel || 0,
+        storageCapacity: device.storageCapacity || 0,
+        areaId: device.areaId
+      }))
+    } else {
+      error.value = response.message
+    }
+  } catch (err) {
+    error.value = err.message || '获取设备列表失败'
+    console.error('获取供水机列表失败:', err)
+  } finally {
+    loading.value = false
+  }
+}
+
+// 状态格式化
+const formatStatus = (status) => {
+  const statusMap = {
+    'online': '在线',
+    'offline': '离线',
+    'fault': '故障',
+    'maintenance': '维护中'
+  }
+  return statusMap[status] || status
+}
+
+// 状态样式类
+const getStatusClass = (status) => {
+  switch (status) {
+    case 'online':
+      return 'status-online'
+    case 'offline':
+      return 'status-offline'
+    case 'fault':
+      return 'status-fault'
+    default:
+      return 'status-unknown'
+  }
+}
+
+// 导航函数
 const goBack = () => {
   router.back()
 }
@@ -87,8 +157,13 @@ const viewDeviceDetail = (deviceId) => {
 
 const startInspection = (deviceId) => {
   console.log(`开始巡检供水机 ${deviceId}`)
-  router.push('/inspection/form')
+  router.push(`/inspection/form?deviceId=${deviceId}&deviceType=water_supply`)
 }
+
+// 组件挂载时获取数据
+onMounted(() => {
+  fetchWaterSuppliers()
+})
 </script>
 
 <style scoped>
@@ -242,5 +317,99 @@ const startInspection = (deviceId) => {
 
 .nav-item:hover {
   color: #1890ff;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  background: white;
+  border-radius: 8px;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #1890ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  background: white;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.error-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  color: #ff4d4f;
+}
+
+.error-message {
+  color: #666;
+  margin-bottom: 16px;
+}
+
+.retry-btn {
+  padding: 8px 24px;
+  background: #1890ff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.device-location {
+  font-size: 13px;
+  color: #666;
+  margin: 4px 0;
+}
+
+.device-status {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  display: inline-block;
+  margin-top: 4px;
+}
+
+.status-online {
+  background: #f6ffed;
+  color: #52c41a;
+  border: 1px solid #b7eb8f;
+}
+
+.status-offline {
+  background: #fff2e8;
+  color: #fa541c;
+  border: 1px solid #ffbb96;
+}
+
+.status-fault {
+  background: #fff1f0;
+  color: #ff4d4f;
+  border: 1px solid #ffccc7;
+}
+
+.device-last-check {
+  font-size: 12px;
+  color: #999;
+  margin-top: 4px;
 }
 </style>

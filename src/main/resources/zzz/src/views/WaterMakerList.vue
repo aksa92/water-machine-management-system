@@ -13,75 +13,50 @@
 
     <!-- 主要内容区域 -->
     <div class="main-content">
-      <!-- 学校1 -->
-      <div class="school-section">
-        <div class="school-name">学校1</div>
-
-        <div class="device-list">
-          <div class="device-item">
-            <div class="device-info">
-              <div class="device-name">制水机#A102</div>
-              <div class="device-location">A区教学楼 - 上次巡检时间2023-9-10</div>
-            </div>
-            <div class="device-actions">
-              <button class="action-btn detail" @click="viewDeviceDetail('A102')">
-                详情
-              </button>
-              <button class="action-btn inspect" @click="viewWaterSupplier('A102')">
-                查看供水机
-              </button>
-            </div>
-          </div>
-
-          <div class="device-item">
-            <div class="device-info">
-              <div class="device-name">制水机#C103</div>
-              <div class="device-location">C区宿舍 - 上次巡检时间2023-9-10</div>
-            </div>
-            <div class="device-actions">
-              <button class="action-btn detail" @click="viewDeviceDetail('C103')">
-                详情
-              </button>
-              <button class="action-btn inspect" @click="viewWaterSupplier('C103')">
-                查看供水机
-              </button>
-            </div>
-          </div>
-        </div>
+      <!-- 加载状态 -->
+      <div v-if="loading" class="loading-container">
+        <div class="loading-spinner"></div>
+        <div>加载中...</div>
       </div>
 
-      <!-- 学校2 -->
-      <div class="school-section">
-        <div class="school-name">学校2</div>
+      <!-- 错误状态 -->
+      <div v-else-if="error" class="error-container">
+        <div class="error-icon">❌</div>
+        <div class="error-message">{{ error }}</div>
+        <button class="retry-btn" @click="fetchWaterMakers">重试</button>
+      </div>
 
-        <div class="device-list">
-          <div class="device-item">
-            <div class="device-info">
-              <div class="device-name">制水机#B101</div>
-              <div class="device-location">B区操场 - 上次巡检时间2023-9-10</div>
-            </div>
-            <div class="device-actions">
-              <button class="action-btn detail" @click="viewDeviceDetail('B101')">
-                详情
-              </button>
-              <button class="action-btn inspect" @click="viewWaterSupplier('B101')">
-                查看供水机
-              </button>
-            </div>
-          </div>
+      <!-- 动态渲染设备列表（替换静态内容） -->
+      <div v-else>
+        <!-- 循环渲染分组（如学校/区域） -->
+        <div
+          v-for="(devices, schoolKey) in groupedDevices"
+          :key="schoolKey"
+          class="school-section"
+        >
+          <div class="school-name">{{ schoolKey === 'B' ? '学校2' : schoolKey }}</div> <!-- 映射areaId到学校名称 -->
 
-          <div class="device-item">
-            <div class="device-info">
-              <div class="device-name">制水机#D104</div>
-              <div class="device-location">D区食堂 - 上次巡检时间2023-9-10</div>
-            </div>
-            <div class="device-actions">
-              <button class="action-btn detail" @click="viewDeviceDetail('D104')">
-                详情
-              </button>
-              <button class="action-btn inspect" @click="viewWaterSupplier('D104')">
-                查看供水机
-              </button>
+          <div class="device-list">
+            <!-- 循环渲染每个设备 -->
+            <div
+              v-for="device in devices"
+              :key="device.id"
+              class="device-item"
+            >
+              <div class="device-info">
+                <div class="device-name">{{ device.name }}</div>
+                <div class="device-location">
+                  {{ device.location }} - 上次巡检时间{{ device.lastInspectionTime }}
+                </div>
+              </div>
+              <div class="device-actions">
+                <button class="action-btn detail" @click="viewDeviceDetail(device.id)">
+                  详情
+                </button>
+                <button class="action-btn inspect" @click="viewWaterSupplier(device.id)">
+                  查看供水机
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -99,10 +74,64 @@
 </template>
 
 <script setup>
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { deviceService } from '@/services/deviceService'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const authStore = useAuthStore()
 
+// 设备数据
+const deviceList = ref([])
+const loading = ref(true)
+const error = ref(null)
+
+// 按学校分组
+const groupedDevices = computed(() => {
+  const groups = {}
+
+  deviceList.value.forEach(device => {
+    // 根据区域ID分组，这里可以修改为实际的学校分组逻辑
+    const schoolKey = device.areaId || '未分组'
+    if (!groups[schoolKey]) {
+      groups[schoolKey] = []
+    }
+    groups[schoolKey].push(device)
+  })
+
+  return groups
+})
+
+
+// 获取制水机列表
+const fetchWaterMakers = async () => {
+  try {
+    loading.value = true
+    const response = await deviceService.getAreaDevicesByType('water_maker')
+
+    if (response.code === 200) {
+      deviceList.value = response.data.map(device => ({
+        id: device.deviceId,
+        name: device.deviceName || `制水机#${device.deviceId}`,
+        location: device.installLocation || '未指定位置',
+        lastInspectionTime: device.lastCheckTime || '2023-9-10',
+        areaId: device.areaId,
+        status: device.status,
+        deviceType: device.deviceType
+      }))
+    } else {
+      error.value = response.message
+    }
+  } catch (err) {
+    error.value = err.message || '获取设备列表失败'
+    console.error('获取制水机列表失败:', err)
+  } finally {
+    loading.value = false
+  }
+}
+
+// 导航函数（保持不变）
 const goBack = () => {
   router.back()
 }
@@ -128,8 +157,14 @@ const viewDeviceDetail = (deviceId) => {
 }
 
 const viewWaterSupplier = (deviceId) => {
-  router.push('/inspection/water-supplier')
+  // 传递制水机ID参数
+  router.push(`/inspection/water-supplier?makerId=${deviceId}`)
 }
+
+// 组件挂载时获取数据
+onMounted(() => {
+  fetchWaterMakers()
+})
 </script>
 
 <style scoped>

@@ -11,102 +11,90 @@
 
     <!-- 主要内容区域 -->
     <div class="main-content">
-      <div class="device-detail-container">
+      <!-- 加载状态 -->
+      <div v-if="loading" class="loading-container">
+        <div class="loading-spinner"></div>
+        <div>加载中...</div>
+      </div>
+
+      <!-- 错误状态 -->
+      <div v-else-if="error" class="error-container">
+        <div class="error-icon">❌</div>
+        <div class="error-message">{{ error }}</div>
+        <button class="retry-btn" @click="fetchDeviceDetail">重试</button>
+      </div>
+
+      <!-- 正常状态 -->
+      <div v-else class="device-detail-container">
         <!-- 设备信息 -->
         <div class="info-section">
           <div class="section-title">设备信息</div>
           <div class="info-grid">
             <div class="info-item">
               <div class="info-label">设备ID</div>
-              <div class="info-value">制水机 #A102</div>
+              <div class="info-value">{{ deviceInfo.id }}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">设备名称</div>
+              <div class="info-value">{{ deviceInfo.name }}</div>
             </div>
             <div class="info-item">
               <div class="info-label">安装位置</div>
-              <div class="info-value">A区教学楼 2楼水房</div>
+              <div class="info-value">{{ deviceInfo.location }}</div>
             </div>
             <div class="info-item">
               <div class="info-label">设备状态</div>
-              <div class="info-value status-normal">正常运行</div>
+              <div class="info-value" :class="getStatusClass(deviceInfo.status)">
+                {{ formatStatus(deviceInfo.status) }}
+              </div>
             </div>
             <div class="info-item">
-              <div class="info-label">运行时间</div>
-              <div class="info-value">1,246 小时</div>
+              <div class="info-label">安装日期</div>
+              <div class="info-value">{{ deviceInfo.installDate }}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">所属区域</div>
+              <div class="info-value">{{ deviceInfo.areaId }}</div>
             </div>
           </div>
         </div>
 
         <!-- 水质监测 -->
-        <div class="info-section">
+        <div v-if="deviceInfo.waterQuality" class="info-section">
           <div class="section-title">水质监测</div>
           <div class="monitoring-grid">
             <div class="monitoring-item">
               <div class="monitoring-label">自来水TDS</div>
-              <div class="monitoring-value">285</div>
+              <div class="monitoring-value">{{ deviceInfo.waterQuality.tapWaterTDS || 285 }}</div>
               <div class="monitoring-unit">mg/L</div>
             </div>
             <div class="monitoring-item">
               <div class="monitoring-label">纯净水TDS</div>
-              <div class="monitoring-value">13</div>
+              <div class="monitoring-value">{{ deviceInfo.waterQuality.pureWaterTDS || 13 }}</div>
               <div class="monitoring-unit">mg/L</div>
             </div>
             <div class="monitoring-item">
               <div class="monitoring-label">矿化水TDS</div>
-              <div class="monitoring-value">87</div>
+              <div class="monitoring-value">{{ deviceInfo.waterQuality.mineralWaterTDS || 87 }}</div>
               <div class="monitoring-unit">mg/L</div>
             </div>
           </div>
         </div>
 
-        <!-- 滤芯状态 -->
-        <div class="info-section">
-          <div class="section-title">滤芯状态</div>
-          <div class="filter-grid">
-            <div class="filter-item">
-              <div class="filter-name">滤芯1</div>
-              <div class="filter-status status-normal">正常</div>
-              <div class="filter-lifespan">剩余寿命：65%</div>
-            </div>
-            <div class="filter-item">
-              <div class="filter-name">滤芯2</div>
-              <div class="filter-status status-warning">寿命低</div>
-              <div class="filter-lifespan">剩余寿命：35%</div>
-            </div>
-            <div class="filter-item">
-              <div class="filter-name">滤芯3</div>
-              <div class="filter-status status-normal">正常</div>
-              <div class="filter-lifespan">剩余寿命：72%</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 传感器监控 -->
-        <div class="info-section">
-          <div class="section-title">传感器监控</div>
-          <div class="sensor-grid">
-            <div class="sensor-item">
-              <div class="sensor-name">流量计1</div>
-              <div class="sensor-value">12.9</div>
-              <div class="sensor-unit">L/min</div>
-              <div class="sensor-extra">今日流量 1,245L</div>
-            </div>
-            <div class="sensor-item">
-              <div class="sensor-name">流量计2</div>
-              <div class="sensor-value">8.1</div>
-              <div class="sensor-unit">L/min</div>
-              <div class="sensor-extra">今日流量 865L</div>
-            </div>
-            <div class="sensor-item">
-              <div class="sensor-name">自来水压力</div>
-              <div class="sensor-value">2.8</div>
-              <div class="sensor-unit">kg/cm²</div>
-              <div class="sensor-extra status-normal">正常</div>
-            </div>
-          </div>
+        <!-- 设备备注 -->
+        <div v-if="deviceInfo.remark" class="info-section">
+          <div class="section-title">备注信息</div>
+          <div class="remark-content">{{ deviceInfo.remark }}</div>
         </div>
       </div>
 
-      <button class="inspect-btn" @click="startInspection">
-        开始巡检
+      <button
+        v-if="!loading && !error"
+        class="inspect-btn"
+        @click="startInspection"
+        :disabled="deviceInfo.status === 'fault'"
+      >
+        {{ deviceInfo.status === 'fault' ? '设备故障，无法巡检' : '开始巡检' }}
       </button>
     </div>
 
@@ -121,10 +109,86 @@
 </template>
 
 <script setup>
-import { useRouter } from 'vue-router'
+import { ref, onMounted, computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { deviceService } from '@/services/deviceService'
 
 const router = useRouter()
+const route = useRoute()
 
+// 设备详情数据
+const deviceInfo = ref({})
+const loading = ref(true)
+const error = ref(null)
+
+// 获取设备ID
+const deviceId = computed(() => route.params.id)
+
+// 获取设备详情
+const fetchDeviceDetail = async () => {
+  try {
+    loading.value = true
+    error.value = null
+
+    const response = await deviceService.getDeviceDetail(deviceId.value)
+
+    if (response.code === 200) {
+      const data = response.data
+
+      // 转换后端数据到前端格式
+      deviceInfo.value = {
+        id: data.deviceId,
+        name: data.deviceName || `制水机#${data.deviceId}`,
+        location: data.installLocation || '未指定位置',
+        status: data.status || 'offline',
+        areaId: data.areaId,
+        installDate: data.installDate,
+        remark: data.remark,
+        lastCheckTime: data.lastCheckTime,
+        createTime: data.createTime,
+        deviceType: data.deviceType,
+        // 水质数据（如果存在）
+        waterQuality: {
+          tapWaterTDS: data.tapWaterTDS,
+          pureWaterTDS: data.pureWaterTDS,
+          mineralWaterTDS: data.mineralWaterTDS
+        }
+      }
+    } else {
+      error.value = response.message || '获取设备详情失败'
+    }
+  } catch (err) {
+    error.value = err.message || '获取设备详情失败'
+    console.error('获取设备详情失败:', err)
+  } finally {
+    loading.value = false
+  }
+}
+// 状态格式化
+const formatStatus = (status) => {
+  const statusMap = {
+    'online': '在线',
+    'offline': '离线',
+    'fault': '故障'
+  }
+  return statusMap[status] || status
+}
+
+// 状态样式类
+const getStatusClass = (status) => {
+  switch (status) {
+    case 'online':
+      return 'status-online'
+    case 'offline':
+      return 'status-offline'
+    case 'fault':
+      return 'status-fault'
+    default:
+      return ''
+  }
+}
+
+// 导航函数
 const goBack = () => {
   router.back()
 }
@@ -146,10 +210,18 @@ const goToProfile = () => {
 }
 
 const startInspection = () => {
-  console.log('开始巡检制水机')
-  router.push('/inspection/form')
+  console.log('开始巡检制水机', deviceInfo.value.id)
+  router.push(`/inspection/form?deviceId=${deviceInfo.value.id}&deviceType=water_maker`)
 }
+
+// 组件挂载时获取数据
+onMounted(() => {
+  if (deviceId.value) {
+    fetchDeviceDetail()
+  }
+})
 </script>
+
 
 <style scoped>
 .water-maker-detail {
@@ -408,5 +480,83 @@ const startInspection = () => {
 
 .nav-item:hover {
   color: #1890ff;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 0;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #1890ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 0;
+  text-align: center;
+}
+
+.error-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  color: #ff4d4f;
+}
+
+.error-message {
+  color: #666;
+  margin-bottom: 16px;
+}
+
+.retry-btn {
+  padding: 8px 24px;
+  background: #1890ff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.status-online {
+  color: #52c41a;
+}
+
+.status-offline {
+  color: #fa541c;
+}
+
+.status-fault {
+  color: #ff4d4f;
+}
+
+.remark-content {
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #666;
+  line-height: 1.5;
+}
+
+.inspect-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>
