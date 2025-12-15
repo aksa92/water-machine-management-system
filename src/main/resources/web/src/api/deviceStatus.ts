@@ -3,18 +3,31 @@ import axios from 'axios'
 
 export const DeviceStatusApi = {
   // 获取设备状态列表 - 修改为匹配后端实际接口
-  getDevicesByStatus: async (status: string, areaId?: string, deviceType?: string) => {
-    try {
-      const params: any = { status }
-      if (areaId) params.areaId = areaId
-      if (deviceType) params.deviceType = deviceType
+    getDevicesByType: async (deviceType: string, areaId?: string) => {
+        try {
+            const params: any = { deviceType }
+            if (areaId) params.areaId = areaId
 
-      const response = await axios.get('/api/web/device-status/by-status', { params })
-      return response.data
-    } catch (error) {
-      throw new Error(`获取设备列表失败: ${error}`)
-    }
-  },
+            // 注意：这里是调用设备状态管理的接口
+            const response = await axios.get('/api/web/device-status/by-type', { params })
+            return response.data
+        } catch (error) {
+            throw new Error(`获取设备列表失败: ${error}`)
+        }
+    },
+
+    // 按状态查询设备
+    getDevicesByStatus: async (status: string, areaId?: string) => {
+        try {
+            const params: any = { status }
+            if (areaId) params.areaId = areaId
+
+            const response = await axios.get('/api/web/device-status/by-status', { params })
+            return response.data
+        } catch (error) {
+            throw new Error(`获取设备列表失败: ${error}`)
+        }
+    },
 
   // 标记设备在线
   markDeviceOnline: async (deviceId: string) => {

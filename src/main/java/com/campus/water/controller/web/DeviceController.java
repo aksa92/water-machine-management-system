@@ -142,7 +142,7 @@ public class DeviceController {
      * 按状态查询设备列表（支持区域筛选）
      * 管理员/运维人员通用接口
      */
-    @GetMapping("/by-status")
+   /* @GetMapping("/by-status")
     @Operation(summary = "按状态查询设备", description = "根据设备状态筛选设备列表，可选区域筛选")
     public ResponseEntity<ResultVO<List<Device>>> getDevicesByStatus(
             @RequestParam String status,
@@ -155,13 +155,13 @@ public class DeviceController {
         } catch (Exception e) {
             return ResponseEntity.ok(ResultVO.error(500, "按状态查询设备失败: " + e.getMessage()));
         }
-    }
+    }*/
 
     /**
      * 按类型查询设备列表（支持区域筛选）
      * 管理员/运维人员通用接口
      */
-    @GetMapping("/by-type")
+   /* @GetMapping("/by-type")
     @Operation(summary = "按类型查询设备", description = "根据设备类型筛选设备列表，可选区域筛选")
     public ResponseEntity<ResultVO<List<Device>>> getDevicesByType(
             @RequestParam String deviceType,
@@ -174,6 +174,6 @@ public class DeviceController {
         } catch (Exception e) {
             return ResponseEntity.ok(ResultVO.error(500, "按类型查询设备失败: " + e.getMessage()));
         }
-    }
+    }*/
 
 }

@@ -12,9 +12,9 @@
       <!-- 工单号/设备ID搜索 -->
       <div class="filter-item search-item">
         <label>搜索：</label>
-        <input 
-          type="text" 
-          v-model="searchKeyword" 
+        <input
+          type="text"
+          v-model="searchKeyword"
           class="search-input"
           placeholder="输入工单号或设备ID搜索"
           @input="handleSearch"
@@ -34,9 +34,9 @@
       <!-- 日期筛选 -->
       <div class="filter-item">
         <label>创建日期：</label>
-        <input 
-          type="date" 
-          v-model="filterForm.createDate" 
+        <input
+          type="date"
+          v-model="filterForm.createDate"
           class="filter-input"
           @change="handleFilter"
         >
@@ -61,7 +61,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="order in filteredOrders" :key="order.id">
+          <tr v-for="order in paginatedOrders" :key="order.id">
             <td>{{ order.orderNo }}</td>
             <td>
               <div class="device-info">
@@ -81,8 +81,10 @@
               <button class="btn-assign" @click="openAssignDialog(order)">人工派单</button>
             </td>
           </tr>
-          <tr v-if="filteredOrders.length === 0">
-            <td colspan="7" class="no-data">暂无超时未抢工单</td>
+          <tr v-if="paginatedOrders.length === 0">
+            <td colspan="7" class="no-data">
+              {{ loading ? '正在加载数据...' : '暂无超时未抢工单' }}
+            </td>
           </tr>
         </tbody>
       </table>
@@ -90,18 +92,18 @@
 
     <!-- 分页控件 -->
     <div class="pagination">
-      <button 
-        class="page-btn" 
+      <button
+        class="page-btn"
         :disabled="currentPage === 1"
         @click="currentPage--"
       >
         上一页
       </button>
       <span class="page-info">
-        第 {{ currentPage }} 页 / 共 {{ totalPages }} 页
+        第 {{ currentPage }} 页 / 共 {{ totalPages }} 页 (共 {{ filteredOrders.length }} 条记录)
       </span>
-      <button 
-        class="page-btn" 
+      <button
+        class="page-btn"
         :disabled="currentPage === totalPages"
         @click="currentPage++"
       >
@@ -153,15 +155,15 @@
           </div>
           <div class="form-group">
             <label class="form-label required">选择维修人员：</label>
-            <select 
-              v-model="selectedStaffId" 
+            <select
+              v-model="selectedStaffId"
               class="form-select"
               @change="handleStaffChange"
             >
               <option value="">请选择维修人员</option>
-              <option 
-                v-for="staff in filteredStaff" 
-                :key="staff.id" 
+              <option
+                v-for="staff in filteredStaff"
+                :key="staff.id"
                 :value="staff.id"
               >
                 {{ staff.name }} ({{ staff.phone }})
@@ -170,8 +172,8 @@
           </div>
           <div class="form-group">
             <label class="form-label">派单备注：</label>
-            <textarea 
-              v-model="assignRemark" 
+            <textarea
+              v-model="assignRemark"
               class="form-textarea"
               placeholder="请输入派单备注信息"
               rows="3"
@@ -180,8 +182,8 @@
         </div>
         <div class="dialog-footer">
           <button class="btn-cancel" @click="closeAssignDialog">取消</button>
-          <button 
-            class="btn-confirm" 
+          <button
+            class="btn-confirm"
             @click="confirmAssign"
             :disabled="!selectedStaffId"
           >
@@ -194,8 +196,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { request } from '@/api/request'
+import { useAuthStore } from '@/stores/auth'
 
 // 工单状态类型
 type OrderStatus = 'timeout' | 'pending' | 'processing' | 'reviewing' | 'completed'
@@ -223,47 +227,13 @@ interface MaintenanceStaff {
   status: 'active' | 'disabled' // 状态
 }
 
-// 模拟超时未抢工单数据
-const orderList: TimeoutOrder[] = [
-  {
-    id: '5',
-    orderNo: 'ORD-20231024-001',
-    deviceType: '制水机',
-    deviceId: 'WM-2023-001',
-    area: '市区',
-    problemDesc: '设备漏水，需要更换密封垫',
-    status: 'timeout',
-    createTime: '2023-10-24 09:10:05',
-    lastUploadTime: '2023-10-24 08:50:12',
-    location: '市区图书馆一楼大厅'
-  },
-  {
-    id: '6',
-    orderNo: 'ORD-20231024-002',
-    deviceType: '供水机',
-    deviceId: 'WS-2023-001',
-    area: '校区',
-    problemDesc: '出水口感异常，需要检测水质',
-    status: 'timeout',
-    createTime: '2023-10-24 10:20:33',
-    lastUploadTime: '2023-10-24 10:15:30',
-    location: '校区宿舍3号楼一层'
-  }
-]
-
-// 模拟维修人员数据
-const staffList: MaintenanceStaff[] = [
-  { id: 's1', name: '张三', phone: '13800138000', area: '市区', status: 'active' },
-  { id: 's2', name: '李四', phone: '13900139000', area: '校区', status: 'active' },
-  { id: 's3', name: '王五', phone: '13700137000', area: '市区', status: 'active' },
-  { id: 's4', name: '赵六', phone: '13600136000', area: '校区', status: 'disabled' }
-]
-
 // 响应式数据
-const orders = ref<TimeoutOrder[]>(orderList)
+const orders = ref<TimeoutOrder[]>([])
 const currentPage = ref(1)
 const pageSize = 10 // 每页显示数量
 const router = useRouter()
+const authStore = useAuthStore()
+const loading = ref(false)
 
 // 搜索关键词（工单号/设备ID）
 const searchKeyword = ref('')
@@ -279,7 +249,117 @@ const assignDialogVisible = ref(false)
 const currentOrder = ref<TimeoutOrder | null>(null)
 const selectedStaffId = ref('')
 const assignRemark = ref('')
-const allStaff = ref<MaintenanceStaff[]>(staffList)
+const allStaff = ref<MaintenanceStaff[]>([])
+
+// 加载超时工单数据
+const loadTimeoutOrders = async () => {
+  loading.value = true
+  try {
+    // 检查 Token 是否存在
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
+    }
+
+    console.log('当前 Token:', token.substring(0, 20) + '...')
+
+    // 构建查询参数
+    let url = '/api/work-orders/by-status?status=timeout'
+    const params = new URLSearchParams()
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
+    const areaId = filterForm.value.area || userInfo.areaId || ''
+    if (areaId) {
+      params.append('areaId', areaId)
+    }
+    // 只有当有参数时才添加问号
+    const queryString = params.toString()
+    if (queryString) {
+      url += `&${queryString}`
+    }
+
+    // 使用项目封装的 request 工具
+    const response = await request<{
+      code: number
+      msg: string
+      data: any[]
+    }>(url, {
+      method: 'GET',
+    })
+
+    // 处理响应
+    if (response.code === 200) {
+      orders.value = (response.data || []).map((order: any) => ({
+        id: order.orderId || '',
+        orderNo: order.orderId || '',
+        deviceType: order.deviceType || '未知设备',
+        deviceId: order.deviceId || '',
+        area: order.areaId || '',
+        problemDesc: order.description || '暂无描述',
+        status: order.status || 'timeout',
+        createTime: order.createdTime ? new Date(order.createdTime).toLocaleString('zh-CN') : '未知时间',
+        lastUploadTime: order.lastUploadTime ? new Date(order.lastUploadTime).toLocaleString('zh-CN') : '未知',
+        location: order.location || '未知位置'
+      }))
+    } else {
+      const errorMsg = response.msg || `获取失败（错误码：${response.code}）`
+      console.error('获取超时工单失败:', errorMsg)
+      alert(`获取超时工单失败：${errorMsg}`)
+    }
+  } catch (error: any) {
+    console.error('请求异常:', error)
+    console.error('错误详情:', {
+      message: error.message,
+      status: error.status,
+      response: error.response
+    })
+
+    const errorMsg = error.message.includes('401') || error.message.includes('403')
+        ? '权限不足或登录已过期，请重新登录'
+        : error.message.includes('Network')
+            ? '网络连接失败，请检查网络'
+            : error.message || '获取数据失败，请稍后重试'
+    alert(`获取超时工单失败：${errorMsg}`)
+
+    if (error.message.includes('401') || error.message.includes('403')) {
+      authStore.logout()
+      router.push('/login')
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+// 加载维修人员数据
+const loadMaintenanceStaff = async () => {
+  try {
+    // 获取当前工单的片区ID（如果尚未打开弹窗，则先不加载）
+    if (!currentOrder.value) return
+
+    const areaId = currentOrder.value.area
+
+    // 调用按片区查询维修人员的接口
+    const response = await request<{
+      code: number
+      msg: string
+      data: MaintenanceStaff[]
+    }>('/api/web/repairman/by-area/' + areaId, {
+      method: 'GET',
+    })
+
+    if (response.code === 200) {
+      allStaff.value = response.data || []
+    } else {
+      console.error('获取维修人员失败:', response.msg)
+      alert('获取维修人员失败：' + response.msg)
+    }
+  } catch (error: any) {
+    console.error('请求异常:', error)
+    alert('获取维修人员失败：' + (error.message || '网络错误'))
+  }
+}
+
 
 // 格式化状态显示
 const formatStatus = (status: OrderStatus): string => {
@@ -300,22 +380,29 @@ const filteredOrders = computed(() => {
     const keywordMatch = searchKeyword.value.trim() === '' ||
       order.orderNo.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
       order.deviceId.toLowerCase().includes(searchKeyword.value.toLowerCase())
-    
+
     // 片区筛选
     const areaMatch = filterForm.value.area === '' || order.area === filterForm.value.area
-    
+
     // 日期筛选（匹配日期部分，忽略时间）
-    const dateMatch = filterForm.value.createDate === '' || 
+    const dateMatch = filterForm.value.createDate === '' ||
       order.createTime.split(' ')[0] === filterForm.value.createDate
-    
+
     return keywordMatch && areaMatch && dateMatch
   })
+})
+
+// 分页后的工单列表
+const paginatedOrders = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  const end = start + pageSize
+  return filteredOrders.value.slice(start, end)
 })
 
 // 筛选出负责当前工单区域的维修人员（且状态为启用）
 const filteredStaff = computed(() => {
   if (!currentOrder.value) return []
-  return allStaff.value.filter(staff => 
+  return allStaff.value.filter(staff =>
     staff.area === currentOrder.value!.area && staff.status === 'active'
   )
 })
@@ -333,6 +420,7 @@ const handleSearch = () => {
 // 处理筛选（片区/日期）
 const handleFilter = () => {
   currentPage.value = 1 // 筛选后重置到第一页
+  loadTimeoutOrders() // 重新加载数据
 }
 
 // 重置筛选条件
@@ -343,6 +431,7 @@ const resetFilter = () => {
     createDate: ''
   }
   currentPage.value = 1
+  loadTimeoutOrders()
 }
 
 // 打开派单弹窗
@@ -367,21 +456,46 @@ const handleStaffChange = () => {
 }
 
 // 确认派单
-const confirmAssign = () => {
+const confirmAssign = async () => {
   if (!currentOrder.value || !selectedStaffId.value) return
-  
-  // 在实际项目中，这里应该调用API完成派单操作
-  console.log('派单信息:', {
-    orderId: currentOrder.value.id,
-    staffId: selectedStaffId.value,
-    remark: assignRemark.value,
-    assignTime: new Date().toLocaleString()
-  })
-  
-  // 派单成功后关闭弹窗并刷新列表
-  closeAssignDialog()
-  // 这里可以添加提示信息
+
+  try {
+    // 调用派单API
+    const response = await request<{
+      code: number
+      msg: string
+      data: boolean
+    }>('/api/work-orders/assign', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        orderId: currentOrder.value.id,
+        repairmanId: selectedStaffId.value
+      })
+    })
+
+    if (response.code === 200 && response.data) {
+      alert('派单成功')
+      closeAssignDialog()
+      loadTimeoutOrders() // 重新加载工单列表
+    } else {
+      const errorMsg = response.msg || '派单失败'
+      alert(errorMsg)
+    }
+  } catch (error: any) {
+    console.error('派单请求异常:', error)
+    alert('派单失败：' + (error.message || '网络错误'))
+  }
 }
+
+// 页面加载时获取数据
+onMounted(() => {
+  console.log('Token:', authStore.token)
+  loadTimeoutOrders()
+  loadMaintenanceStaff()
+})
 </script>
 
 <style scoped>
@@ -752,24 +866,24 @@ const confirmAssign = () => {
     flex-direction: column;
     align-items: flex-start;
   }
-  
+
   .filter-item {
     width: 100%;
   }
-  
+
   .search-input, .filter-select, .filter-input {
     width: 100%;
   }
-  
+
   .dialog-container {
     width: 90%;
     max-width: 500px;
   }
-  
+
   .form-group {
     flex-direction: column;
   }
-  
+
   .form-label {
     width: 100%;
     margin-bottom: 8px;

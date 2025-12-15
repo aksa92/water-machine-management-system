@@ -1,4 +1,3 @@
-// com/campus/water/service/DeviceStatusServiceImpl.java
 package com.campus.water.service;
 
 import com.campus.water.entity.Device;
@@ -27,6 +26,7 @@ public class DeviceStatusServiceImpl implements DeviceStatusService {
             return false;
         }
         device.setStatus(request.getStatus());
+
         device.setRemark(request.getRemark());
         deviceRepository.save(device);
         return true;
@@ -81,7 +81,7 @@ public class DeviceStatusServiceImpl implements DeviceStatusService {
     @Override
     public List<Device> getDevicesByStatusWithArea(String status, String areaId) {
         try {
-            Device.DeviceStatus targetStatus = Device.DeviceStatus.valueOf(status.toUpperCase());
+            Device.DeviceStatus targetStatus = Device.DeviceStatus.valueOf(status);
             if (areaId != null && !areaId.isEmpty()) {
                 return deviceRepository.findByStatusAndAreaId(targetStatus, areaId);
             } else {
@@ -101,7 +101,7 @@ public class DeviceStatusServiceImpl implements DeviceStatusService {
     @Override
     public List<Device> getDevicesByTypeWithArea(String deviceType, String areaId) {
         try {
-            Device.DeviceType targetType = Device.DeviceType.valueOf(deviceType.toUpperCase());
+            Device.DeviceType targetType = Device.DeviceType.valueOf(deviceType);
             if (areaId != null && !areaId.isEmpty()) {
                 return deviceRepository.findByDeviceTypeAndAreaId(targetType, areaId);
             } else {
@@ -115,25 +115,26 @@ public class DeviceStatusServiceImpl implements DeviceStatusService {
 
     @Override
     public Map<String, Object> getDeviceStatusCount(String areaId, String deviceType) {
-        Device.DeviceType targetType = Device.DeviceType.valueOf(deviceType);
-        return Map.of(
-                "online", deviceRepository.countByStatusAndAreaIdAndDeviceType(Device.DeviceStatus.online, areaId, targetType),
-                "offline", deviceRepository.countByStatusAndAreaIdAndDeviceType(Device.DeviceStatus.offline, areaId, targetType),
-                "fault", deviceRepository.countByStatusAndAreaIdAndDeviceType(Device.DeviceStatus.fault, areaId, targetType)
-        );
+        try {
+            Device.DeviceType targetType = Device.DeviceType.valueOf(deviceType);
+            return Map.of(
+                    "online", deviceRepository.countByStatusAndAreaIdAndDeviceType(Device.DeviceStatus.online, areaId, targetType),
+                    "offline", deviceRepository.countByStatusAndAreaIdAndDeviceType(Device.DeviceStatus.offline, areaId, targetType),
+                    "fault", deviceRepository.countByStatusAndAreaIdAndDeviceType(Device.DeviceStatus.fault, areaId, targetType)
+            );
+        } catch (IllegalArgumentException e) {
+            log.error("设备类型枚举转换失败，类型值：{}", deviceType, e);
+            throw new RuntimeException("无效的设备类型：" + deviceType);
+        }
     }
 
     @Override
     public List<Device> getOfflineDevicesExceedThreshold(Integer thresholdMinutes, String areaId) {
-        // 由于没有last_active_time，此处逻辑需调整：
-        // 方案1：若设备有最近操作时间，可用作替代；
-        // 方案2：仅返回状态为offline的设备（不判断时间）
         return deviceRepository.findByAreaIdAndStatus(areaId, Device.DeviceStatus.offline);
     }
 
     @Override
     public void autoDetectOfflineDevices(Integer thresholdMinutes) {
-        // 同理，无last_active_time时，无法通过时间判断，可注释或简化逻辑
         log.info("自动检测离线设备（不执行时间判断，仅依赖手动标记）");
     }
 }
