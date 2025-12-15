@@ -73,26 +73,43 @@ public class DeviceStatusServiceImpl implements DeviceStatusService {
         return true;
     }
 
+    /**
+     * 按状态加载设备（支持区域筛选）
+     * @param status 设备状态（字符串类型，需转换为枚举）
+     * @param areaId 区域ID（可为null，null时查询所有区域）
+     */
     @Override
-    public List<Device> getDevicesByStatus(String status, String areaId, String deviceType) {
-        Device.DeviceStatus targetStatus = Device.DeviceStatus.valueOf(status);
-
-        // 处理设备类型参数（允许为null）
-        Device.DeviceType targetType = null;
-        if (deviceType != null && !deviceType.isEmpty()) {
-            targetType = Device.DeviceType.valueOf(deviceType);
-        }
-
-        // 根据设备类型是否为null执行不同查询
-        if (targetType != null) {
-            return deviceRepository.findByStatusAndAreaIdAndDeviceType(targetStatus, areaId, targetType);
-        } else {
-            // 仅按状态和区域查询（如果有区域ID）
+    public List<Device> getDevicesByStatusWithArea(String status, String areaId) {
+        try {
+            Device.DeviceStatus targetStatus = Device.DeviceStatus.valueOf(status.toUpperCase());
             if (areaId != null && !areaId.isEmpty()) {
                 return deviceRepository.findByStatusAndAreaId(targetStatus, areaId);
             } else {
                 return deviceRepository.findByStatus(targetStatus);
             }
+        } catch (IllegalArgumentException e) {
+            log.error("设备状态枚举转换失败，状态值：{}", status, e);
+            throw new RuntimeException("无效的设备状态：" + status);
+        }
+    }
+
+    /**
+     * 按设备类型加载设备（支持区域筛选）
+     * @param deviceType 设备类型（字符串类型，需转换为枚举）
+     * @param areaId 区域ID（可为null，null时查询所有区域）
+     */
+    @Override
+    public List<Device> getDevicesByTypeWithArea(String deviceType, String areaId) {
+        try {
+            Device.DeviceType targetType = Device.DeviceType.valueOf(deviceType.toUpperCase());
+            if (areaId != null && !areaId.isEmpty()) {
+                return deviceRepository.findByDeviceTypeAndAreaId(targetType, areaId);
+            } else {
+                return deviceRepository.findByDeviceType(targetType);
+            }
+        } catch (IllegalArgumentException e) {
+            log.error("设备类型枚举转换失败，类型值：{}", deviceType, e);
+            throw new RuntimeException("无效的设备类型：" + deviceType);
         }
     }
 
