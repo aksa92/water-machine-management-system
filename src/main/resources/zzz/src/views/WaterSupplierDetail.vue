@@ -230,25 +230,35 @@ const fetchDeviceDetail = async () => {
     if (response.code === 200) {
       const data = response.data
 
+      // 处理设备基本信息
+      const deviceInfoData = data.deviceInfo || {}
+      // 处理实时数据
+      const realtimeData = data.realtimeData || {}
+
       // 转换后端数据到前端格式
       deviceInfo.value = {
-        id: data.deviceId,
-        name: data.deviceName || `供水机#${data.deviceId}`,
-        location: data.installLocation || '未指定位置',
-        status: data.status || 'offline',
-        areaId: data.areaId,
-        parentMakerId: data.parentMakerId,
-        installDate: data.installDate,
-        remark: data.remark,
-        waterLevel: data.waterLevel,
-        storageCapacity: data.storageCapacity,
-        highValve: data.highValve,
-        lowValve: data.lowValve,
-        leakStatus: data.leakStatus,
-        leakDescription: data.leakDescription,
-        lastCheckTime: data.lastCheckTime,
-        createTime: data.createTime,
-        deviceType: data.deviceType
+        id: deviceInfoData.deviceId,
+        name: deviceInfoData.deviceName || `供水机#${deviceInfoData.deviceId}`,
+        location: deviceInfoData.installLocation || '未指定位置',
+        status: deviceInfoData.status || 'offline',
+        areaId: deviceInfoData.areaId,
+        parentMakerId: deviceInfoData.parentMakerId,
+        installDate: deviceInfoData.installDate,
+        remark: deviceInfoData.remark,
+        lastCheckTime: deviceInfoData.lastCheckTime,
+        createTime: deviceInfoData.createTime,
+        deviceType: deviceInfoData.deviceType,
+        // 供水机特有数据（从实时数据中获取）
+        waterLevel: realtimeData.waterLevel,
+        storageCapacity: realtimeData.storageCapacity,
+        highValve: realtimeData.highValveStatus,
+        lowValve: realtimeData.lowValveStatus,
+        leakStatus: realtimeData.leakage !== undefined ?
+          (realtimeData.leakage ? 'leaking' : 'normal') : undefined,
+        leakDescription: realtimeData.leakage ? '检测到漏水' : '无漏水',
+        waterPress: realtimeData.waterPress,
+        temperature: realtimeData.temperature,
+        deviceStatus: realtimeData.status
       }
 
       console.log('设备详情数据:', deviceInfo.value)
@@ -400,6 +410,7 @@ onMounted(() => {
   fetchDeviceDetail()
 })
 </script>
+
 
 
 

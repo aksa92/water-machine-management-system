@@ -135,24 +135,35 @@ const fetchDeviceDetail = async () => {
     if (response.code === 200) {
       const data = response.data
 
+      // 处理设备基本信息
+      const deviceInfoData = data.deviceInfo || {}
+      // 处理实时数据
+      const realtimeData = data.realtimeData || {}
+
       // 转换后端数据到前端格式
       deviceInfo.value = {
-        id: data.deviceId,
-        name: data.deviceName || `制水机#${data.deviceId}`,
-        location: data.installLocation || '未指定位置',
-        status: data.status || 'offline',
-        areaId: data.areaId,
-        installDate: data.installDate,
-        remark: data.remark,
-        lastCheckTime: data.lastCheckTime,
-        createTime: data.createTime,
-        deviceType: data.deviceType,
-        // 水质数据（如果存在）
-        waterQuality: data.tapWaterTDS !== undefined || data.pureWaterTDS !== undefined || data.mineralWaterTDS !== undefined ? {
-          tapWaterTDS: data.tapWaterTDS,
-          pureWaterTDS: data.pureWaterTDS,
-          mineralWaterTDS: data.mineralWaterTDS
-        } : undefined
+        id: deviceInfoData.deviceId,
+        name: deviceInfoData.deviceName || `制水机#${deviceInfoData.deviceId}`,
+        location: deviceInfoData.installLocation || '未指定位置',
+        status: deviceInfoData.status || 'offline',
+        areaId: deviceInfoData.areaId,
+        installDate: deviceInfoData.installDate,
+        remark: deviceInfoData.remark,
+        lastCheckTime: deviceInfoData.lastCheckTime,
+        createTime: deviceInfoData.createTime,
+        deviceType: deviceInfoData.deviceType,
+        // 水质数据（从实时数据中获取）
+        waterQuality: realtimeData.tdsValue1 !== undefined || realtimeData.tdsValue2 !== undefined || realtimeData.tdsValue3 !== undefined ? {
+          tapWaterTDS: realtimeData.tdsValue1,
+          pureWaterTDS: realtimeData.tdsValue2,
+          mineralWaterTDS: realtimeData.tdsValue3
+        } : undefined,
+        // 其他实时数据
+        waterPress: realtimeData.waterPress,
+        filterLife: realtimeData.filterLife,
+        leakage: realtimeData.leakage,
+        waterQualityStatus: realtimeData.waterQuality,
+        deviceStatus: realtimeData.status
       }
     } else {
       error.value = response.message || '获取设备详情失败'
@@ -222,6 +233,7 @@ onMounted(() => {
   }
 })
 </script>
+
 
 
 
