@@ -64,15 +64,18 @@ public class AlertController {
     /**
      * 查询未处理告警（紧急优先）
      */
+    // AlertController.java
+
     @GetMapping("/pending")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','AREA_ADMIN', 'REPAIRMAN')")
+    @PreAuthorize("hasAnyRole('ROLE_SUPER_ADMIN','ROLE_AREA_ADMIN', 'ROLE_REPAIRMAN')") // 添加 ROLE_ 前缀
     public ResultVO<List<Alert>> getPendingAlerts(
             @Parameter(description = "区域ID（可选）") @RequestParam(required = false) String areaId) {
+
         List<Alert> pendingAlerts = areaId != null
                 ? alertRepository.findByAreaIdAndStatus(areaId, Alert.AlertStatus.pending)
                 : alertRepository.findByStatus(Alert.AlertStatus.pending);
 
-        // 按优先级排序（紧急在前）- 使用方法引用替代lambda
+        // 按优先级排序（紧急在前）
         pendingAlerts.sort((a1, a2) ->
                 Integer.compare(a2.getAlertLevel().getPriority(), a1.getAlertLevel().getPriority()));
 
