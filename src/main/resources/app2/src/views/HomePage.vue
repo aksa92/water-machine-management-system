@@ -62,8 +62,8 @@
         <!-- 饮水机标记1（教学楼） -->
         <div
             class="water-marker marker-1"
-            :class="{ active: selectedMarker === 'A201' }"
-            @click.stop="showMarkerInfo('A201')"
+            :class="{ active: selectedMarker === 'TERM001' }"
+            @click.stop="showMarkerInfo('TERM001')"
             style="top: 35%; left: 45%;"
         >
           <div class="marker-content">
@@ -78,14 +78,14 @@
             </svg>
             <div class="marker-pulse"></div>
           </div>
-          <div class="marker-label">A201</div>
+          <div class="marker-label">TERM001</div>
         </div>
 
         <!-- 饮水机标记2（学生公寓） -->
         <div
             class="water-marker marker-2"
-            :class="{ active: selectedMarker === 'B201' }"
-            @click.stop="showMarkerInfo('B201')"
+            :class="{ active: selectedMarker === 'TERM002' }"
+            @click.stop="showMarkerInfo('TERM002')"
             style="top: 65%; left: 55%;"
         >
           <div class="marker-content">
@@ -99,14 +99,14 @@
             </svg>
             <div class="marker-pulse"></div>
           </div>
-          <div class="marker-label">B201</div>
+          <div class="marker-label">TERM002</div>
         </div>
 
         <!-- 饮水机标记3（图书馆） -->
         <div
             class="water-marker marker-3"
-            :class="{ active: selectedMarker === 'C101' }"
-            @click.stop="showMarkerInfo('C101')"
+            :class="{ active: selectedMarker === 'TERM003' }"
+            @click.stop="showMarkerInfo('TERM003')"
             style="top: 50%; left: 25%;"
         >
           <div class="marker-content">
@@ -120,7 +120,7 @@
             </svg>
             <div class="marker-pulse"></div>
           </div>
-          <div class="marker-label">C101</div>
+          <div class="marker-label">TERM003</div>
         </div>
 
         <!-- 当前位置标记 -->
@@ -147,24 +147,24 @@
       </div>
 
       <!-- 设备信息弹窗1（教学楼饮水机） -->
-      <div v-if="showDevicePopup && currentMarker === 'A201'" class="device-popup popup-1">
+      <div v-if="showDevicePopup && currentMarker === 'TERM001'" class="device-popup popup-1">
         <div class="popup-content">
           <!-- 标题栏 -->
           <div class="popup-title">
-            <h3>{{ markers.A201.name }}</h3>
+            <h3>{{ markers.TERM001.name }}</h3>
             <button class="close-btn" @click="hidePopup">✕</button>
           </div>
 
           <!-- 设备信息 -->
           <div class="device-info">
             <div class="info-row">
-              <span class="info-label">{{ markers.A201.distance }} | ID: {{ markers.A201.id }} | 状态：</span>
-              <span class="status online">{{ markers.A201.statusText }}</span>
+              <span class="info-label">{{ markers.TERM001.distance }} | ID: {{ markers.TERM001.id }} | 状态：</span>
+              <span class="status" :class="markers.TERM001.status">{{ markers.TERM001.statusText }}</span>
             </div>
 
             <div class="info-row">
               <span class="info-label">当前水质：</span>
-              <span class="quality good">{{ markers.A201.quality }}</span>
+              <span class="quality">{{ markers.TERM001.quality }}</span>
             </div>
 
             <!-- TDS水质数据 -->
@@ -173,17 +173,17 @@
               <div class="tds-grid">
                 <div class="tds-item">
                   <div class="tds-type">自来水</div>
-                  <div class="tds-value">{{ markers.A201.waterQuality.tapWater }}</div>
+                  <div class="tds-value">{{ markers.TERM001.qualityData.tapWater }}</div>
                   <div class="tds-unit">mg/L</div>
                 </div>
                 <div class="tds-item">
                   <div class="tds-type">纯净水</div>
-                  <div class="tds-value">{{ markers.A201.waterQuality.pureWater }}</div>
+                  <div class="tds-value">{{ markers.TERM001.qualityData.pureWater }}</div>
                   <div class="tds-unit">mg/L</div>
                 </div>
                 <div class="tds-item">
                   <div class="tds-type">矿化水</div>
-                  <div class="tds-value">{{ markers.A201.waterQuality.mineralWater }}</div>
+                  <div class="tds-value">{{ markers.TERM001.qualityData.mineralWater }}</div>
                   <div class="tds-unit">mg/L</div>
                 </div>
               </div>
@@ -199,26 +199,31 @@
               查看水质详细
             </button>
           </div>
+
+          <!-- 离线设备提示 -->
+          <div v-if="markers.TERM001.status === 'offline'" class="offline-notice">
+            设备离线中，暂时无法使用
+          </div>
         </div>
       </div>
 
       <!-- 设备信息弹窗2（学生公寓饮水机） -->
-      <div v-if="showDevicePopup && currentMarker === 'B201'" class="device-popup popup-2">
+      <div v-if="showDevicePopup && currentMarker === 'TERM002'" class="device-popup popup-2">
         <div class="popup-content">
           <div class="popup-title">
-            <h3>{{ markers.B201.name }}</h3>
+            <h3>{{ markers.TERM002.name }}</h3>
             <button class="close-btn" @click="hidePopup">✕</button>
           </div>
 
           <div class="device-info">
             <div class="info-row">
-              <span class="info-label">{{ markers.B201.distance }} | ID: {{ markers.B201.id }} | 状态：</span>
-              <span class="status online">{{ markers.B201.statusText }}</span>
+              <span class="info-label">{{ markers.TERM002.distance }} | ID: {{ markers.TERM002.id }} | 状态：</span>
+              <span class="status" :class="markers.TERM002.status">{{ markers.TERM002.statusText }}</span>
             </div>
 
             <div class="info-row">
               <span class="info-label">当前水质：</span>
-              <span class="quality good">{{ markers.B201.quality }}</span>
+              <span class="quality">{{ markers.TERM002.quality }}</span>
             </div>
 
             <!-- TDS水质数据 -->
@@ -227,17 +232,17 @@
               <div class="tds-grid">
                 <div class="tds-item">
                   <div class="tds-type">自来水</div>
-                  <div class="tds-value">{{ markers.B201.waterQuality.tapWater }}</div>
+                  <div class="tds-value">{{ markers.TERM002.qualityData.tapWater }}</div>
                   <div class="tds-unit">mg/L</div>
                 </div>
                 <div class="tds-item">
                   <div class="tds-type">纯净水</div>
-                  <div class="tds-value">{{ markers.B201.waterQuality.pureWater }}</div>
+                  <div class="tds-value">{{ markers.TERM002.qualityData.pureWater }}</div>
                   <div class="tds-unit">mg/L</div>
                 </div>
                 <div class="tds-item">
                   <div class="tds-type">矿化水</div>
-                  <div class="tds-value">{{ markers.B201.waterQuality.mineralWater }}</div>
+                  <div class="tds-value">{{ markers.TERM002.qualityData.mineralWater }}</div>
                   <div class="tds-unit">mg/L</div>
                 </div>
               </div>
@@ -252,26 +257,31 @@
               查看水质详细
             </button>
           </div>
+
+          <!-- 离线设备提示 -->
+          <div v-if="markers.TERM002.status === 'offline'" class="offline-notice">
+            设备离线中，暂时无法使用
+          </div>
         </div>
       </div>
 
       <!-- 设备信息弹窗3（图书馆饮水机） -->
-      <div v-if="showDevicePopup && currentMarker === 'C101'" class="device-popup popup-3">
+      <div v-if="showDevicePopup && currentMarker === 'TERM003'" class="device-popup popup-3">
         <div class="popup-content">
           <div class="popup-title">
-            <h3>{{ markers.C101.name }}</h3>
+            <h3>{{ markers.TERM003.name }}</h3>
             <button class="close-btn" @click="hidePopup">✕</button>
           </div>
 
           <div class="device-info">
             <div class="info-row">
-              <span class="info-label">{{ markers.C101.distance }} | ID: {{ markers.C101.id }} | 状态：</span>
-              <span class="status offline">{{ markers.C101.statusText }}</span>
+              <span class="info-label">{{ markers.TERM003.distance }} | ID: {{ markers.TERM003.id }} | 状态：</span>
+              <span class="status" :class="markers.TERM003.status">{{ markers.TERM003.statusText }}</span>
             </div>
 
             <div class="info-row">
               <span class="info-label">当前水质：</span>
-              <span class="quality unknown">{{ markers.C101.quality }}</span>
+              <span class="quality">{{ markers.TERM003.quality }}</span>
             </div>
 
             <!-- TDS水质数据（离线设备显示-） -->
@@ -280,17 +290,17 @@
               <div class="tds-grid">
                 <div class="tds-item">
                   <div class="tds-type">自来水</div>
-                  <div class="tds-value">-</div>
+                  <div class="tds-value">{{ markers.TERM003.qualityData.tapWater }}</div>
                   <div class="tds-unit">mg/L</div>
                 </div>
                 <div class="tds-item">
                   <div class="tds-type">纯净水</div>
-                  <div class="tds-value">-</div>
+                  <div class="tds-value">{{ markers.TERM003.qualityData.pureWater }}</div>
                   <div class="tds-unit">mg/L</div>
                 </div>
                 <div class="tds-item">
                   <div class="tds-type">矿化水</div>
-                  <div class="tds-value">-</div>
+                  <div class="tds-value">{{ markers.TERM003.qualityData.mineralWater }}</div>
                   <div class="tds-unit">mg/L</div>
                 </div>
               </div>
@@ -432,55 +442,101 @@
          class="popup-overlay"
          @click="hideAllPopups">
     </div>
+
+    <!-- 加载中提示 -->
+    <div v-if="isLoading" class="loading-overlay">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">加载中...</div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { deviceService } from '@/services/deviceService'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
-// 标记点数据
-const markers = reactive({
-  A201: {
-    name: '湖南大学教学楼1F饮水机',
-    distance: '128m',
-    id: 'A201',
-    status: 'online',
-    statusText: '在线',
-    quality: '良好',
-    waterQuality: {
-      tapWater: '285',
-      pureWater: '13',
-      mineralWater: '87'
-    }
+const userStore = useUserStore()
+
+// 修改标记点配置
+const markerConfigs = {
+  TERM001: {
+    position: { top: '35%', left: '45%' },
+    deviceId: 'WM001',
+    initialColor: '#04d919'
   },
-  B201: {
-    name: '天马学生公寓1F饮水机',
-    distance: '156m',
-    id: 'B201',
-    status: 'online',
-    statusText: '在线',
-    quality: '良好',
-    waterQuality: {
-      tapWater: '290',
-      pureWater: '15',
-      mineralWater: '85'
-    }
+  TERM002: {
+    position: { top: '65%', left: '55%' },
+    deviceId: 'WM002',
+    initialColor: '#04d919'
   },
-  C101: {
-    name: '图书馆2F饮水机',
-    distance: '320m',
-    id: 'C101',
-    status: 'offline',
-    statusText: '离线',
-    quality: '未知',
-    waterQuality: {
-      tapWater: '-',
-      pureWater: '-',
-      mineralWater: '-'
-    }
+  TERM003: {
+    position: { top: '50%', left: '25%' },
+    deviceId: 'WM003',
+    initialColor: '#aaaaaa'
   }
+}
+
+// 从后端获取的标记点数据 - 修复重复声明问题
+const markers = reactive({
+  TERM001: {
+    name: '教学楼饮水机',
+    distance: '128m',
+    id: 'TERM001',
+    deviceId: 'WM001',
+    status: 'loading',
+    statusText: '加载中...',
+    quality: '加载中...',
+    qualityData: {
+      tapWater: '--',
+      pureWater: '--',
+      mineralWater: '--'
+    },
+    filterLife: '--',
+    waterQualityLevel: '--',
+    recordTime: '--'
+  },
+  TERM002: {
+    name: '学生公寓饮水机',
+    distance: '156m',
+    id: 'TERM002',
+    deviceId: 'WM002',
+    status: 'loading',
+    statusText: '加载中...',
+    quality: '加载中...',
+    qualityData: {
+      tapWater: '--',
+      pureWater: '--',
+      mineralWater: '--'
+    },
+    filterLife: '--',
+    waterQualityLevel: '--',
+    recordTime: '--'
+  },
+  TERM003: {
+    name: '图书馆饮水机',
+    distance: '320m',
+    id: 'TERM003',
+    deviceId: 'WM003',
+    status: 'loading',
+    statusText: '加载中...',
+    quality: '加载中...',
+    qualityData: {
+      tapWater: '--',
+      pureWater: '--',
+      mineralWater: '--'
+    },
+    filterLife: '--',
+    waterQualityLevel: '--',
+    recordTime: '--'
+  }
+})
+
+// 计算属性：获取离线状态的标记
+const offlineMarkers = computed(() => {
+  return Object.values(markers).filter(marker => marker.status === 'offline')
 })
 
 // 状态
@@ -489,11 +545,80 @@ const showWaterQualityPopup = ref(false)
 const showNavigationSelectPopup = ref(false)
 const currentMarker = ref('')
 const selectedMarker = ref('')
+const isLoading = ref(false)
+
+// 从后端获取设备信息
+const fetchDeviceInfo = async (terminalId) => {
+  try {
+    isLoading.value = true
+    const result = await deviceService.getTerminalInfo(terminalId)
+
+    if (result.code === 200 && result.data) {
+      const data = result.data
+      const marker = markers[terminalId]
+
+      if (marker) {
+        // 更新标记点信息
+        marker.status = data.status === 'active' ? 'online' : 'offline'
+        marker.statusText = data.status === 'active' ? '在线' : '离线'
+        marker.quality = data.waterQuality || '--'
+
+        // 更新水质数据
+        if (data.rawWaterTds) marker.qualityData.tapWater = Math.round(data.rawWaterTds)
+        if (data.pureWaterTds) marker.qualityData.pureWater = Math.round(data.pureWaterTds)
+        if (data.mineralWaterTds) marker.qualityData.mineralWater = Math.round(data.mineralWaterTds)
+
+        marker.filterLife = data.filterLife || '--'
+        marker.waterQualityLevel = data.waterQuality || '--'
+        marker.recordTime = data.updateTime || '--'
+
+        // 更新标记点颜色
+        updateMarkerColor(terminalId, data.status)
+      }
+    } else {
+      console.error(`获取设备 ${terminalId} 信息失败:`, result.message)
+    }
+  } catch (error) {
+    console.error(`获取设备 ${terminalId} 信息异常:`, error)
+    markers[terminalId].status = 'error'
+    markers[terminalId].statusText = '获取失败'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// 获取水质信息
+const fetchWaterQualityInfo = async (deviceId) => {
+  try {
+    const result = await deviceService.getWaterQualityInfo(deviceId)
+    if (result.code === 200 && result.data) {
+      return result.data
+    }
+  } catch (error) {
+    console.error(`获取水质信息失败:`, error)
+  }
+  return null
+}
+
+// 更新标记点颜色
+const updateMarkerColor = (terminalId, status) => {
+  const markerElement = document.querySelector(`.water-marker.marker-${terminalId} .marker-svg path`)
+  if (markerElement) {
+    const color = status === 'active' ? '#04d919' : '#aaaaaa'
+    markerElement.setAttribute('fill', color)
+  }
+}
 
 // 显示标记点信息
-const showMarkerInfo = (markerId) => {
+const showMarkerInfo = async (markerId) => {
   currentMarker.value = markerId
   selectedMarker.value = markerId
+
+  // 如果数据还在加载中，重新获取
+  if (markers[markerId].status === 'loading') {
+    await fetchDeviceInfo(markerId)
+  }
+
   showDevicePopup.value = true
 }
 
@@ -512,9 +637,29 @@ const hideAllPopups = () => {
 }
 
 // 显示水质详细
-const showWaterQuality = () => {
-  showWaterQualityPopup.value = true
-  showDevicePopup.value = false
+const showWaterQuality = async () => {
+  if (currentMarker.value && markers[currentMarker.value]) {
+    const marker = markers[currentMarker.value]
+
+    // 从后端获取详细水质信息
+    const waterQualityData = await fetchWaterQualityInfo(marker.deviceId)
+    if (waterQualityData) {
+      // 可以在这里设置水质详细弹窗的数据
+      console.log('水质详细数据:', waterQualityData)
+    }
+
+    // 跳转到水质详情页面
+    router.push({
+      path: '/water-quality',
+      query: {
+        terminalId: marker.id,
+        deviceId: marker.deviceId
+      }
+    })
+
+    // 关闭当前弹窗
+    hidePopup()
+  }
 }
 
 // 显示导航选择
@@ -565,6 +710,14 @@ const goToPage = (page) => {
       break
   }
 }
+
+// 页面加载时初始化设备信息
+onMounted(() => {
+  // 初始化所有设备信息
+  Object.keys(markers).forEach(terminalId => {
+    fetchDeviceInfo(terminalId)
+  })
+})
 </script>
 
 <style scoped>
@@ -1344,5 +1497,39 @@ const goToPage = (page) => {
   .tds-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #1890ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-size: 14px;
+  color: #666;
 }
 </style>

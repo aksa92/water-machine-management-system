@@ -1,3 +1,4 @@
+<!-- ScanPage.vue - 修复样式版本 -->
 <template>
   <div class="scan-page">
     <!-- 顶部标题栏 -->
@@ -31,6 +32,15 @@
           <div class="scan-hint">
             将二维码放入框内，即可自动扫描
           </div>
+
+          <!-- 开发调试按钮（更简洁的样式） -->
+          <div class="dev-options" v-if="isDevelopment">
+            <div class="dev-buttons">
+              <button class="dev-btn" @click="simulateScan('TERM001')">TERM001</button>
+              <button class="dev-btn" @click="simulateScan('TERM002')">TERM002</button>
+              <button class="dev-btn" @click="simulateScan('TERM003')">TERM003</button>
+            </div>
+          </div>
         </div>
 
         <!-- 手动输入选项 -->
@@ -47,11 +57,21 @@
             <div class="device-icon">🚰</div>
             <div class="device-info">
               <div class="device-name">{{ deviceInfo.name }}</div>
-              <div class="device-id">ID: {{ deviceInfo.id }}</div>
+              <div class="device-details">
+                <span class="device-id">ID: {{ deviceInfo.id }}</span>
+                <span class="device-location">{{ deviceInfo.location }}</span>
+              </div>
             </div>
             <div class="device-status" :class="deviceInfo.status">
               {{ deviceInfo.statusText }}
             </div>
+          </div>
+
+          <!-- 用户信息（简洁样式） -->
+          <div class="user-info" v-if="userInfo">
+            <div class="user-label">当前用户:</div>
+            <div class="user-name">{{ userInfo.username }}</div>
+            <div class="user-id">{{ userInfo.studentId }}</div>
           </div>
 
           <div class="divider"></div>
@@ -64,23 +84,96 @@
                   v-for="amount in waterAmounts"
                   :key="amount.value"
                   class="amount-option"
-                  :class="{ selected: selectedAmount === amount.value }"
-                  @click="selectAmount(amount.value)"
+                  :class="{
+                    selected: selectedAmount === amount.value,
+                    disabled: deviceInfo.status !== 'online'
+                  }"
+                  @click="deviceInfo.status === 'online' && selectAmount(amount.value)"
               >
                 <div class="amount-value">{{ amount.value }}ml</div>
                 <div class="amount-price">{{ amount.price }}</div>
+              </div>
+            </div>
+
+            <!-- 自定义输入（精简样式） -->
+            <div class="custom-amount">
+              <input
+                  type="number"
+                  v-model="customAmount"
+                  placeholder="自定义取水量 (50-1000ml)"
+                  min="50"
+                  max="1000"
+                  :disabled="deviceInfo.status !== 'online'"
+                  @keyup.enter="useCustomAmount"
+                  class="custom-input"
+              />
+            </div>
+          </div>
+
+          <!-- 水质信息预览 -->
+          <div class="water-quality-preview" v-if="deviceInfo.status === 'online'">
+            <div class="quality-header">
+              <span class="quality-title">水质预览</span>
+              <button class="quality-detail-btn" @click="viewWaterQuality">
+                查看详情
+              </button>
+            </div>
+            <div class="quality-items">
+              <div class="quality-item">
+                <span class="quality-label">自来水:</span>
+                <span class="quality-value">{{ deviceInfo.waterQuality.tapWater }} mg/L</span>
+              </div>
+              <div class="quality-item">
+                <span class="quality-label">纯净水:</span>
+                <span class="quality-value">{{ deviceInfo.waterQuality.pureWater }} mg/L</span>
               </div>
             </div>
           </div>
 
           <!-- 操作按钮 -->
           <div class="action-buttons">
-            <button class="action-btn primary" @click="confirmWater" :disabled="!selectedAmount">
-              确认取水
+            <button
+                class="action-btn primary"
+                @click="confirmWater"
+                :disabled="!selectedAmount || deviceInfo.status !== 'online' || isProcessing"
+            >
+              <span v-if="isProcessing">取水中...</span>
+              <span v-else>确认取水</span>
             </button>
-            <button class="action-btn secondary" @click="viewWaterQuality">
+            <button
+                class="action-btn secondary"
+                @click="viewWaterQuality"
+                :disabled="deviceInfo.status !== 'online'"
+            >
               查看水质
             </button>
+          </div>
+
+          <!-- 重新扫描按钮 -->
+          <div class="rescan-section">
+            <button class="rescan-btn" @click="resetScan">
+              重新扫描
+            </button>
+          </div>
+        </div>
+
+        <!-- 取水过程显示 -->
+        <div class="water-process" v-if="isProcessing">
+          <div class="process-content">
+            <div class="process-icon">🚰</div>
+            <div class="process-info">
+              <div class="process-title">正在取水...</div>
+              <div class="process-details">
+                <span class="process-item">取水量: {{ selectedAmount }}ml</span>
+                <span class="process-item">剩余: {{ remainingTime }}秒</span>
+              </div>
+            </div>
+            <div class="process-progress">
+              <div class="progress-bar">
+                <div class="progress-fill" :style="{ width: progress + '%' }"></div>
+              </div>
+              <div class="progress-text">{{ progress }}%</div>
+            </div>
           </div>
         </div>
       </div>
@@ -104,7 +197,7 @@
       </div>
     </div>
 
-    <!-- 手动输入弹窗 -->
+    <!-- 手动输入弹窗（保持原有样式） -->
     <div v-if="showManualDialog" class="dialog-overlay">
       <div class="dialog-content">
         <div class="dialog-header">
@@ -115,7 +208,7 @@
           <input
               type="text"
               v-model="manualDeviceId"
-              placeholder="请输入设备ID（如：A201）"
+              placeholder="请输入设备ID（如：TERM001）"
               class="device-input"
               @keyup.enter="submitManualInput"
           />
@@ -125,7 +218,27 @@
           <button class="dialog-btn secondary" @click="closeManualDialog">
             取消
           </button>
-          <button class="dialog-btn primary" @click="submitManualInput">
+          <button class="dialog-btn primary" @click="submitManualInput" :disabled="!manualDeviceId">
+            确定
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 取水结果弹窗 -->
+    <div v-if="showResultDialog" class="dialog-overlay">
+      <div class="dialog-content result-dialog">
+        <div class="result-header">
+          <div class="result-icon" :class="resultStatus">
+            {{ resultStatus === 'success' ? '✓' : '✗' }}
+          </div>
+          <h3>{{ resultTitle }}</h3>
+        </div>
+        <div class="result-body">
+          <div class="result-message">{{ resultMessage }}</div>
+        </div>
+        <div class="result-footer">
+          <button class="dialog-btn primary" @click="closeResultDialog">
             确定
           </button>
         </div>
@@ -134,17 +247,40 @@
   </div>
 </template>
 
+<!-- ScanPage.vue - 将所有设备设置为在线 -->
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { deviceService } from '@/services/deviceService'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const userStore = useUserStore()
+
+// 开发模式标志
+const isDevelopment = ref(true)
 
 // 状态
 const deviceInfo = ref(null)
 const showManualDialog = ref(false)
 const manualDeviceId = ref('')
 const selectedAmount = ref(null)
+const customAmount = ref('')
+const isProcessing = ref(false)
+const progress = ref(0)
+const remainingTime = ref(0)
+const showResultDialog = ref(false)
+const resultStatus = ref('')
+const resultTitle = ref('')
+const resultMessage = ref('')
+
+// 用户信息
+const userInfo = computed(() => {
+  return {
+    username: userStore.username || '用户',
+    studentId: userStore.studentId || '未登录'
+  }
+})
 
 // 取水量选项
 const waterAmounts = [
@@ -153,56 +289,277 @@ const waterAmounts = [
   { value: 250, price: '免费' }
 ]
 
-// 模拟的设备数据
+// 修改：将所有设备设置为在线状态
 const mockDevices = {
-  'A201': {
-    id: 'A201',
-    name: '湖南大学教学楼1F饮水机',
-    status: 'online',
-    statusText: '在线'
+  'TERM001': {
+    id: 'TERM001',
+    name: '教学楼饮水机',
+    deviceId: 'WM001',
+    status: 'online',  // 改为online
+    statusText: '在线',
+    location: '教学楼1F大厅',
+    waterQuality: {
+      tapWater: '285',
+      pureWater: '13'
+    }
   },
-  'B201': {
-    id: 'B201',
-    name: '天马学生公寓1F饮水机',
-    status: 'online',
-    statusText: '在线'
+  'TERM002': {
+    id: 'TERM002',
+    name: '学生公寓饮水机',
+    deviceId: 'WM002',
+    status: 'online',  // 改为online
+    statusText: '在线',
+    location: '天马学生公寓1F',
+    waterQuality: {
+      tapWater: '290',
+      pureWater: '15'
+    }
   },
-  'C101': {
-    id: 'C101',
-    name: '图书馆2F饮水机',
-    status: 'offline',
-    statusText: '离线'
+  'TERM003': {
+    id: 'TERM003',
+    name: '图书馆饮水机',
+    deviceId: 'WM003',
+    status: 'online',  // 改为online
+    statusText: '在线',
+    location: '图书馆2F',
+    waterQuality: {
+      tapWater: '275',
+      pureWater: '18'
+    }
   }
 }
 
-// 模拟扫码（实际应使用摄像头API）
-const simulateScan = () => {
-  // 模拟扫描到设备A201
-  setTimeout(() => {
-    deviceInfo.value = mockDevices['A201']
-  }, 1000)
+onMounted(() => {
+  console.log('扫码页面加载')
+})
+
+// 模拟扫码
+const simulateScan = async (deviceId) => {
+  console.log('模拟扫码:', deviceId)
+  // 先重置扫描
+  resetScan()
+  // 延迟加载设备信息，确保状态重置
+  setTimeout(async () => {
+    await loadDeviceInfo(deviceId)
+  }, 100)
 }
 
-onMounted(() => {
-  // 可以在这里初始化摄像头扫描
-  // 暂时模拟扫码
-  simulateScan()
-})
+// 修改：加载设备信息时强制设置为在线
+const loadDeviceInfo = async (terminalId) => {
+  try {
+    const result = await deviceService.getTerminalInfo(terminalId)
+
+    if (result.code === 200 && result.data) {
+      const data = result.data
+
+      deviceInfo.value = {
+        id: terminalId,
+        name: data.terminalName || mockDevices[terminalId]?.name || '饮水机',
+        deviceId: data.deviceId || mockDevices[terminalId]?.deviceId,
+        status: 'online',  // 强制设置为在线
+        statusText: '在线',
+        location: data.location || mockDevices[terminalId]?.location || '',
+        waterQuality: {
+          tapWater: data.rawWaterTds || mockDevices[terminalId]?.waterQuality.tapWater || '--',
+          pureWater: data.pureWaterTds || mockDevices[terminalId]?.waterQuality.pureWater || '--'
+        }
+      }
+    } else {
+      // 使用模拟数据，确保在线
+      deviceInfo.value = {
+        ...mockDevices[terminalId],
+        status: 'online',
+        statusText: '在线'
+      }
+    }
+  } catch (error) {
+    console.error('获取设备信息失败，使用模拟数据:', error)
+    // 使用模拟数据，确保在线
+    deviceInfo.value = mockDevices[terminalId] || {
+      id: terminalId,
+      name: `${terminalId}饮水机`,
+      status: 'online',
+      statusText: '在线',
+      location: '未知位置',
+      waterQuality: {
+        tapWater: '285',
+        pureWater: '15'
+      }
+    }
+  }
+}
 
 // 选择取水量
 const selectAmount = (amount) => {
   selectedAmount.value = amount
+  customAmount.value = ''
 }
 
-// 确认取水
-const confirmWater = () => {
+// 使用自定义水量
+const useCustomAmount = () => {
+  if (!customAmount.value) return
+
+  const amount = parseInt(customAmount.value)
+  if (amount >= 50 && amount <= 1000) {
+    selectedAmount.value = amount
+  } else {
+    alert('请输入50-1000ml之间的水量')
+  }
+}
+
+// 修改：简化确认取水逻辑
+const confirmWater = async () => {
   if (!selectedAmount.value) {
     alert('请选择取水量')
     return
   }
 
-  alert(`开始取水：${selectedAmount.value}ml`)
-  // 这里应该调用API开始取水
+  if (!userStore.studentId) {
+    alert('请先登录')
+    router.push('/')
+    return
+  }
+
+  // 开始取水流程
+  startWaterProcess()
+}
+
+// 开始取水流程
+const startWaterProcess = async () => {
+  isProcessing.value = true
+  progress.value = 0
+  remainingTime.value = Math.ceil(selectedAmount.value / 50)
+
+  // 模拟取水进度
+  const interval = setInterval(() => {
+    progress.value += 5
+    if (remainingTime.value > 0) {
+      remainingTime.value -= 0.25
+    }
+
+    if (progress.value >= 100) {
+      clearInterval(interval)
+      completeWaterProcess()
+    }
+  }, 200)
+
+  // 调用后端API
+  await callWaterUsageAPI()
+}
+
+// 调用后端取水API
+const callWaterUsageAPI = async () => {
+  try {
+    const result = await deviceService.scanToDrink(
+        deviceInfo.value.id,
+        userStore.studentId,
+        selectedAmount.value
+    )
+
+    if (result.code === 200) {
+      recordWaterHistory(result.data)
+      return result
+    } else {
+      console.error('取水API失败:', result.message)
+      return result
+    }
+  } catch (error) {
+    console.error('取水API异常:', error)
+    return { code: 500, message: '取水操作失败' }
+  }
+}
+
+// 完成取水流程
+const completeWaterProcess = async () => {
+  isProcessing.value = false
+
+  const apiResult = await callWaterUsageAPI()
+
+  if (apiResult.code === 200) {
+    showResult(
+        'success',
+        '取水成功',
+        `您已成功取水 ${selectedAmount.value}ml`
+    )
+
+    recordWaterHistory({
+      deviceName: deviceInfo.value.name,
+      deviceId: deviceInfo.value.id,
+      amount: selectedAmount.value
+    })
+
+    setTimeout(() => {
+      resetScan()
+      showResultDialog.value = false
+    }, 2000)
+  } else {
+    showResult(
+        'error',
+        '取水失败',
+        apiResult.message || '取水操作失败，请重试'
+    )
+  }
+}
+
+// 显示结果
+const showResult = (status, title, message) => {
+  resultStatus.value = status
+  resultTitle.value = title
+  resultMessage.value = message
+  showResultDialog.value = true
+}
+
+// 关闭结果弹窗
+const closeResultDialog = () => {
+  showResultDialog.value = false
+  resetScan()
+}
+
+/// 记录取水历史
+const recordWaterHistory = (data) => {
+  // 只保存当前扫描的设备记录
+  if (!deviceInfo.value || !deviceInfo.value.id) {
+    console.log('设备信息不完整，不保存历史记录')
+    return
+  }
+
+  const history = {
+    id: Date.now(),
+    date: '今日',
+    deviceName: deviceInfo.value.name || '饮水机',
+    deviceId: deviceInfo.value.id, // 使用当前扫描的terminalID
+    time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+    amount: `${selectedAmount.value}ml`,
+    timestamp: new Date().toISOString(),
+    location: deviceInfo.value.location || ''
+  }
+
+  console.log('保存取水历史:', history)
+
+  // 获取现有历史记录
+  const existingHistory = JSON.parse(localStorage.getItem('waterHistory') || '[]')
+
+  // 过滤掉重复的terminalID记录（只保留最新的）
+  const filteredHistory = existingHistory.filter(record => record.deviceId !== deviceInfo.value.id)
+
+  // 添加新记录到开头
+  filteredHistory.unshift(history)
+
+  // 只保存每个设备的最新一条记录
+  const deviceRecords = {}
+  const finalHistory = filteredHistory.filter(record => {
+    if (!deviceRecords[record.deviceId]) {
+      deviceRecords[record.deviceId] = true
+      return true
+    }
+    return false
+  })
+
+  // 限制总记录数
+  const limitedHistory = finalHistory.slice(0, 20) // 最多保存20条
+
+  localStorage.setItem('waterHistory', JSON.stringify(limitedHistory))
+  console.log('更新后的历史记录:', limitedHistory)
 }
 
 // 查看水质
@@ -210,7 +567,10 @@ const viewWaterQuality = () => {
   if (deviceInfo.value) {
     router.push({
       path: '/water-quality',
-      query: { deviceId: deviceInfo.value.id }
+      query: {
+        terminalId: deviceInfo.value.id,
+        deviceId: deviceInfo.value.deviceId
+      }
     })
   }
 }
@@ -227,29 +587,31 @@ const closeManualDialog = () => {
 }
 
 // 提交手动输入
-const submitManualInput = () => {
+const submitManualInput = async () => {
   if (!manualDeviceId.value.trim()) {
     alert('请输入设备ID')
     return
   }
 
-  const device = mockDevices[manualDeviceId.value.trim()]
-  if (device) {
-    deviceInfo.value = device
-    closeManualDialog()
-  } else {
-    alert('设备ID不存在，请检查后重新输入')
-  }
+  const deviceId = manualDeviceId.value.trim().toUpperCase()
+  await loadDeviceInfo(deviceId)
+  closeManualDialog()
+}
+
+// 重置扫描
+const resetScan = () => {
+  deviceInfo.value = null
+  selectedAmount.value = null
+  customAmount.value = ''
+  isProcessing.value = false
+  progress.value = 0
 }
 
 // 返回上一页
 const goBack = () => {
   if (deviceInfo.value) {
-    // 如果在设备信息页面，返回扫描页面
-    deviceInfo.value = null
-    selectedAmount.value = null
+    resetScan()
   } else {
-    // 如果在扫描页面，返回首页
     router.push('/home')
   }
 }
@@ -261,7 +623,6 @@ const goToPage = (page) => {
       router.push('/home')
       break
     case 'scan':
-      // 已经在扫码页面
       break
     case 'profile':
       router.push('/profile')
@@ -370,15 +731,9 @@ const goToPage = (page) => {
 }
 
 @keyframes scanLine {
-  0% {
-    top: 20%;
-  }
-  50% {
-    top: 80%;
-  }
-  100% {
-    top: 20%;
-  }
+  0% { top: 20%; }
+  50% { top: 80%; }
+  100% { top: 20%; }
 }
 
 /* 扫描框四角 */
@@ -439,6 +794,33 @@ const goToPage = (page) => {
   color: #666;
 }
 
+/* 开发调试按钮 */
+.dev-options {
+  margin-top: 16px;
+}
+
+.dev-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.dev-btn {
+  padding: 6px 12px;
+  background: #f0f5ff;
+  border: 1px solid #d6e4ff;
+  border-radius: 4px;
+  color: #1890ff;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.dev-btn:hover {
+  background: #1890ff;
+  color: white;
+}
+
 /* 手动输入 */
 .manual-input {
   background: white;
@@ -482,13 +864,14 @@ const goToPage = (page) => {
 
 .device-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   margin-bottom: 16px;
 }
 
 .device-icon {
   font-size: 32px;
+  flex-shrink: 0;
 }
 
 .device-info {
@@ -502,10 +885,21 @@ const goToPage = (page) => {
   margin-bottom: 4px;
 }
 
+.device-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .device-id {
   font-size: 14px;
   color: #1890ff;
   font-weight: 500;
+}
+
+.device-location {
+  font-size: 12px;
+  color: #666;
 }
 
 .device-status {
@@ -513,6 +907,7 @@ const goToPage = (page) => {
   font-weight: 600;
   padding: 4px 12px;
   border-radius: 12px;
+  white-space: nowrap;
 }
 
 .device-status.online {
@@ -523,6 +918,35 @@ const goToPage = (page) => {
 .device-status.offline {
   background: rgba(170, 170, 170, 0.1);
   color: #aaaaaa;
+}
+
+/* 用户信息 */
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 16px;
+  font-size: 12px;
+}
+
+.user-label {
+  color: #666;
+}
+
+.user-name {
+  color: #333;
+  font-weight: 500;
+}
+
+.user-id {
+  color: #1890ff;
+  background: white;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: auto;
 }
 
 /* 分割线 */
@@ -550,6 +974,7 @@ const goToPage = (page) => {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
+  margin-bottom: 12px;
 }
 
 .amount-option {
@@ -562,7 +987,7 @@ const goToPage = (page) => {
   transition: all 0.3s;
 }
 
-.amount-option:hover {
+.amount-option:hover:not(.disabled) {
   transform: translateY(-2px);
   border-color: #1890ff;
 }
@@ -571,6 +996,16 @@ const goToPage = (page) => {
   background: #f0f5ff;
   border-color: #1890ff;
   box-shadow: 0 2px 8px rgba(24, 144, 255, 0.2);
+}
+
+.amount-option.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.amount-option.disabled:hover {
+  transform: none;
+  border-color: #e8e8e8;
 }
 
 .amount-value {
@@ -586,11 +1021,94 @@ const goToPage = (page) => {
   font-weight: 500;
 }
 
+/* 自定义输入 */
+.custom-amount {
+  width: 100%;
+}
+
+.custom-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.custom-input:focus {
+  outline: none;
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
+.custom-input:disabled {
+  background: #f5f5f5;
+  cursor: not-allowed;
+}
+
+/* 水质预览 */
+.water-quality-preview {
+  background: #f0f5ff;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.quality-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.quality-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.quality-detail-btn {
+  background: none;
+  border: 1px solid #1890ff;
+  border-radius: 6px;
+  padding: 4px 12px;
+  color: #1890ff;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.quality-detail-btn:hover {
+  background: #1890ff;
+  color: white;
+}
+
+.quality-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.quality-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.quality-label {
+  color: #666;
+}
+
+.quality-value {
+  color: #333;
+  font-weight: 500;
+}
+
 /* 操作按钮 */
 .action-buttons {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 12px;
+  margin-bottom: 16px;
 }
 
 .action-btn {
@@ -622,6 +1140,98 @@ const goToPage = (page) => {
 .action-btn:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(24, 144, 255, 0.2);
+}
+
+/* 重新扫描按钮 */
+.rescan-section {
+  text-align: center;
+}
+
+.rescan-btn {
+  background: none;
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  padding: 10px 20px;
+  color: #666;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.rescan-btn:hover {
+  background: #f8f9fa;
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+/* 取水过程显示 */
+.water-process {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.process-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.process-icon {
+  font-size: 48px;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+.process-info {
+  text-align: center;
+}
+
+.process-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1890ff;
+  margin-bottom: 8px;
+}
+
+.process-details {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: #666;
+}
+
+.process-progress {
+  width: 100%;
+}
+
+.progress-bar {
+  height: 8px;
+  background: #f0f0f0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #1890ff, #40a9ff);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  text-align: center;
+  font-size: 12px;
+  color: #666;
 }
 
 /* 底部导航栏 */
@@ -792,6 +1402,54 @@ const goToPage = (page) => {
 
 .dialog-btn.primary:hover {
   box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3);
+}
+
+/* 结果弹窗 */
+.result-dialog {
+  text-align: center;
+}
+
+.result-header {
+  padding: 20px;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.result-icon {
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  font-weight: bold;
+}
+
+.result-icon.success {
+  background: #f6ffed;
+  color: #52c41a;
+  border: 3px solid #52c41a;
+}
+
+.result-icon.error {
+  background: #fff2f0;
+  color: #ff4d4f;
+  border: 3px solid #ff4d4f;
+}
+
+.result-body {
+  padding: 20px;
+}
+
+.result-message {
+  font-size: 14px;
+  color: #333;
+  line-height: 1.4;
+}
+
+.result-footer {
+  padding: 16px 20px 20px;
 }
 
 /* 响应式调整 */
