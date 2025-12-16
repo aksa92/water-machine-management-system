@@ -1,3 +1,150 @@
+<script setup>
+import { ref, reactive, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { deviceService } from '@/services/deviceService'
+
+const router = useRouter()
+const route = useRoute()
+
+// 设备信息
+const deviceInfo = reactive({
+  name: '饮水机',
+  distance: '--',
+  id: '--',
+  status: 'loading',
+  statusText: '加载中...',
+  waterQuality: {
+    tapWater: '--',
+    pureWater: '--',
+    mineralWater: '--'
+  },
+  filters: {
+    preFilter: {
+      name: '前置滤芯组',
+      life: '--',
+      percentage: 0
+    },
+    pureFilter: {
+      name: '纯水滤芯组',
+      life: '--',
+      percentage: 0
+    },
+    mineralFilter: {
+      name: '矿化滤芯组',
+      life: '--',
+      percentage: 0
+    }
+  },
+  deviceId: '',
+  terminalId: '',
+  lastDetectionTime: '--',
+  filterLife: '--',
+  updateTime: '--'
+})
+
+const isLoading = ref(true)
+
+// 从后端获取水质信息
+const fetchWaterQualityInfo = async () => {
+  try {
+    isLoading.value = true
+
+    const terminalId = route.query.terminalId
+    const deviceId = route.query.deviceId
+
+    if (!terminalId || !deviceId) {
+      console.error('缺少设备参数')
+      return
+    }
+
+    // 获取终端信息
+    const terminalResult = await deviceService.getTerminalInfo(terminalId)
+    if (terminalResult.code === 200 && terminalResult.data) {
+      const terminalData = terminalResult.data
+
+      deviceInfo.name = terminalData.terminalName || '饮水机'
+      deviceInfo.id = terminalId
+      deviceInfo.deviceId = deviceId
+      deviceInfo.terminalId = terminalId
+      deviceInfo.status = terminalData.status === 'active' ? 'online' : 'offline'
+      deviceInfo.statusText = terminalData.status === 'active' ? '在线' : '离线'
+
+      // 如果有距离信息
+      if (terminalData.distance) {
+        deviceInfo.distance = terminalData.distance
+      }
+    }
+
+    // 获取水质信息
+    const qualityResult = await deviceService.getWaterQualityInfo(deviceId)
+    if (qualityResult.code === 200 && qualityResult.data) {
+      const qualityData = qualityResult.data
+
+      // 更新水质数据
+      if (qualityData.rawWaterTds) {
+        deviceInfo.waterQuality.tapWater = Math.round(qualityData.rawWaterTds)
+      }
+      if (qualityData.pureWaterTds) {
+        deviceInfo.waterQuality.pureWater = Math.round(qualityData.pureWaterTds)
+      }
+      if (qualityData.mineralWaterTds) {
+        deviceInfo.waterQuality.mineralWater = Math.round(qualityData.mineralWaterTds)
+      }
+
+      // 更新滤芯状态
+      if (qualityData.filterLife) {
+        const filterLife = parseInt(qualityData.filterLife)
+        deviceInfo.filterLife = `${filterLife}%`
+
+        // 模拟滤芯百分比（实际应根据滤芯类型分配）
+        deviceInfo.filters.preFilter.percentage = filterLife
+        deviceInfo.filters.preFilter.life = `${filterLife}%`
+        deviceInfo.filters.pureFilter.percentage = Math.max(filterLife - 10, 0)
+        deviceInfo.filters.pureFilter.life = `${Math.max(filterLife - 10, 0)}%`
+        deviceInfo.filters.mineralFilter.percentage = Math.max(filterLife - 20, 0)
+        deviceInfo.filters.mineralFilter.life = `${Math.max(filterLife - 20, 0)}%`
+      }
+
+      deviceInfo.lastDetectionTime = qualityData.lastDetectionTime || '--'
+      deviceInfo.updateTime = qualityData.updateTime || '--'
+      deviceInfo.waterQuality = qualityData.waterQuality || '--'
+    }
+
+  } catch (error) {
+    console.error('获取水质信息失败:', error)
+    deviceInfo.status = 'error'
+    deviceInfo.statusText = '获取失败'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// 页面加载时获取数据
+onMounted(() => {
+  fetchWaterQualityInfo()
+})
+
+// 返回上一页
+const goBack = () => {
+  router.back()
+}
+
+// 页面跳转
+const goToPage = (page) => {
+  switch(page) {
+    case 'home':
+      router.push('/home')
+      break
+    case 'scan':
+      router.push('/scan')
+      break
+    case 'profile':
+      router.push('/profile')
+      break
+  }
+}
+</script>
+
 <template>
   <div class="water-quality-page">
     <!-- 顶部标题栏 -->
@@ -6,8 +153,14 @@
       <button class="back-btn" @click="goBack">‹</button>
     </div>
 
+    <!-- 加载状态 -->
+    <div v-if="isLoading" class="loading-section">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">加载水质信息中...</div>
+    </div>
+
     <!-- 主要内容区域 -->
-    <div class="main-content">
+    <div v-else class="main-content">
       <!-- 设备信息 -->
       <div class="device-info-section">
         <h2 class="device-name">{{ deviceInfo.name }}</h2>
@@ -16,9 +169,14 @@
           <span class="separator">|</span>
           <span class="device-id">ID: {{ deviceInfo.id }}</span>
           <span class="separator">|</span>
+          <span class="device-id">设备: {{ deviceInfo.deviceId }}</span>
+          <span class="separator">|</span>
           <span class="device-status" :class="deviceInfo.status">
             {{ deviceInfo.statusText }}
           </span>
+        </div>
+        <div class="update-time">
+          最后更新: {{ deviceInfo.updateTime }}
         </div>
       </div>
 
@@ -89,6 +247,14 @@
         </div>
       </div>
 
+      <!-- 总体滤芯状态 -->
+      <div class="overall-filter-status">
+        <div class="filter-summary">
+          <span class="summary-label">总体滤芯寿命：</span>
+          <span class="summary-value">{{ deviceInfo.filterLife }}</span>
+        </div>
+      </div>
+
       <!-- 水质说明 -->
       <div class="quality-explanation">
         <div class="explanation-title">水质说明：</div>
@@ -96,21 +262,27 @@
           <div class="explanation-item">
             <span class="explanation-label">自来水TDS：</span>
             <span class="explanation-value">{{ deviceInfo.waterQuality.tapWater }} mg/L</span>
-            <span class="explanation-status up">(偏高)</span>
+            <span class="explanation-status" :class="getTdsStatus(deviceInfo.waterQuality.tapWater, 'tap')">
+              {{ getTdsStatusText(deviceInfo.waterQuality.tapWater, 'tap') }}
+            </span>
           </div>
           <div class="explanation-item">
             <span class="explanation-label">纯净水TDS：</span>
             <span class="explanation-value">{{ deviceInfo.waterQuality.pureWater }} mg/L</span>
-            <span class="explanation-status good">(优良)</span>
+            <span class="explanation-status" :class="getTdsStatus(deviceInfo.waterQuality.pureWater, 'pure')">
+              {{ getTdsStatusText(deviceInfo.waterQuality.pureWater, 'pure') }}
+            </span>
           </div>
           <div class="explanation-item">
             <span class="explanation-label">矿化水TDS：</span>
             <span class="explanation-value">{{ deviceInfo.waterQuality.mineralWater }} mg/L</span>
-            <span class="explanation-status good">(优良)</span>
+            <span class="explanation-status" :class="getTdsStatus(deviceInfo.waterQuality.mineralWater, 'mineral')">
+              {{ getTdsStatusText(deviceInfo.waterQuality.mineralWater, 'mineral') }}
+            </span>
           </div>
         </div>
         <div class="explanation-text">
-          TDS值越低，水质越纯净。纯净水TDS&lt;50为优良，矿化水TDS 50-150为适宜范围。
+          TDS值越低，水质越纯净。纯净水TDS&lt;50为优良，矿化水TDS 50-150为适宜范围，自来水TDS通常为100-300mg/L。
         </div>
       </div>
     </div>
@@ -135,68 +307,32 @@
   </div>
 </template>
 
-<script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+<script>
+// 添加判断TDS状态的辅助函数
+const getTdsStatus = (value, type) => {
+  const numValue = parseInt(value)
+  if (isNaN(numValue)) return 'unknown'
 
-const router = useRouter()
-
-// 设备信息
-const deviceInfo = reactive({
-  name: '湖南大学教学楼1F饮水机',
-  distance: '128m',
-  id: 'A201',
-  status: 'online',
-  statusText: '在线',
-  waterQuality: {
-    tapWater: '285',
-    pureWater: '13',
-    mineralWater: '87'
-  },
-  filters: {
-    preFilter: {
-      name: '前置滤芯组',
-      life: '100%',
-      percentage: 100
-    },
-    pureFilter: {
-      name: '纯水滤芯组',
-      life: '80%',
-      percentage: 80
-    },
-    mineralFilter: {
-      name: '矿化滤芯组',
-      life: '70%',
-      percentage: 70
-    }
+  switch(type) {
+    case 'tap':
+      return numValue > 300 ? 'up' : numValue < 100 ? 'low' : 'good'
+    case 'pure':
+      return numValue < 50 ? 'good' : numValue > 100 ? 'up' : 'normal'
+    case 'mineral':
+      return numValue >= 50 && numValue <= 150 ? 'good' : numValue > 150 ? 'up' : 'low'
+    default:
+      return 'unknown'
   }
-})
-
-// 模拟从路由参数获取设备ID
-onMounted(() => {
-  // 这里可以获取路由参数来加载对应的设备信息
-  const deviceId = router.currentRoute.value.query.deviceId || 'A201'
-  // 实际应用中应该根据deviceId加载数据
-  console.log('加载设备数据:', deviceId)
-})
-
-// 返回上一页
-const goBack = () => {
-  router.back()
 }
 
-// 页面跳转
-const goToPage = (page) => {
-  switch(page) {
-    case 'home':
-      router.push('/home')
-      break
-    case 'scan':
-      router.push('/scan')
-      break
-    case 'profile':
-      router.push('/profile')
-      break
+const getTdsStatusText = (value, type) => {
+  const status = getTdsStatus(value, type)
+  switch(status) {
+    case 'good': return '(优良)'
+    case 'up': return '(偏高)'
+    case 'low': return '(偏低)'
+    case 'normal': return '(正常)'
+    default: return '(--)'
   }
 }
 </script>
@@ -531,5 +667,82 @@ const goToPage = (page) => {
   .main-content {
     padding: 16px 12px;
   }
+}
+
+.loading-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #1890ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-size: 14px;
+  color: #666;
+}
+
+.update-time {
+  font-size: 12px;
+  color: #999;
+  margin-top: 8px;
+  text-align: center;
+}
+
+.overall-filter-status {
+  background: white;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 16px 0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.filter-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.summary-label {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+}
+
+.summary-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1890ff;
+}
+
+.explanation-status.low {
+  background: rgba(144, 202, 249, 0.1);
+  color: #1890ff;
+}
+
+.explanation-status.normal {
+  background: rgba(255, 193, 7, 0.1);
+  color: #ffc107;
+}
+
+.explanation-status.unknown {
+  background: rgba(158, 158, 158, 0.1);
+  color: #9e9e9e;
 }
 </style>
