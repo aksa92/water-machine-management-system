@@ -2,8 +2,10 @@ package com.campus.water.controller;
 
 import com.campus.water.entity.*;
 import com.campus.water.mapper.*;
+import com.campus.water.util.ResultVO;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Controller;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -12,7 +14,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-@Controller
+@RestController
+@RequestMapping("/api/water-usage")
 public class WaterUsageController {
 
     @Autowired
@@ -31,23 +34,25 @@ public class WaterUsageController {
     private TerminalUsageStatsRepository terminalUsageStatsRepository;
 
     // 扫码用水
+    @PostMapping("/scan")
+    @PreAuthorize("hasAnyRole('STUDENT', 'SUPER_ADMIN', 'AREA_ADMIN', 'VIEWER')")
     @Transactional
-    public Map<String, Object> scanToDrink(String terminalId, String studentId, Double waterConsumption) {
+    public ResultVO<Map<String, Object>> scanToDrink(
+            @RequestParam String terminalId,
+            @RequestParam String studentId,
+            @RequestParam Double waterConsumption) {
+
         Map<String, Object> result = new HashMap<>();
 
         try {
             Optional<DeviceTerminalMapping> mappingOpt = deviceTerminalMappingRepository.findByTerminalId(terminalId);
             if (mappingOpt.isEmpty()) {
-                result.put("success", false);
-                result.put("message", "终端设备不存在");
-                return result;
+                return ResultVO.error("终端设备不存在");
             }
 
             DeviceTerminalMapping mapping = mappingOpt.get();
             if (mapping.getTerminalStatus() != DeviceTerminalMapping.TerminalStatus.active) {
-                result.put("success", false);
-                result.put("message", "终端设备未激活");
-                return result;
+                return ResultVO.error("终端设备未激活");
             }
 
             Optional<WaterMakerRealtimeData> realtimeDataOpt =
@@ -58,7 +63,7 @@ public class WaterUsageController {
             drinkRecord.setTerminalId(terminalId);
             drinkRecord.setDeviceId(mapping.getDeviceId());
 
-            // 错误1修复：Double转BigDecimal（适配DrinkRecord的BigDecimal类型字段）
+            // Double转BigDecimal（适配DrinkRecord的BigDecimal类型字段）
             drinkRecord.setWaterConsumption(waterConsumption != null ? BigDecimal.valueOf(waterConsumption) : BigDecimal.ZERO);
             drinkRecord.setDrinkTime(LocalDateTime.now());
             drinkRecord.setLocation(mapping.getTerminalName());
@@ -73,16 +78,15 @@ public class WaterUsageController {
             // 传入BigDecimal类型的用水量
             updateTerminalUsageStats(terminalId, BigDecimal.valueOf(waterConsumption));
 
-            result.put("success", true);
-            result.put("message", "用水成功");
             result.put("waterConsumption", waterConsumption);
+            result.put("terminalName", mapping.getTerminalName());
+            result.put("deviceId", mapping.getDeviceId());
             result.put("timestamp", LocalDateTime.now());
-            return result;
+
+            return ResultVO.success(result, "用水成功");
 
         } catch (Exception e) {
-            result.put("success", false);
-            result.put("message", "用水失败: " + e.getMessage());
-            return result;
+            return ResultVO.error("用水失败: " + e.getMessage());
         }
     }
 
@@ -97,10 +101,10 @@ public class WaterUsageController {
             stats = statsOpt.get();
             stats.setUsageCount(stats.getUsageCount() + 1);
 
-            // 错误2&3修复：BigDecimal加法（替代+运算符）
+            // BigDecimal加法（替代+运算符）
             stats.setTotalWaterOutput(stats.getTotalWaterOutput().add(waterConsumption));
 
-            // 错误4修复：BigDecimal除法（替代/运算符，指定精度和舍入模式）
+            // BigDecimal除法（指定精度和舍入模式）
             stats.setAvgWaterPerUse(
                     stats.getTotalWaterOutput()
                             .divide(BigDecimal.valueOf(stats.getUsageCount()), 2, BigDecimal.ROUND_HALF_UP)
@@ -111,7 +115,7 @@ public class WaterUsageController {
             stats.setStatDate(now.toLocalDate());
             stats.setUsageCount(1);
 
-            // 错误5&6修复：直接赋值BigDecimal（适配TerminalUsageStats的BigDecimal字段）
+            // 直接赋值BigDecimal（适配TerminalUsageStats的BigDecimal字段）
             stats.setTotalWaterOutput(waterConsumption);
             stats.setAvgWaterPerUse(waterConsumption);
             stats.setPeakHour(String.format("%02d:00", now.getHour()));
@@ -122,7 +126,9 @@ public class WaterUsageController {
     }
 
     // 获取水质信息
-    public Map<String, Object> getWaterQualityInfo(String deviceId) {
+    @GetMapping("/quality/{deviceId}")
+    @PreAuthorize("hasAnyRole('STUDENT', 'SUPER_ADMIN', 'AREA_ADMIN', 'VIEWER')")
+    public ResultVO<Map<String, Object>> getWaterQualityInfo(@PathVariable String deviceId) {
         Map<String, Object> result = new HashMap<>();
 
         try {
@@ -135,7 +141,7 @@ public class WaterUsageController {
             if (realtimeDataOpt.isPresent()) {
                 WaterMakerRealtimeData realtimeData = realtimeDataOpt.get();
                 result.put("deviceId", deviceId);
-                // 如需返回Double给前端：BigDecimal转Double
+                // BigDecimal转Double返回给前端
                 result.put("rawWaterTds", realtimeData.getTdsValue1() != null ? realtimeData.getTdsValue1().doubleValue() : null);
                 result.put("pureWaterTds", realtimeData.getTdsValue2() != null ? realtimeData.getTdsValue2().doubleValue() : null);
                 result.put("mineralWaterTds", realtimeData.getTdsValue3() != null ? realtimeData.getTdsValue3().doubleValue() : null);
@@ -150,18 +156,17 @@ public class WaterUsageController {
                 result.put("lastDetectionTime", qualityHistory.getDetectedTime());
             }
 
-            result.put("success", true);
-            return result;
+            return ResultVO.success(result);
 
         } catch (Exception e) {
-            result.put("success", false);
-            result.put("message", "获取水质信息失败: " + e.getMessage());
-            return result;
+            return ResultVO.error("获取水质信息失败: " + e.getMessage());
         }
     }
 
     // 获取终端设备信息
-    public Map<String, Object> getTerminalInfo(String terminalId) {
+    @GetMapping("/terminal/{terminalId}")
+    @PreAuthorize("hasAnyRole('STUDENT', 'SUPER_ADMIN', 'AREA_ADMIN', 'VIEWER')")
+    public ResultVO<Map<String, Object>> getTerminalInfo(@PathVariable String terminalId) {
         Map<String, Object> result = new HashMap<>();
 
         Optional<DeviceTerminalMapping> mappingOpt = deviceTerminalMappingRepository.findByTerminalId(terminalId);
@@ -171,15 +176,16 @@ public class WaterUsageController {
             result.put("terminalName", mapping.getTerminalName());
             result.put("deviceId", mapping.getDeviceId());
             result.put("status", mapping.getTerminalStatus());
-            result.put("success", true);
 
-            Map<String, Object> qualityInfo = getWaterQualityInfo(mapping.getDeviceId());
-            result.putAll(qualityInfo);
+            // 获取水质信息
+            ResultVO<Map<String, Object>> qualityResult = getWaterQualityInfo(mapping.getDeviceId());
+            if (qualityResult.getCode() == 200 && qualityResult.getData() != null) {
+                result.putAll(qualityResult.getData());
+            }
+
+            return ResultVO.success(result);
         } else {
-            result.put("success", false);
-            result.put("message", "终端设备不存在");
+            return ResultVO.error("终端设备不存在");
         }
-
-        return result;
     }
 }
