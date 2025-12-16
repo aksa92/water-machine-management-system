@@ -18,8 +18,8 @@ public class StudentAppService {
     @PreAuthorize("hasAnyRole('STUDENT', 'SUPER_ADMIN', 'AREA_ADMIN', 'VIEWER')")
     public ResultVO<Map<String, Object>> getTerminalInfo(String terminalId) {
         try {
-            // 直接返回控制器的ResultVO
-            return waterUsageController.getTerminalInfo(terminalId);
+            Map<String, Object> result = waterUsageController.getTerminalInfo(terminalId);
+            return ResultVO.success(result);
         } catch (Exception e) {
             return ResultVO.error(500, "获取终端信息失败: " + e.getMessage());
         }
@@ -33,8 +33,8 @@ public class StudentAppService {
             String studentId = (String) request.get("studentId");
             Double waterConsumption = Double.valueOf(request.get("waterConsumption").toString());
 
-            // 直接返回控制器的ResultVO
-            return waterUsageController.scanToDrink(terminalId, studentId, waterConsumption);
+            Map<String, Object> result = waterUsageController.scanToDrink(terminalId, studentId, waterConsumption);
+            return ResultVO.success(result);
         } catch (Exception e) {
             return ResultVO.error(500, "用水操作失败: " + e.getMessage());
         }
@@ -44,8 +44,8 @@ public class StudentAppService {
     @PreAuthorize("hasAnyRole('STUDENT', 'SUPER_ADMIN', 'AREA_ADMIN', 'VIEWER')")
     public ResultVO<Map<String, Object>> getWaterQuality(String deviceId) {
         try {
-            // 直接返回控制器的ResultVO
-            return waterUsageController.getWaterQualityInfo(deviceId);
+            Map<String, Object> result = waterUsageController.getWaterQualityInfo(deviceId);
+            return ResultVO.success(result);
         } catch (Exception e) {
             return ResultVO.error(500, "获取水质信息失败: " + e.getMessage());
         }
