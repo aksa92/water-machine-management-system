@@ -25,8 +25,10 @@
         <label>所属片区：</label>
         <select v-model="filterForm.area" class="filter-select" @change="handleFilter">
           <option value="">全部片区</option>
-          <option value="市区">市区</option>
-          <option value="校区">校区</option>
+          <option value="A">A</option>
+          <option value="B">B</option>
+          <option value="C">C</option>
+          <option value="D">D</option>
         </select>
       </div>
 
@@ -257,13 +259,13 @@ const loadAvailableOrders = async () => {
 
     // 使用项目封装的 request 工具（而非直接使用 axios）
     // 在 loadAvailableOrders 函数中，显式传递认证头部
-const response = await request<{
-  code: number
-  msg: string
-  data: any[]
-}>(url,{
-  method: 'GET',
-})
+    const response = await request<{
+    code: number
+    msg: string
+    data: any[]
+      }>(url,{
+        method: 'GET',
+      })
 
 
     // 处理响应（完善错误处理）
@@ -288,8 +290,8 @@ const response = await request<{
       alert(`获取待抢单工单失败：${errorMsg}`)
     }
   } catch (error: any) {
-  console.error('请求异常:', error)
-  console.error('错误详情:', {
+    console.error('请求异常:', error)
+    console.error('错误详情:', {
     message: error.message,
     status: error.status,
     response: error.response

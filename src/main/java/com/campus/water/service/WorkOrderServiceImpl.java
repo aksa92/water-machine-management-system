@@ -18,6 +18,12 @@ public class WorkOrderServiceImpl implements WorkOrderService {
     private final WorkOrderRepository workOrderRepository;
     private final RepairmanRepository repairmanRepository;
 
+    @Override
+    public WorkOrder getOrderDetail(String orderId) {
+        return workOrderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("工单不存在"));
+    }
+
 
     /**
      * 维修人员抢单功能

@@ -171,4 +171,17 @@ public class WorkOrderController {
             return ResultVO.error(500, "派单失败：" + e.getMessage());
         }
     }
+
+    // 获取单个工单详情 - 管理员和维修人员均可访问
+@GetMapping("/{orderId}")
+@PreAuthorize("hasAnyRole('REPAIRMAN', 'SUPER_ADMIN', 'AREA_ADMIN')")
+public ResultVO<WorkOrder> getOrderDetail(@PathVariable String orderId) {
+    try {
+        WorkOrder order = workOrderService.getOrderDetail(orderId);
+        return ResultVO.success(order);
+    } catch (Exception e) {
+        return ResultVO.error(500, "获取工单详情失败：" + e.getMessage());
+    }
+}
+
 }
