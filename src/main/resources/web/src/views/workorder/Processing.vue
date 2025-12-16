@@ -25,8 +25,10 @@
         <label>所属片区：</label>
         <select v-model="filterForm.area" class="filter-select" @change="handleFilter">
           <option value="">全部片区</option>
-          <option value="市区">市区</option>
-          <option value="校区">校区</option>
+          <option value="A">A</option>
+          <option value="B">B</option>
+          <option value="C">C</option>
+          <option value="D">D</option>
         </select>
       </div>
 

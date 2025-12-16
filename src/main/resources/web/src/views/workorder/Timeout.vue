@@ -26,8 +26,10 @@
         <label>所属片区：</label>
         <select v-model="filterForm.area" class="filter-select" @change="handleFilter">
           <option value="">全部片区</option>
-          <option value="市区">市区</option>
-          <option value="校区">校区</option>
+          <option value="A">A</option>
+          <option value="B">B</option>
+          <option value="C">C</option>
+          <option value="D">D</option>
         </select>
       </div>
 
@@ -166,7 +168,7 @@
                 :key="staff.id"
                 :value="staff.id"
               >
-                {{ staff.name }} ({{ staff.phone }})
+                {{ staff.repairmanName }} ({{ staff.phone }})
               </option>
             </select>
           </div>
@@ -221,10 +223,10 @@ interface TimeoutOrder {
 // 维修人员接口
 interface MaintenanceStaff {
   id: string
-  name: string
+  repairmanName: string
   phone: string
-  area: string // 负责片区
-  status: 'active' | 'disabled' // 状态
+  areaId: string // 负责片区
+  status: 'idle' | 'busy' | 'vacation' // 状态
 }
 
 // 响应式数据
@@ -299,8 +301,8 @@ const loadTimeoutOrders = async () => {
         problemDesc: order.description || '暂无描述',
         status: order.status || 'timeout',
         createTime: order.createdTime ? new Date(order.createdTime).toLocaleString('zh-CN') : '未知时间',
-        lastUploadTime: order.lastUploadTime ? new Date(order.lastUploadTime).toLocaleString('zh-CN') : '未知',
-        location: order.location || '未知位置'
+        lastUploadTime: order.updatedTime ? new Date(order.updatedTime).toLocaleString('zh-CN') : '未知',
+        location: order.areaId || '未知位置'
       }))
     } else {
       const errorMsg = response.msg || `获取失败（错误码：${response.code}）`
@@ -332,12 +334,13 @@ const loadTimeoutOrders = async () => {
 }
 
 // 加载维修人员数据
-const loadMaintenanceStaff = async () => {
+const loadMaintenanceStaff = async (areaId: string) => {
   try {
-    // 获取当前工单的片区ID（如果尚未打开弹窗，则先不加载）
-    if (!currentOrder.value) return
-
-    const areaId = currentOrder.value.area
+    const token = authStore.token
+    if (!token) {
+      router.push('/login')
+      return
+    }
 
     // 调用按片区查询维修人员的接口
     const response = await request<{
@@ -346,20 +349,26 @@ const loadMaintenanceStaff = async () => {
       data: MaintenanceStaff[]
     }>('/api/web/repairman/by-area/' + areaId, {
       method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
     })
 
+    console.log('维修人员响应数据:', response)  // 添加这行来查看
+    console.log('响应数据结构:', typeof response.data, response.data)
+
     if (response.code === 200) {
-      allStaff.value = response.data || []
+      allStaff.value = response.data || []  // 成功时会设置维修人员数据
     } else {
-      console.error('获取维修人员失败:', response.msg)
+      console.error('获取维修人员失败:', response.msg)  // 失败时输出错误信息
       alert('获取维修人员失败：' + response.msg)
     }
   } catch (error: any) {
-    console.error('请求异常:', error)
+    console.error('请求异常:', error)  // 异常时输出错误详情
     alert('获取维修人员失败：' + (error.message || '网络错误'))
   }
-}
 
+}
 
 // 格式化状态显示
 const formatStatus = (status: OrderStatus): string => {
@@ -399,11 +408,14 @@ const paginatedOrders = computed(() => {
   return filteredOrders.value.slice(start, end)
 })
 
-// 筛选出负责当前工单区域的维修人员（且状态为启用）
+// 筛选出负责当前工单区域的维修人员
 const filteredStaff = computed(() => {
+  console.log('当前工单:', currentOrder.value)
+  console.log('所有维修人员:', allStaff.value)
+
   if (!currentOrder.value) return []
   return allStaff.value.filter(staff =>
-    staff.area === currentOrder.value!.area && staff.status === 'active'
+      staff.areaId === currentOrder.value!.area
   )
 })
 
@@ -435,12 +447,16 @@ const resetFilter = () => {
 }
 
 // 打开派单弹窗
-const openAssignDialog = (order: TimeoutOrder) => {
+const openAssignDialog = async (order: TimeoutOrder) => {
   currentOrder.value = order
   selectedStaffId.value = ''
   assignRemark.value = ''
   assignDialogVisible.value = true
+
+  // 等待维修人员数据加载完成
+  await loadMaintenanceStaff(order.area)
 }
+
 
 // 关闭派单弹窗
 const closeAssignDialog = () => {
@@ -460,6 +476,12 @@ const confirmAssign = async () => {
   if (!currentOrder.value || !selectedStaffId.value) return
 
   try {
+    const token = authStore.token
+    if (!token) {
+      router.push('/login')
+      return
+    }
+
     // 调用派单API
     const response = await request<{
       code: number
@@ -468,6 +490,7 @@ const confirmAssign = async () => {
     }>('/api/work-orders/assign', {
       method: 'POST',
       headers: {
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/x-www-form-urlencoded'
       },
       body: new URLSearchParams({
@@ -494,7 +517,6 @@ const confirmAssign = async () => {
 onMounted(() => {
   console.log('Token:', authStore.token)
   loadTimeoutOrders()
-  loadMaintenanceStaff()
 })
 </script>
 

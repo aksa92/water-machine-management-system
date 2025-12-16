@@ -4,6 +4,9 @@ import com.campus.water.entity.WorkOrder;
 import java.util.List;
 
 public interface WorkOrderService {
+    //按ID获取工单详情
+    WorkOrder getOrderDetail(String orderId);
+
     // 抢单
     boolean grabOrder(String orderId, String repairmanId);
 
