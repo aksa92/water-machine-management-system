@@ -8,7 +8,7 @@
 
     <!-- 操作按钮区 -->
     <div class="action-bar">
-      <button class="btn-add">添加供水机</button>
+      <button class="btn-add" @click="showAddModal = true">添加供水机</button>
 
       <div class="filters">
         <!-- 搜索框 -->
@@ -29,8 +29,10 @@
           @change="handleSearch"
         >
           <option value="">全部片区</option>
-          <option value="市区">市区</option>
-          <option value="校区">校区</option>
+          <option value="A">A区</option>
+          <option value="B">B区</option>
+          <option value="C">C区</option>
+          <option value="D">D区</option>
         </select>
 
         <!-- 状态筛选 -->
@@ -48,13 +50,13 @@
       </div>
     </div>
 
-    <!-- 设备表格 - 新增设备机型列 -->
+    <!-- 表格 -->
     <div class="card">
       <table class="equipment-table">
         <thead>
           <tr>
             <th>设备ID</th>
-            <th>设备机型</th> <!-- 新增机型列 -->
+            <th>设备机型</th>
             <th>所属片区</th>
             <th>详细位置</th>
             <th>状态</th>
@@ -65,7 +67,7 @@
         <tbody>
           <tr v-for="device in paginatedDevices" :key="device.id">
             <td>{{ device.id }}</td>
-            <td>供水机</td> <!-- 固定显示供水机机型 -->
+            <td>供水机</td>
             <td>{{ device.area }}</td>
             <td>{{ device.location }}</td>
             <td>
@@ -76,10 +78,11 @@
             <td>{{ device.lastUploadTime }}</td>
             <td class="operation-buttons">
               <button class="btn-view" @click="viewDevice(device.id)">查看详情</button>
+              <button class="btn-delete" @click="currentDeviceId = device.id; showDeleteModal = true">删除</button>
             </td>
           </tr>
           <tr v-if="paginatedDevices.length === 0">
-            <td colspan="7" class="no-data">暂无设备数据</td> <!-- colspan从6改为7 -->
+            <td colspan="7" class="no-data">暂无设备数据</td>
           </tr>
         </tbody>
       </table>
@@ -104,6 +107,52 @@
       >
         下一页
       </button>
+    </div>
+
+    <!-- 添加设备模态框 -->
+    <div v-if="showAddModal" class="modal-overlay" @click="showAddModal = false">
+      <div class="modal-content" @click.stop>
+        <h3>添加供水机</h3>
+        <form @submit.prevent="addDevice">
+          <div class="form-group">
+            <label>设备ID:</label>
+            <input v-model="newDevice.deviceId" type="text" required>
+          </div>
+          <div class="form-group">
+            <label>设备名称:</label>
+            <input v-model="newDevice.deviceName" type="text" required>
+          </div>
+          <div class="form-group">
+            <label>所属片区:</label>
+            <select v-model="newDevice.areaId" required>
+              <option value="A">A区</option>
+              <option value="B">B区</option>
+              <option value="C">C区</option>
+              <option value="D">D区</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>安装位置:</label>
+            <input v-model="newDevice.installLocation" type="text" required>
+          </div>
+          <div class="form-actions">
+            <button type="button" @click="showAddModal = false">取消</button>
+            <button type="submit">添加</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 删除确认模态框 -->
+    <div v-if="showDeleteModal" class="modal-overlay" @click="showDeleteModal = false">
+      <div class="modal-content" @click.stop>
+        <h3>确认删除设备</h3>
+        <p>确定要删除设备 ID: {{ currentDeviceId }} 吗？此操作不可恢复。</p>
+        <div class="form-actions">
+          <button type="button" @click="showDeleteModal = false">取消</button>
+          <button type="button" @click="deleteDevice()">确认</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -136,6 +185,20 @@ const currentPage = ref(1)
 const pageSize = 10 // 每页显示数量
 const router = useRouter()
 const authStore = useAuthStore()
+
+// 新增：添加设备相关状态
+const showAddModal = ref(false)
+const newDevice = ref({
+  deviceId: '',
+  deviceName: '',
+  areaId: 'A',
+  installLocation: '',
+  deviceType: 'water_supply'
+})
+
+// 新增：删除设备相关状态
+const showDeleteModal = ref(false)
+const currentDeviceId = ref('')
 
 // 加载供水机列表
 const loadWaterSuppliers = async () => {
@@ -233,6 +296,75 @@ const viewDevice = (id: string) => {
   router.push(`/home/equipment/water-supplier/${id}`)
 }
 
+// 添加设备
+const addDevice = async () => {
+  try {
+    const token = authStore.token
+    if (!token) {
+      router.push('/login')
+      return
+    }
+
+    const deviceToAdd = {
+      deviceId: newDevice.value.deviceId,
+      deviceName: newDevice.value.deviceName,
+      areaId: newDevice.value.areaId,
+      installLocation: newDevice.value.installLocation,
+      deviceType: newDevice.value.deviceType
+    }
+
+    const result = await request<ResultVO<any>>('/api/web/device/add', {
+      method: 'POST',
+      body: JSON.stringify(deviceToAdd)
+    })
+
+    if (result.code === 200) {
+      await loadWaterSuppliers()
+      showAddModal.value = false
+      alert('设备添加成功')
+    } else {
+      alert(`设备添加失败: ${result.message}`)
+    }
+  } catch (error) {
+    console.error('添加设备失败:', error)
+    alert('添加设备失败')
+    if ((error as Error).message.includes('401')) {
+      authStore.logout()
+      router.push('/login')
+    }
+  }
+}
+
+// 删除设备
+const deleteDevice = async () => {
+  try {
+    const token = authStore.token
+    if (!token) {
+      router.push('/login')
+      return
+    }
+
+    const result = await request<ResultVO<boolean>>(`/api/web/device/delete/${currentDeviceId.value}`, {
+      method: 'DELETE'
+    })
+
+    if (result.code === 200) {
+      await loadWaterSuppliers()
+      showDeleteModal.value = false
+      alert('设备删除成功')
+    } else {
+      alert(`设备删除失败: ${result.message}`)
+    }
+  } catch (error) {
+    console.error('删除设备失败:', error)
+    alert('删除设备失败')
+    if ((error as Error).message.includes('401')) {
+      authStore.logout()
+      router.push('/login')
+    }
+  }
+}
+
 // 页面加载时获取数据
 onMounted(() => {
   loadWaterSuppliers()
@@ -283,6 +415,21 @@ onMounted(() => {
 
 .btn-add:hover {
   background: #359e75;
+}
+
+.btn-delete {
+  background: #cf1322;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.3s;
+}
+
+.btn-delete:hover {
+  background: #b80c1a;
 }
 
 .filters {
@@ -394,6 +541,11 @@ onMounted(() => {
   color: #1890ff;
 }
 
+.btn-delete {
+  background-color: #ffebe6;
+  color: #cf1322;
+}
+
 .no-data {
   text-align: center;
   padding: 40px 0;
@@ -421,6 +573,80 @@ onMounted(() => {
 .page-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* 模态框样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 24px;
+  border-radius: 8px;
+  min-width: 400px;
+  max-width: 500px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.modal-content h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.form-actions button {
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.form-actions button[type="button"] {
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  color: #333;
+}
+
+.form-actions button[type="submit"] {
+  background: #42b983;
+  border: none;
+  color: white;
 }
 
 /* 响应式调整 */
