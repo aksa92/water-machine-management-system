@@ -258,4 +258,24 @@ public class WorkOrderServiceImpl implements WorkOrderService {
     public List<WorkOrder> getOrdersByAreaAndStatus(String areaId, WorkOrder.OrderStatus status) {
         return workOrderRepository.findByAreaIdAndStatus(areaId, status);
     }
+
+    @Override
+    public List<WorkOrder> getOrdersByConditions(String areaId, WorkOrder.OrderStatus status,
+                                                 LocalDateTime startTime, LocalDateTime endTime) {
+        // 分步组合查询条件，核心复用已有findByCreatedTimeBetween方法
+        List<WorkOrder> timeRangeOrders = workOrderRepository.findByCreatedTimeBetween(startTime, endTime);
+
+        // 过滤区域和状态（如果传了这些参数）
+        return timeRangeOrders.stream()
+                .filter(order -> {
+                    // 区域过滤：如果传了areaId则匹配，没传则不过滤
+                    boolean areaMatch = (areaId == null || areaId.trim().isEmpty())
+                            || order.getAreaId().equals(areaId);
+                    // 状态过滤：如果传了status则匹配，没传则不过滤
+                    boolean statusMatch = (status == null)
+                            || order.getStatus() == status;
+                    return areaMatch && statusMatch;
+                })
+                .toList();
+    }
 }

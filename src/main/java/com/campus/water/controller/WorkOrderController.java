@@ -4,11 +4,13 @@ import com.campus.water.entity.WorkOrder;
 import com.campus.water.service.WorkOrderService;
 import com.campus.water.util.ResultVO;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -142,6 +144,23 @@ public class WorkOrderController {
             return ResultVO.success(orders);
         } catch (Exception e) {
             return ResultVO.error(500, "获取工单失败：" + e.getMessage());
+        }
+    }
+
+    // 新增：按时间范围（+可选区域/状态）查询工单（复用已有Repository方法）
+    @GetMapping("/by-time-range")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN')")
+    public ResultVO<List<WorkOrder>> getOrdersByTimeRange(
+            @RequestParam(required = false) String areaId,          // 可选：区域ID
+            @RequestParam(required = false) WorkOrder.OrderStatus status, // 可选：工单状态
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime, // 必选：开始时间
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime) { // 必选：结束时间
+        try {
+            // 直接调用Service，复用已有Repository的findByCreatedTimeBetween方法
+            List<WorkOrder> orders = workOrderService.getOrdersByConditions(areaId, status, startTime, endTime);
+            return ResultVO.success(orders);
+        } catch (Exception e) {
+            return ResultVO.error(500, "按时间范围查询工单失败：" + e.getMessage());
         }
     }
 

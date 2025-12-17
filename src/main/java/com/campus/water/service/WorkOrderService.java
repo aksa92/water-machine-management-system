@@ -1,6 +1,8 @@
 package com.campus.water.service;
 
 import com.campus.water.entity.WorkOrder;
+
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface WorkOrderService {
@@ -31,4 +33,8 @@ public interface WorkOrderService {
     // 按状态查询工单的方法
     List<WorkOrder> getOrdersByStatus(WorkOrder.OrderStatus status);
     List<WorkOrder> getOrdersByAreaAndStatus(String areaId, WorkOrder.OrderStatus status);
+
+    // 核心：复用已有Repository的时间范围查询，新增组合条件查询方法
+    List<WorkOrder> getOrdersByConditions(String areaId, WorkOrder.OrderStatus status,
+                                          LocalDateTime startTime, LocalDateTime endTime);
 }
