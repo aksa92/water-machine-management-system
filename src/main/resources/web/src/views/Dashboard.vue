@@ -74,30 +74,15 @@
 
         <!-- 告警列表 -->
         <div v-else class="alert-list">
-          <div v-for="alert in recentAlerts" :key="alert.alertId" class="alert-item">
+          <!-- 只显示前10条告警 -->
+          <div v-for="(alert, index) in recentAlerts.slice(0, 10)" :key="alert.alertId" class="alert-item">
             <div class="alert-text">{{ alert.deviceId }}：{{ alert.alertMessage }}</div>
+            <div class="alert-time">{{ formatDateTime(alert.timestamp) }}</div>
             <div class="alert-meta">
               <div :class="['alert-level', alert.alertLevel?.toLowerCase()]">
                 {{ formatAlertLevel(alert.alertLevel) }}
               </div>
               <div v-if="alert.areaId" class="alert-area">{{ alert.areaId }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 工单状态统计 -->
-      <div class="content-card">
-        <h3 class="card-title">工单状态统计</h3>
-        <div class="chart-placeholder">
-          <div class="placeholder-text">
-            <div style="font-size: 16px; margin-bottom: 8px;">待处理工单数: {{ stats.pendingWorkOrders }}</div>
-            <div style="font-size: 24px; margin-bottom: 12px;">柱状图</div>
-            <div style="color: #666; font-size: 12px;">
-              通过Group内data和config中继器可更改数据及配置
-            </div>
-            <div style="color: #666; font-size: 12px;">
-              详情访问：https://axhub.im/charts
             </div>
           </div>
         </div>
@@ -166,6 +151,12 @@ const formatAlertLevel = (level: string): string => {
   return levelMap[level?.toLowerCase()] || level
 }
 
+// 格式化时间
+const formatDateTime = (dateTime: string): string => {
+  if (!dateTime) return ''
+  return new Date(dateTime).toLocaleString('zh-CN')
+}
+
 // 获取统计数据
 const fetchStatsData = async () => {
   try {
@@ -178,18 +169,51 @@ const fetchStatsData = async () => {
       return
     }
 
-    // 获取设备状态统计
-    const statusCountResult = await request<ResultVO<Record<string, number>>>(
-        '/api/web/device-status/status-count',
-        { method: 'GET' }
-    )
+    // 尝试使用备用统计方法
+    try {
+      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
+      const areaId = userInfo.areaId || ''
 
-    if (statusCountResult.code === 200 && statusCountResult.data) {
-      const data = statusCountResult.data
-      stats.value.onlineDevices = data.online || 0
-      stats.value.offlineDevices = data.offline || 0
-      stats.value.alertDevices = data.fault || 0
-      stats.value.totalDevices = (data.online || 0) + (data.offline || 0) + (data.fault || 0)
+      // 构建区域参数
+      const areaParam = areaId ? `?areaId=${areaId}` : ''
+
+      // 分别获取各状态设备数量
+      const [onlineResult, offlineResult, faultResult] = await Promise.allSettled([
+        request<ResultVO<any[]>>(`/api/web/device-status/by-status?status=online${areaParam}`, { method: 'GET' }),
+        request<ResultVO<any[]>>(`/api/web/device-status/by-status?status=offline${areaParam}`, { method: 'GET' }),
+        request<ResultVO<any[]>>(`/api/web/device-status/by-status?status=fault${areaParam}`, { method: 'GET' })
+      ])
+
+      // 处理在线设备
+      if (onlineResult.status === 'fulfilled' && onlineResult.value.code === 200) {
+        stats.value.onlineDevices = onlineResult.value.data?.length || 0
+      } else {
+        stats.value.onlineDevices = 0
+      }
+
+      // 处理离线设备
+      if (offlineResult.status === 'fulfilled' && offlineResult.value.code === 200) {
+        stats.value.offlineDevices = offlineResult.value.data?.length || 0
+      } else {
+        stats.value.offlineDevices = 0
+      }
+
+      // 处理故障设备
+      if (faultResult.status === 'fulfilled' && faultResult.value.code === 200) {
+        stats.value.alertDevices = faultResult.value.data?.length || 0
+      } else {
+        stats.value.alertDevices = 0
+      }
+
+      // 计算设备总数
+      stats.value.totalDevices = stats.value.onlineDevices + stats.value.offlineDevices + stats.value.alertDevices
+    } catch (statusError) {
+      console.error('获取设备状态统计失败，使用默认值:', statusError)
+      // 设置默认值
+      stats.value.onlineDevices = 0
+      stats.value.offlineDevices = 0
+      stats.value.alertDevices = 0
+      stats.value.totalDevices = 0
     }
 
     // 获取待处理工单数
@@ -200,6 +224,8 @@ const fetchStatsData = async () => {
 
     if (workOrderResult.code === 200 && workOrderResult.data) {
       stats.value.pendingWorkOrders = workOrderResult.data.length
+    } else {
+      stats.value.pendingWorkOrders = 0
     }
 
   } catch (error: any) {
@@ -245,25 +271,24 @@ const fetchAlertData = async () => {
       // 确保数据是数组
       const alerts = Array.isArray(alertResult.data) ? alertResult.data : []
 
-      // 只取前5条
-      recentAlerts.value = alerts.slice(0, 5)
+      // 只取前10条
+      recentAlerts.value = alerts.slice(0, 10)
 
       // 如果有告警，设置最新告警
       if (recentAlerts.value.length > 0) {
-  const sortedAlerts = [...recentAlerts.value].sort((a, b) => {
-    const priorityMap: Record<string, number> = {
-      'critical': 4,
-      'error': 3,
-      'warning': 2,
-      'info': 1
-    };
-    return (priorityMap[b.alertLevel?.toLowerCase()] || 0) - (priorityMap[a.alertLevel?.toLowerCase()] || 0);
-  });
-  latestAlert.value = sortedAlerts[0] ?? null; // 明确处理 undefined 情况
-} else {
-  latestAlert.value = null;
-}
-
+        const sortedAlerts = [...recentAlerts.value].sort((a, b) => {
+          const priorityMap: Record<string, number> = {
+            'critical': 4,
+            'error': 3,
+            'warning': 2,
+            'info': 1
+          };
+          return (priorityMap[b.alertLevel?.toLowerCase()] || 0) - (priorityMap[a.alertLevel?.toLowerCase()] || 0);
+        });
+        latestAlert.value = sortedAlerts[0] ?? null;
+      } else {
+        latestAlert.value = null;
+      }
     }
   } catch (error: any) {
     console.error('获取告警数据失败:', error)
@@ -517,8 +542,14 @@ onMounted(() => {
 .alert-text {
   font-size: 14px;
   color: #333;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   line-height: 1.4;
+}
+
+.alert-time {
+  font-size: 12px;
+  color: #666;
+  margin: 4px 0;
 }
 
 .alert-meta {

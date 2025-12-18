@@ -230,45 +230,58 @@ const formatStatus = (status: OrderStatus): string => {
 const loadAvailableOrders = async () => {
   loading.value = true
   try {
-    // 从 Pinia 获取 Token（与 Admin.vue 一致）
     const token = authStore.token
-
-    // 检查 Token 是否存在，不存在则跳转登录
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
       router.push('/login')
       return
     }
 
-    console.log('当前 Token:', token.substring(0, 20) + '...') // 只显示部分，避免安全风险
-
-
     // 构建查询参数
-    let url = '/api/work-orders/available'
+    let url = ''
     const params = new URLSearchParams()
+
+    // 获取用户信息中的 areaId
     const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
     const areaId = filterForm.value.area || userInfo.areaId || ''
-    if (areaId) {
-      params.append('areaId', areaId)
+
+    // 判断是否启用时间筛选
+    if (filterForm.value.createDate) {
+      // 使用 by-time-range 接口进行更精确的时间筛选
+      url = '/api/work-orders/by-time-range'
+
+      // 设置起止时间为一天的开始和结束
+      const startDate = new Date(filterForm.value.createDate)
+      const endDate = new Date(startDate)
+      endDate.setDate(endDate.getDate() + 1)
+
+      params.append('startTime', startDate.toISOString())
+      params.append('endTime', endDate.toISOString())
+
+      if (areaId) {
+        params.append('areaId', areaId)
+      }
+    } else {
+      // 默认使用 available 接口
+      url = '/api/work-orders/available'
+      if (areaId) {
+        params.append('areaId', areaId)
+      }
     }
-    // 只有当有参数时才添加问号
+
     const queryString = params.toString()
     if (queryString) {
       url += `?${queryString}`
     }
 
-    // 使用项目封装的 request 工具（而非直接使用 axios）
-    // 在 loadAvailableOrders 函数中，显式传递认证头部
     const response = await request<{
-    code: number
-    msg: string
-    data: any[]
-      }>(url,{
-        method: 'GET',
-      })
+      code: number
+      msg: string
+      data: any[]
+    }>(url, {
+      method: 'GET',
+    })
 
-
-    // 处理响应（完善错误处理）
     if (response.code === 200) {
       orders.value = (response.data || []).map((order: any) => ({
         id: order.orderId || '',
@@ -291,28 +304,17 @@ const loadAvailableOrders = async () => {
     }
   } catch (error: any) {
     console.error('请求异常:', error)
-    console.error('错误详情:', {
-    message: error.message,
-    status: error.status,
-    response: error.response
-  })
-
-  const errorMsg = error.message.includes('401') || error.message.includes('403')
-      ? '权限不足或登录已过期，请重新登录'
-      : error.message.includes('Network')
-          ? '网络连接失败，请检查网络'
-          : error.message || '获取数据失败，请稍后重试'
-  alert(`获取待抢单工单失败：${errorMsg}`)
-
-  /*if (error.message.includes('401') || error.message.includes('403')) {
-    authStore.logout()
-    router.push('/login')
-  }*/
-}
- finally {
+    const errorMsg = error.message.includes('401') || error.message.includes('403')
+        ? '权限不足或登录已过期，请重新登录'
+        : error.message.includes('Network')
+            ? '网络连接失败，请检查网络'
+            : error.message || '获取数据失败，请稍后重试'
+    alert(`获取待抢单工单失败：${errorMsg}`)
+  } finally {
     loading.value = false
   }
 }
+
 
 // 筛选后的工单列表
 const filteredOrders = computed(() => {
@@ -326,10 +328,10 @@ const filteredOrders = computed(() => {
     const areaMatch = filterForm.value.area === '' || order.area === filterForm.value.area
 
     // 日期筛选（匹配日期部分，忽略时间）
-    const dateMatch = filterForm.value.createDate === '' ||
-        order.createTime.split(' ')[0] === filterForm.value.createDate
+   // const dateMatch = filterForm.value.createDate === '' ||
+     //   order.createTime.split(' ')[0] === filterForm.value.createDate
 
-    return keywordMatch && areaMatch && dateMatch
+    return keywordMatch && areaMatch
   })
 })
 

@@ -30,8 +30,8 @@
             @change="handleSearch"
         >
           <option value="">全部片区</option>
-          <option value="市区">市区</option>
-          <option value="校区">校区</option>
+          <option value="A">A</option>
+          <option value="B">B</option>
         </select>
 
         <!-- 状态筛选 -->

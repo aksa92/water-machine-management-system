@@ -228,6 +228,7 @@ const formatStatus = (status: OrderStatus): string => {
 }
 
 // 加载处理中工单列表
+// 修改 loadProcessingOrders 方法中的时间筛选逻辑
 const loadProcessingOrders = async () => {
   loading.value = true
   try {
@@ -238,22 +239,40 @@ const loadProcessingOrders = async () => {
       return
     }
 
-    // 构建查询参数
+    // 判断是否启用时间筛选
+    let url = ''
     const params = new URLSearchParams()
-    params.append('status', 'processing')
-
-    if (filterForm.value.area) {
-      params.append('areaId', filterForm.value.area)
-    }
 
     if (filterForm.value.createDate) {
-      params.append('startDate', filterForm.value.createDate)
+      // 使用 by-time-range 接口进行时间筛选
+      url = '/api/work-orders/by-time-range'
+
+      // 设置起止时间为一天的开始和结束
+      const startDate = new Date(filterForm.value.createDate)
+      const endDate = new Date(startDate)
+      endDate.setDate(endDate.getDate() + 1)
+
+      params.append('startTime', startDate.toISOString())
+      params.append('endTime', endDate.toISOString())
+      params.append('status', 'processing') // 添加状态筛选
+
+      if (filterForm.value.area) {
+        params.append('areaId', filterForm.value.area)
+      }
+    } else {
+      // 默认使用 by-status 接口
+      url = '/api/work-orders/by-status'
+      params.append('status', 'processing')
+
+      if (filterForm.value.area) {
+        params.append('areaId', filterForm.value.area)
+      }
     }
 
     const queryString = params.toString()
-    // 修改后
-    const url = `/api/work-orders/by-status?status=processing${queryString ? `&${queryString}` : ''}`
-
+    if (queryString) {
+      url += `?${queryString}`
+    }
 
     // 调用后端接口获取处理中工单
     const response = await request<{
@@ -292,6 +311,7 @@ const loadProcessingOrders = async () => {
   }
 }
 
+
 // 筛选后的工单列表
 const filteredOrders = computed(() => {
   return orders.value.filter(order => {
@@ -304,10 +324,10 @@ const filteredOrders = computed(() => {
     const areaMatch = filterForm.value.area === '' || order.area === filterForm.value.area
 
     // 日期筛选（匹配日期部分，忽略时间）
-    const dateMatch = filterForm.value.createDate === '' ||
-      order.createTime.split(' ')[0] === filterForm.value.createDate
+    //const dateMatch = filterForm.value.createDate === '' ||
+    //  order.createTime.split(' ')[0] === filterForm.value.createDate
 
-    return keywordMatch && areaMatch && dateMatch
+    return keywordMatch && areaMatch
   })
 })
 

@@ -167,18 +167,43 @@ const loadCompletedOrders = async () => {
 
     console.log('当前 Token:', token.substring(0, 20) + '...')
 
-    // 构建查询参数
-    let url = '/api/work-orders/by-status?status=completed'
+    // 判断是否启用时间筛选
+    let url = ''
     const params = new URLSearchParams()
-    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
-    const areaId = filterForm.value.area || userInfo.areaId || ''
-    if (areaId) {
-      params.append('areaId', areaId)
+
+    if (filterForm.value.createDate) {
+      // 使用 by-time-range 接口进行时间筛选
+      url = '/api/work-orders/by-time-range'
+
+      // 设置起止时间为一天的开始和结束
+      const startDate = new Date(filterForm.value.createDate)
+      const endDate = new Date(startDate)
+      endDate.setDate(endDate.getDate() + 1)
+
+      params.append('startTime', startDate.toISOString())
+      params.append('endTime', endDate.toISOString())
+      params.append('status', 'completed') // 添加状态筛选
+
+      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
+      const areaId = filterForm.value.area || userInfo.areaId || ''
+      if (areaId) {
+        params.append('areaId', areaId)
+      }
+    } else {
+      // 默认使用 by-status 接口
+      url = '/api/work-orders/by-status'
+      params.append('status', 'completed')
+
+      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
+      const areaId = filterForm.value.area || userInfo.areaId || ''
+      if (areaId) {
+        params.append('areaId', areaId)
+      }
     }
-    // 只有当有参数时才添加问号
+
     const queryString = params.toString()
     if (queryString) {
-      url += `&${queryString}`
+      url += `?${queryString}`
     }
 
     // 使用项目封装的 request 工具
@@ -243,7 +268,7 @@ const formatStatus = (status: OrderStatus): string => {
   return statusMap[status] || status
 }
 
-// 筛选后的工单列表
+// 筛选后的工单列表 - 移除前端日期筛选逻辑
 const filteredOrders = computed(() => {
   return orders.value.filter(order => {
     // 工单号/设备ID搜索匹配
@@ -254,11 +279,12 @@ const filteredOrders = computed(() => {
     // 片区筛选
     const areaMatch = filterForm.value.area === '' || order.area === filterForm.value.area
 
-    // 日期筛选（匹配日期部分，忽略时间）
-    const dateMatch = filterForm.value.createDate === '' ||
-      order.createTime.split(' ')[0] === filterForm.value.createDate
+    // 移除日期筛选逻辑，因为已在后端处理
+    // const dateMatch = filterForm.value.createDate === '' ||
+    //   order.createTime.split(' ')[0] === filterForm.value.createDate
 
-    return keywordMatch && areaMatch && dateMatch
+    // 返回时不包含 dateMatch
+    return keywordMatch && areaMatch
   })
 })
 
@@ -307,6 +333,7 @@ onMounted(() => {
   loadCompletedOrders()
 })
 </script>
+
 
 <style scoped>
 /* 样式与前几个页面完全一致，仅修改页面容器类名 */
