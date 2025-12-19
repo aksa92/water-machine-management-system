@@ -21,6 +21,12 @@ public interface AdminRepository extends JpaRepository<Admin, String> {
     // 按手机号查询
     Optional<Admin> findByPhone(String phone);
 
+    // 新增：按区域ID查询管理员
+    List<Admin> findByAreaId(String areaId);
+
+    // 新增：按角色和区域ID查询（用于区域管理员的权限控制）
+    List<Admin> findByRoleAndAreaId(Admin.AdminRole role, String areaId);
+
     // 按角色查询管理员（核心：恢复角色筛选）
     List<Admin> findByRole(Admin.AdminRole role);
 

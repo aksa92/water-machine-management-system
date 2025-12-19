@@ -2,6 +2,7 @@ package com.campus.water.service;
 
 import com.campus.water.entity.Admin;
 import com.campus.water.mapper.AdminRepository;
+import com.campus.water.mapper.AreaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -16,6 +17,8 @@ import java.util.Optional;
 public class AdminService {
 
     private final AdminRepository adminRepository;
+    private final AreaRepository areaRepository;  // 新增注入
+
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -39,6 +42,17 @@ public class AdminService {
     }
 
     /**
+     * 新增：获取指定区域的管理员列表
+     */
+    public List<Admin> getAdminsByAreaId(String areaId) {
+        // 校验区域是否存在
+        if (!areaRepository.existsById(areaId)) {
+            throw new RuntimeException("区域不存在：" + areaId);
+        }
+        return adminRepository.findByAreaId(areaId);
+    }
+
+    /**
      * 按ID查询管理员
      */
     public Optional<Admin> getAdminById(String adminId) {
@@ -47,12 +61,28 @@ public class AdminService {
 
     /**
      * 新增/修改管理员（支持指定角色）
+     * 重写保存方法，增加区域校验（区域管理员必须关联区域）
      */
     public Admin saveAdmin(Admin admin) {
         admin.setUpdatedTime(LocalDateTime.now());
         if (admin.getCreatedTime() == null) {
             admin.setCreatedTime(LocalDateTime.now());
         }
+
+        // 区域管理员必须关联区域
+        if (admin.getRole() == Admin.AdminRole.ROLE_AREA_ADMIN) {
+            if (admin.getAreaId() == null || admin.getAreaId().trim().isEmpty()) {
+                throw new RuntimeException("区域管理员必须关联具体区域");
+            }
+            // 校验关联的区域是否存在
+            if (!areaRepository.existsById(admin.getAreaId())) {
+                throw new RuntimeException("关联的区域不存在：" + admin.getAreaId());
+            }
+        } else {
+            // 非区域管理员清空区域ID
+            admin.setAreaId(null);
+        }
+
         return adminRepository.save(admin);
     }
 
@@ -76,5 +106,13 @@ public class AdminService {
      */
     public Admin.AdminRole[] getAllRoles() {
         return Admin.AdminRole.values();
+    }
+
+    public AreaRepository getAreaRepository() {
+        return areaRepository;
+    }
+
+    public void setPasswordEncoder(PasswordEncoder passwordEncoder) {
+        this.passwordEncoder = passwordEncoder;
     }
 }

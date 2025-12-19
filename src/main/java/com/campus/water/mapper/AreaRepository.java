@@ -14,6 +14,20 @@ public interface AreaRepository extends JpaRepository<Area, String> {
     // 根据父区域ID查询子区域
     List<Area> findByParentAreaId(String parentAreaId);
 
+    // 新增按区域类型查询
+    List<Area> findByAreaTypeOrderByCreatedTimeDesc(Area.AreaType areaType);
+
+    // 按父级ID+类型查询（如查询某校园下的所有楼宇）
+    List<Area> findByParentAreaIdAndAreaType(String parentAreaId, Area.AreaType areaType);
+
+
+
+    // 按名称模糊查询
+    List<Area> findByAreaNameContaining(String keyword);
+
+    // 查询所有（按创建时间倒序）
+    List<Area> findAllByOrderByCreatedTimeDesc();
+
     // 根据管理员姓名查询区域
     List<Area> findByManager(String manager);
 

@@ -8,12 +8,15 @@ package com.campus.water.entity;
 import lombok.Data;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import org.hibernate.annotations.GenericGenerator;
 
 @Data
 @Entity
 @Table(name = "area")
 public class Area {
     @Id
+    @GeneratedValue(generator = "uuid")  // 新增：自动生成UUID
+    @GenericGenerator(name = "uuid", strategy = "org.hibernate.id.UUIDGenerator")
     @Column(name = "area_id", length = 20)
     private String areaId;
 
@@ -43,6 +46,18 @@ public class Area {
     private LocalDateTime updatedTime = LocalDateTime.now();
 
     public enum AreaType {
-        campus, building, zone
+        campus("校园"),
+        building("楼宇"),
+        zone("区域");
+
+        private final String desc;
+
+        AreaType(String desc) {
+            this.desc = desc;
+        }
+
+        public String getDesc() {
+            return desc;
+        }
     }
 }
