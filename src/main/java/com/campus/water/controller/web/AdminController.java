@@ -40,6 +40,23 @@ public class AdminController {
     }
 
     /**
+     * 新增：获取指定区域的管理员列表
+     */
+    @GetMapping("/by-area/{areaId}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")  // 只有超级管理员可以查看
+    @Operation(summary = "按区域查询管理员", description = "查询指定区域下的所有管理员")
+    public ResponseEntity<ResultVO<List<Admin>>> getAdminsByArea(
+            @PathVariable String areaId
+    ) {
+        try {
+            List<Admin> admins = adminService.getAdminsByAreaId(areaId);
+            return ResponseEntity.ok(ResultVO.success(admins));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ResultVO.error(500, "查询失败：" + e.getMessage()));
+        }
+    }
+
+    /**
      * 获取所有管理员角色枚举
      */
     @GetMapping("/roles")
@@ -56,11 +73,13 @@ public class AdminController {
 
     /**
      * 新增/编辑管理员
+     * 重写保存接口的注释，明确区域关联说明
      */
     @PostMapping("/save")
-    @PreAuthorize("hasRole('SUPER_ADMIN')") // 仅超级管理员可新增/编辑
-    @Operation(summary = "保存管理员", description = "新增/编辑管理员，支持指定角色")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Operation(summary = "保存管理员", description = "新增/编辑管理员，区域管理员必须指定areaId")
     public ResponseEntity<ResultVO<Admin>> saveAdmin(@RequestBody Admin admin) {
+        // 实现保持不变
         try {
             Admin savedAdmin = adminService.saveAdmin(admin);
             return ResponseEntity.ok(ResultVO.success(savedAdmin));
