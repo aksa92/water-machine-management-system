@@ -5,9 +5,13 @@ import com.campus.water.entity.Repairman;
 import com.campus.water.mapper.WorkOrderRepository;
 import com.campus.water.mapper.RepairmanRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -124,14 +128,13 @@ public class WorkOrderServiceImpl implements WorkOrderService {
             // 校验权限：必须是当前工单的已分配维修人员，且工单状态为"已抢单"或"处理中"
             if (order.getAssignedRepairmanId() != null &&
                     order.getAssignedRepairmanId().equals(repairmanId) &&
-                    (order.getStatus() == WorkOrder.OrderStatus.processing ||
-                            order.getStatus() == WorkOrder.OrderStatus.processing)) {
+                    (order.getStatus() == WorkOrder.OrderStatus.processing)) {
 
-                // 更新工单状态为"已完成"，记录完成时间和维修信息
-                order.setStatus(WorkOrder.OrderStatus.completed);
+                // 更新工单状态为"待审核"（关键修改）
+                order.setStatus(WorkOrder.OrderStatus.reviewing);
                 order.setCompletedTime(LocalDateTime.now());
                 order.setDealNote(dealNote);
-                order.setImgUrl(imgUrl); // 允许为空（可选参数）
+                order.setImgUrl(imgUrl);
                 workOrderRepository.save(order);
 
                 // 更新维修人员状态为"空闲"，并增加工作量
@@ -151,13 +154,13 @@ public class WorkOrderServiceImpl implements WorkOrderService {
      * 管理员审核工单（新增实现）
      * 业务规则：仅审核"待审核"状态的工单，通过则改为"已完成"，不通过则退回"处理中"
      */
+    // 在WorkOrderServiceImpl的reviewOrder方法中
     @Override
     @Transactional
     public boolean reviewOrder(String orderId, boolean approved) {
         Optional<WorkOrder> orderOpt = workOrderRepository.findById(orderId);
         if (orderOpt.isPresent()) {
             WorkOrder order = orderOpt.get();
-            // 仅处理"待审核"状态的工单
             if (order.getStatus() == WorkOrder.OrderStatus.reviewing) {
                 if (approved) {
                     // 审核通过：改为"已完成"，并更新维修人员工作量
@@ -172,6 +175,14 @@ public class WorkOrderServiceImpl implements WorkOrderService {
                 } else {
                     // 审核不通过：退回"处理中"
                     order.setStatus(WorkOrder.OrderStatus.processing);
+                    // 同时将维修人员状态改回忙碌
+                    if (order.getAssignedRepairmanId() != null) {
+                        repairmanRepository.findById(order.getAssignedRepairmanId())
+                                .ifPresent(rm -> {
+                                    rm.setStatus(Repairman.RepairmanStatus.busy);
+                                    repairmanRepository.save(rm);
+                                });
+                    }
                 }
                 workOrderRepository.save(order);
                 return true;
@@ -179,6 +190,39 @@ public class WorkOrderServiceImpl implements WorkOrderService {
         }
         return false;
     }
+    @Component
+    @RequiredArgsConstructor
+    @Slf4j
+    public class WorkOrderTimeoutTask {
+
+        private final WorkOrderRepository workOrderRepository;
+
+        // 每小时检查一次超时工单
+        @Scheduled(fixedRate = 3600000)
+        @Transactional
+        public void checkTimeoutOrders() {
+            log.info("开始检查超时工单");
+
+            // 查询所有待处理和处理中的工单
+            List<WorkOrder> activeOrders = workOrderRepository.findByStatusIn(
+                    Arrays.asList(WorkOrder.OrderStatus.pending, WorkOrder.OrderStatus.processing)
+            );
+
+            LocalDateTime now = LocalDateTime.now();
+            for (WorkOrder order : activeOrders) {
+                // 检查是否设置了截止时间且已超时
+                if (order.getDeadline() != null && now.isAfter(order.getDeadline())) {
+                    order.setStatus(WorkOrder.OrderStatus.timeout);
+                    workOrderRepository.save(order);
+                    log.info("工单{}已超时，状态已更新为超时", order.getOrderId());
+                }
+            }
+
+            log.info("超时工单检查完成");
+        }
+    }
+
+
 
     /**
      * 获取可抢工单列表
