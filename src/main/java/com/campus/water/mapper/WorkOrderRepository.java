@@ -43,4 +43,7 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, String> {
 
     // 根据创建人查询工单
     List<WorkOrder> findByCreatedBy(String createdBy);
+
+    //获取处于某些状态的工单
+    List<WorkOrder> findByStatusIn(List<WorkOrder.OrderStatus> list);
 }

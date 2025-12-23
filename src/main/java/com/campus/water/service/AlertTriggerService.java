@@ -189,6 +189,7 @@ public class AlertTriggerService {
         workOrder.setOrderType(orderType); // 动态设置工单类型
         workOrder.setDescription(message);
         workOrder.setStatus(WorkOrder.OrderStatus.pending);
+        workOrder.setDeadline(LocalDateTime.now().plusHours(24));// 创建工单时设置截止时间（例如24小时后）
         workOrder.setCreatedTime(LocalDateTime.now());
         workOrderRepository.save(workOrder);
         log.info("创建工单成功 | 工单ID：{} | 设备ID：{} | 工单类型：{}",
