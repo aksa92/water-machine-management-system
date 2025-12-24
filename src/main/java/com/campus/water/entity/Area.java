@@ -17,7 +17,7 @@ public class Area {
     @Id
     @GeneratedValue(generator = "uuid")  // 新增：自动生成UUID
     @GenericGenerator(name = "uuid", strategy = "org.hibernate.id.UUIDGenerator")
-    @Column(name = "area_id", length = 20)
+    @Column(name = "area_id", length = 36)
     private String areaId;
 
     @Column(name = "area_name", length = 100)
