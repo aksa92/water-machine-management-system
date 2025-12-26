@@ -142,10 +142,10 @@
             </button>
             <button
                 class="action-btn secondary"
-                @click="viewWaterQuality"
+                @click="viewRealtimeData"
                 :disabled="deviceInfo.status !== 'online'"
             >
-              查看水质
+              查看实时数据
             </button>
           </div>
 
@@ -594,10 +594,10 @@ const recordWaterHistory = (data) => {
 }
 
 // 查看水质
-const viewWaterQuality = () => {
+const viewRealtimeData = () => {
   if (deviceInfo.value) {
     router.push({
-      path: '/water-quality',
+      path: '/realtime-data',
       query: {
         terminalId: deviceInfo.value.id,
         deviceId: deviceInfo.value.deviceId

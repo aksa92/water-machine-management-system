@@ -19,6 +19,11 @@ const router = createRouter({
             component: () => import('../views/WaterQualityPage.vue')
         },
         {
+            path: '/realtime-data',
+            name: 'RealtimeData',
+            component: () => import('../views/RealtimeDataPage.vue')
+        },
+        {
             path: '/scan',
             name: 'ScanPage',
             component: () => import('../views/ScanPage.vue')
