@@ -7,20 +7,29 @@ import com.campus.water.mapper.RepairmanRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.campus.water.service.NotificationService;
+import com.campus.water.service.WorkOrderService;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * 工单服务实现类
+ *
+ * @author 豆包编程助手
+ * @date 2025/12/25
+ */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class WorkOrderServiceImpl implements WorkOrderService {
 
     private final WorkOrderRepository workOrderRepository;
     private final RepairmanRepository repairmanRepository;
+    private final NotificationService notificationService;
 
     @Override
     public WorkOrder getOrderDetail(String orderId) {
@@ -28,12 +37,12 @@ public class WorkOrderServiceImpl implements WorkOrderService {
                 .orElseThrow(() -> new RuntimeException("工单不存在"));
     }
 
-
     /**
      * 维修人员抢单功能
      * 业务规则：仅允许抢"待处理"状态的工单，且维修人员需处于"空闲"状态
-     * @param orderId 工单ID
-     * @param repairmanId 维修人员ID
+     *
+     * @param orderId       工单ID
+     * @param repairmanId   维修人员ID
      * @return 抢单成功返回true，否则返回false
      */
     @Override
@@ -47,7 +56,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
             // 检查工单状态是否为"待处理"（只有待处理的工单可被抢单）
             if (order.getStatus() == WorkOrder.OrderStatus.pending) {
                 // 查询维修人员是否存在且状态为"空闲"
-                var repairman = repairmanRepository.findById(repairmanId);
+                Optional<Repairman> repairman = repairmanRepository.findById(repairmanId);
                 if (repairman.isPresent() && repairman.get().getStatus() == Repairman.RepairmanStatus.idle) {
 
                     // 更新工单状态：改为"已抢单"，记录抢单时间和维修人员ID
@@ -57,7 +66,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
                     workOrderRepository.save(order);
 
                     // 更新维修人员状态：改为"忙碌"
-                    var repairmanEntity = repairman.get();
+                    Repairman repairmanEntity = repairman.get();
                     repairmanEntity.setStatus(Repairman.RepairmanStatus.busy);
                     repairmanRepository.save(repairmanEntity);
 
@@ -71,9 +80,10 @@ public class WorkOrderServiceImpl implements WorkOrderService {
     /**
      * 维修人员拒单功能
      * 业务规则：仅允许拒绝自己已抢单的工单，拒单后工单回到"待处理"状态
-     * @param orderId 工单ID
-     * @param repairmanId 维修人员ID
-     * @param reason 拒单原因
+     *
+     * @param orderId       工单ID
+     * @param repairmanId   维修人员ID
+     * @param reason        拒单原因
      * @return 拒单成功返回true，否则返回false
      */
     @Override
@@ -96,8 +106,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
                 workOrderRepository.save(order);
 
                 // 重置维修人员状态：改为"空闲"
-                var repairman = repairmanRepository.findById(repairmanId);
-                repairman.ifPresent(rm -> {
+                repairmanRepository.findById(repairmanId).ifPresent(rm -> {
                     rm.setStatus(Repairman.RepairmanStatus.idle);
                     repairmanRepository.save(rm);
                 });
@@ -111,10 +120,11 @@ public class WorkOrderServiceImpl implements WorkOrderService {
     /**
      * 提交维修结果
      * 业务规则：仅允许提交自己负责的"已抢单"或"处理中"状态工单
-     * @param orderId 工单ID
-     * @param repairmanId 维修人员ID
-     * @param dealNote 处理备注
-     * @param imgUrl 维修照片URL（可选）
+     *
+     * @param orderId       工单ID
+     * @param repairmanId   维修人员ID
+     * @param dealNote      处理备注
+     * @param imgUrl        维修照片URL（可选）
      * @return 提交成功返回true，否则返回false
      */
     @Override
@@ -154,7 +164,6 @@ public class WorkOrderServiceImpl implements WorkOrderService {
      * 管理员审核工单（新增实现）
      * 业务规则：仅审核"待审核"状态的工单，通过则改为"已完成"，不通过则退回"处理中"
      */
-    // 在WorkOrderServiceImpl的reviewOrder方法中
     @Override
     @Transactional
     public boolean reviewOrder(String orderId, boolean approved) {
@@ -163,15 +172,8 @@ public class WorkOrderServiceImpl implements WorkOrderService {
             WorkOrder order = orderOpt.get();
             if (order.getStatus() == WorkOrder.OrderStatus.reviewing) {
                 if (approved) {
-                    // 审核通过：改为"已完成"，并更新维修人员工作量
+                    // 审核通过：改为"已完成"
                     order.setStatus(WorkOrder.OrderStatus.completed);
-                    if (order.getAssignedRepairmanId() != null) {
-                        repairmanRepository.findById(order.getAssignedRepairmanId())
-                                .ifPresent(rm -> {
-                                    rm.setWorkCount(rm.getWorkCount() + 1);
-                                    repairmanRepository.save(rm);
-                                });
-                    }
                 } else {
                     // 审核不通过：退回"处理中"
                     order.setStatus(WorkOrder.OrderStatus.processing);
@@ -190,9 +192,14 @@ public class WorkOrderServiceImpl implements WorkOrderService {
         }
         return false;
     }
-    @Component
-    @RequiredArgsConstructor
+
+    /**
+     * 超时工单检查任务（改为静态内部类，解决@Slf4j报错问题）
+     * 注意：需确保Spring开启了定时任务（@EnableScheduling）
+     */
     @Slf4j
+    @Service // 单独注册为Spring Bean，替代@Component
+    @RequiredArgsConstructor
     public static class WorkOrderTimeoutTask {
 
         private final WorkOrderRepository workOrderRepository;
@@ -218,15 +225,16 @@ public class WorkOrderServiceImpl implements WorkOrderService {
                 }
             }
 
-            log.info("超时工单检查完成");
+            log.info("超时工单检查完成，共检查{}个工单，其中{}个超时",
+                    activeOrders.size(),
+                    activeOrders.stream().filter(o -> o.getDeadline() != null && now.isAfter(o.getDeadline())).count());
         }
     }
-
-
 
     /**
      * 获取可抢工单列表
      * 业务规则：只返回指定区域内"待处理"状态的工单
+     *
      * @param areaId 区域ID
      * @return 符合条件的工单列表
      */
@@ -244,6 +252,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
     /**
      * 获取维修人员自己的工单
      * 业务规则：返回所有分配给该维修人员的工单（不限制状态）
+     *
      * @param repairmanId 维修人员ID
      * @return 该维修人员负责的工单列表
      */
@@ -255,8 +264,9 @@ public class WorkOrderServiceImpl implements WorkOrderService {
     /**
      * 管理员手动派单功能
      * 业务规则：仅管理员可操作，只能分配"待处理"或"超时"状态的工单给"空闲"的维修人员
-     * @param orderId 工单ID
-     * @param repairmanId 维修人员ID
+     *
+     * @param orderId       工单ID
+     * @param repairmanId   维修人员ID
      * @return 派单成功返回true，否则返回false
      */
     @Override
@@ -280,6 +290,16 @@ public class WorkOrderServiceImpl implements WorkOrderService {
                     order.setGrabbedTime(LocalDateTime.now());
                     workOrderRepository.save(order);
 
+                    // ===== 新增：派单通知 =====
+                    try {
+                        String notificationContent = String.format("您有新的维修工单待处理！工单ID：%s", orderId);
+                        notificationService.sendOrderAssignedNotification(repairmanId, orderId, notificationContent);
+                    } catch (Exception e) {
+                        // 捕获异常，不影响原有派单逻辑
+                        System.err.println("派单通知发送失败：" + e.getMessage());
+                    }
+                    // ==============================================
+
                     // 更新维修人员状态
                     Repairman repairman = repairmanOpt.get();
                     repairman.setStatus(Repairman.RepairmanStatus.busy);
@@ -292,7 +312,6 @@ public class WorkOrderServiceImpl implements WorkOrderService {
         return false; // 派单失败（工单不存在/状态异常/维修人员不满足条件）
     }
 
-    // 按状态查询工单的方法
     @Override
     public List<WorkOrder> getOrdersByStatus(WorkOrder.OrderStatus status) {
         return workOrderRepository.findByStatus(status);

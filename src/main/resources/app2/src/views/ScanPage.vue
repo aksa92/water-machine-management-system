@@ -142,10 +142,10 @@
             </button>
             <button
                 class="action-btn secondary"
-                @click="viewWaterQuality"
+                @click="viewRealtimeData"
                 :disabled="deviceInfo.status !== 'online'"
             >
-              查看水质
+              查看实时数据
             </button>
           </div>
 
@@ -430,7 +430,34 @@ const startWaterProcess = async () => {
   progress.value = 0
   remainingTime.value = Math.ceil(selectedAmount.value / 50)
 
-  // 模拟取水进度
+  // 先调用一次API，并保存结果
+  let apiResult = null
+  try {
+    apiResult = await callWaterUsageAPI()
+  } catch (error) {
+    console.error('取水API调用失败:', error)
+    // 立即停止并显示错误
+    isProcessing.value = false
+    showResult(
+        'error',
+        '取水失败',
+        'API调用失败，请重试'
+    )
+    return
+  }
+
+  // 如果API调用失败，立即停止
+  if (!apiResult || apiResult.code !== 200) {
+    isProcessing.value = false
+    showResult(
+        'error',
+        '取水失败',
+        apiResult?.message || '取水操作失败'
+    )
+    return
+  }
+
+  // API调用成功后，开始模拟进度
   const interval = setInterval(() => {
     progress.value += 5
     if (remainingTime.value > 0) {
@@ -442,13 +469,13 @@ const startWaterProcess = async () => {
       completeWaterProcess()
     }
   }, 200)
-
-  // 调用后端API
-  await callWaterUsageAPI()
 }
 
 // 调用后端取水API
 const callWaterUsageAPI = async () => {
+  // 添加调用计数，用于调试
+  console.log('调用取水API，水量:', selectedAmount.value)
+
   try {
     const result = await deviceService.scanToDrink(
         deviceInfo.value.id,
@@ -457,6 +484,8 @@ const callWaterUsageAPI = async () => {
     )
 
     if (result.code === 200) {
+      // 只在API成功时记录历史
+      console.log('API调用成功，记录历史')
       recordWaterHistory(result.data)
       return result
     } else {
@@ -473,32 +502,18 @@ const callWaterUsageAPI = async () => {
 const completeWaterProcess = async () => {
   isProcessing.value = false
 
-  const apiResult = await callWaterUsageAPI()
 
-  if (apiResult.code === 200) {
-    showResult(
-        'success',
-        '取水成功',
-        `您已成功取水 ${selectedAmount.value}ml`
-    )
+  showResult(
+      'success',
+      '取水成功',
+      `您已成功取水 ${selectedAmount.value}ml`
+  )
 
-    recordWaterHistory({
-      deviceName: deviceInfo.value.name,
-      deviceId: deviceInfo.value.id,
-      amount: selectedAmount.value
-    })
 
-    setTimeout(() => {
-      resetScan()
-      showResultDialog.value = false
-    }, 2000)
-  } else {
-    showResult(
-        'error',
-        '取水失败',
-        apiResult.message || '取水操作失败，请重试'
-    )
-  }
+  setTimeout(() => {
+    resetScan()
+    showResultDialog.value = false
+  }, 2000)
 }
 
 // 显示结果
@@ -516,6 +531,7 @@ const closeResultDialog = () => {
 }
 
 /// 记录取水历史
+// 记录取水历史
 const recordWaterHistory = (data) => {
   // 只保存当前扫描的设备记录
   if (!deviceInfo.value || !deviceInfo.value.id) {
@@ -527,27 +543,42 @@ const recordWaterHistory = (data) => {
     id: Date.now(),
     date: '今日',
     deviceName: deviceInfo.value.name || '饮水机',
-    deviceId: deviceInfo.value.id, // 使用当前扫描的terminalID
+    deviceId: deviceInfo.value.id,
     time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
     amount: `${selectedAmount.value}ml`,
     timestamp: new Date().toISOString(),
     location: deviceInfo.value.location || ''
   }
 
-  console.log('保存取水历史:', history)
-
-  // 获取现有历史记录
+  // 添加去重机制
   const existingHistory = JSON.parse(localStorage.getItem('waterHistory') || '[]')
 
+  // 检查5秒内是否有相同设备的记录
+  const now = new Date()
+  const fiveSecondsAgo = new Date(now.getTime() - 5000) // 5秒前
+
+  const duplicateIndex = existingHistory.findIndex(record => {
+    const recordTime = new Date(record.timestamp)
+    return (
+        record.deviceId === deviceInfo.value.id &&
+        recordTime >= fiveSecondsAgo &&
+        recordTime <= now
+    )
+  })
+
+  if (duplicateIndex !== -1) {
+    // 如果5秒内有重复记录，替换它而不是添加新记录
+    console.log('发现重复记录，替换而不是新增')
+    existingHistory[duplicateIndex] = history
+  } else {
+    // 没有重复记录，正常添加
+    console.log('保存新记录')
+    existingHistory.unshift(history)
+  }
+
   // 过滤掉重复的terminalID记录（只保留最新的）
-  const filteredHistory = existingHistory.filter(record => record.deviceId !== deviceInfo.value.id)
-
-  // 添加新记录到开头
-  filteredHistory.unshift(history)
-
-  // 只保存每个设备的最新一条记录
   const deviceRecords = {}
-  const finalHistory = filteredHistory.filter(record => {
+  const finalHistory = existingHistory.filter(record => {
     if (!deviceRecords[record.deviceId]) {
       deviceRecords[record.deviceId] = true
       return true
@@ -556,17 +587,17 @@ const recordWaterHistory = (data) => {
   })
 
   // 限制总记录数
-  const limitedHistory = finalHistory.slice(0, 20) // 最多保存20条
+  const limitedHistory = finalHistory.slice(0, 20)
 
   localStorage.setItem('waterHistory', JSON.stringify(limitedHistory))
   console.log('更新后的历史记录:', limitedHistory)
 }
 
 // 查看水质
-const viewWaterQuality = () => {
+const viewRealtimeData = () => {
   if (deviceInfo.value) {
     router.push({
-      path: '/water-quality',
+      path: '/realtime-data',
       query: {
         terminalId: deviceInfo.value.id,
         deviceId: deviceInfo.value.deviceId

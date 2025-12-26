@@ -64,5 +64,16 @@ export const deviceService = {
 
             throw error.response?.data || error.message
         }
+    },
+    // 新增：获取实时数据接口
+    async getRealtimeData(terminalId) {
+        try {
+            const response = await api.get(`/api/water/realtime/${terminalId}`)
+            console.log(`终端 ${terminalId} 实时数据:`, response.data)
+            return response.data
+        } catch (error) {
+            console.error(`获取终端 ${terminalId} 实时数据失败:`, error)
+            throw error.response?.data || error.message
+        }
     }
 }
