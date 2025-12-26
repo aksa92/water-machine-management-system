@@ -145,8 +145,8 @@
           <div class="form-group">
             <label>所属片区:</label>
             <select v-model="newDevice.areaId" required>
-              <option value="市区">市区</option>
-              <option value="校区">校区</option>
+              <option value="A区">A</option>
+              <option value="B区">B</option>
             </select>
           </div>
           <div class="form-group">

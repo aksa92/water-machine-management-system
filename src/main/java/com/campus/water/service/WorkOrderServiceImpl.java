@@ -193,7 +193,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
     @Component
     @RequiredArgsConstructor
     @Slf4j
-    public class WorkOrderTimeoutTask {
+    public static class WorkOrderTimeoutTask {
 
         private final WorkOrderRepository workOrderRepository;
 

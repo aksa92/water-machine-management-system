@@ -72,7 +72,7 @@ public class AreaController {
             @RequestBody @Parameter(description = "区域信息（areaId为必填）") Area area
     ) {
         try {
-            if (area.getAreaId() == null || area.getAreaId().trim().isEmpty()) {
+            if (area.getAreaId() == null) {
                 return ResponseEntity.ok(ResultVO.error(400, "区域ID不能为空"));
             }
             Area updatedArea = areaService.updateArea(area);
