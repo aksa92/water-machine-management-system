@@ -3,6 +3,7 @@ package com.campus.water.controller;
 import com.campus.water.entity.WorkOrder;
 import com.campus.water.service.WorkOrderService;
 import com.campus.water.util.ResultVO;
+import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -176,20 +177,40 @@ public class WorkOrderController {
         }
     }
 
-    // 管理员手动派单接口
+    // ========== 关键修改：管理员手动派单接口 ==========
+    // 1. 创建静态内部类接收JSON请求体参数（解决Type definition error）
+    @Data
+    public static class AssignOrderRequest {
+        private String orderId;
+        private String repairmanId;
+    }
+
+    // 2. 派单接口改为接收@RequestBody
     @PostMapping("/assign")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN')")
-    public ResultVO<Boolean> assignOrderByAdmin(
-            @RequestParam String orderId,
-            @RequestParam String repairmanId) {
+    public ResultVO<Boolean> assignOrderByAdmin(@RequestBody AssignOrderRequest request) {
         try {
-            boolean result = workOrderService.assignOrderByAdmin(orderId, repairmanId);
+            // 参数非空校验
+            if (request.getOrderId() == null || request.getOrderId().trim().isEmpty()) {
+                return ResultVO.error(400, "工单ID不能为空");
+            }
+            if (request.getRepairmanId() == null || request.getRepairmanId().trim().isEmpty()) {
+                return ResultVO.error(400, "维修人员ID不能为空");
+            }
+
+            boolean result = workOrderService.assignOrderByAdmin(request.getOrderId(), request.getRepairmanId());
             return result ? ResultVO.success(true, "派单成功")
                     : ResultVO.error(400, "派单失败，工单或维修人员状态异常");
+        } catch (IllegalArgumentException e) {
+            // 捕获参数非法异常，返回400
+            return ResultVO.error(400, "派单失败：" + e.getMessage());
         } catch (Exception e) {
+            // 捕获其他异常，返回500并打印日志（建议添加日志）
+            e.printStackTrace(); // 生产环境替换为logger.error
             return ResultVO.error(500, "派单失败：" + e.getMessage());
         }
     }
+
 
     // 获取单个工单详情 - 管理员和维修人员均可访问
 @GetMapping("/{orderId}")
