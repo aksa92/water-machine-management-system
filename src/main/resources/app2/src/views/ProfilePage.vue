@@ -39,18 +39,36 @@
       <div class="stats-section">
         <div class="stats-cards">
           <div class="stat-card">
-            <div class="stat-value">{{ userStats.days }}</div>
-            <div class="stat-label">累计用水天数</div>
+            <div class="stat-value">{{ userStats.totalConsumption }}ml</div>
+            <div class="stat-label">累计饮水量</div>
           </div>
           <div class="stat-card">
-            <div class="stat-value">{{ userStats.todayWater }}</div>
-            <div class="stat-label">今日饮水量</div>
+            <div class="stat-value">{{ userStats.drinkCount }}</div>
+            <div class="stat-label">饮水次数</div>
+          </div>
+        </div>
+
+        <div class="stats-cards">
+          <div class="stat-card">
+            <div class="stat-value">{{ userStats.avgDaily }}ml</div>
+            <div class="stat-label">日均饮水量</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">{{ userStats.days }}天</div>
+            <div class="stat-label">饮水天数</div>
           </div>
         </div>
       </div>
 
       <!-- 时间切换 -->
       <div class="time-switch">
+        <div
+            class="time-option"
+            :class="{ active: selectedPeriod === 'today' }"
+            @click="selectPeriod('today')"
+        >
+          今日
+        </div>
         <div
             class="time-option"
             :class="{ active: selectedPeriod === 'week' }"
@@ -81,10 +99,10 @@
             <div class="chart-axis">
               <!-- Y轴 -->
               <div class="y-axis">
-                <div class="y-label">800ml</div>
-                <div class="y-label">600ml</div>
-                <div class="y-label">400ml</div>
-                <div class="y-label">200ml</div>
+                <div class="y-label">{{ maxChartValue }}ml</div>
+                <div class="y-label">{{ Math.round(maxChartValue * 0.75) }}ml</div>
+                <div class="y-label">{{ Math.round(maxChartValue * 0.5) }}ml</div>
+                <div class="y-label">{{ Math.round(maxChartValue * 0.25) }}ml</div>
                 <div class="y-label">0ml</div>
               </div>
 
@@ -97,7 +115,7 @@
                 >
                   <div
                       class="bar"
-                      :style="{ height: item.value + 'px' }"
+                      :style="{ height: calculateBarHeight(item.value) + 'px' }"
                       :class="{ active: item.active }"
                   >
                     <div class="bar-value">{{ item.value }}ml</div>
@@ -106,6 +124,26 @@
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 每日详情 -->
+      <div class="daily-details-section">
+        <div class="section-title">每日详情</div>
+        <div class="daily-details-list">
+          <div
+            v-for="detail in dailyDetails"
+            :key="detail.date"
+            class="daily-detail-item"
+          >
+            <div class="detail-date">{{ formatDate(detail.date) }}</div>
+            <div class="detail-consumption">{{ detail.consumption }}ml</div>
+            <div class="detail-count">{{ detail.count }}次</div>
+          </div>
+
+          <div v-if="dailyDetails.length === 0" class="no-data">
+            暂无饮水记录
           </div>
         </div>
       </div>
@@ -152,10 +190,10 @@
 </template>
 
 <script setup>
-// 在 ProfilePage.vue 的 script setup 部分
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { studentDrinkStatsService } from '@/services/studentDrinkStatsService'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -169,46 +207,129 @@ const userInfo = reactive({
   class: '软件2301班'
 })
 
-
-// 用户统计
+// 饮水量统计数据
 const userStats = reactive({
-  days: '26天',
-  todayWater: '500ml'
+  totalConsumption: 0,
+  drinkCount: 0,
+  avgDaily: 0,
+  days: 0,
+  timeRange: '',
+  timeDimension: ''
 })
 
+// 每日详情
+const dailyDetails = ref([])
+
 // 图表数据
-const selectedPeriod = ref('week')
+const selectedPeriod = ref('today')
 const showChart = ref(false)
 const chartData = ref([])
+const maxChartValue = ref(0)
 
-// 初始化图表数据
-const initChartData = () => {
-  if (selectedPeriod.value === 'week') {
-    // 本周数据
-    chartData.value = [
-      { label: '周一', value: 450, active: false },
-      { label: '周二', value: 620, active: false },
-      { label: '周三', value: 380, active: false },
-      { label: '周四', value: 540, active: true },
-      { label: '周五', value: 280, active: false },
-      { label: '周六', value: 720, active: false },
-      { label: '周日', value: 400, active: false }
-    ]
-  } else {
-    // 本月数据（简化版，只显示4周）
-    chartData.value = [
-      { label: '第1周', value: 1800, active: false },
-      { label: '第2周', value: 2200, active: false },
-      { label: '第3周', value: 2500, active: true },
-      { label: '第4周', value: 800, active: false }
-    ]
+// 获取饮水统计
+const fetchDrinkStats = async (period) => {
+  try {
+    let response
+    const studentId = userStore.studentId
+
+    if (!studentId) {
+      console.error('未获取到学生ID')
+      return
+    }
+
+    // 根据选择的时间段调用不同的接口
+    if (period === 'today') {
+      response = await studentDrinkStatsService.getTodayStats(studentId)
+    } else if (period === 'week') {
+      response = await studentDrinkStatsService.getThisWeekStats(studentId)
+    } else if (period === 'month') {
+      response = await studentDrinkStatsService.getThisMonthStats(studentId)
+    }
+
+    if (response.code === 200) {
+      const data = response.data
+
+      // 更新统计信息
+      userStats.totalConsumption = data.totalConsumption
+      userStats.drinkCount = data.drinkCount
+      userStats.avgDaily = data.avgDailyConsumption
+      userStats.days = data.dailyDetails.length
+      userStats.timeRange = data.timeRange
+      userStats.timeDimension = data.timeDimension
+
+      // 更新每日详情
+      dailyDetails.value = data.dailyDetails || []
+
+      // 更新图表数据
+      updateChartData(data.dailyDetails, period)
+    } else {
+      console.error('获取饮水统计失败:', response.message)
+    }
+  } catch (error) {
+    console.error('获取饮水统计异常:', error)
   }
 }
 
+// 更新图表数据
+const updateChartData = (details, period) => {
+  if (!details || details.length === 0) {
+    chartData.value = []
+    maxChartValue.value = 0
+    return
+  }
+
+  // 计算最大值用于Y轴
+  const values = details.map(item => item.consumption)
+  maxChartValue.value = Math.max(...values, 100) // 最小值设为100
+
+  // 根据时间段格式化数据
+  if (period === 'today') {
+    // 今日模式 - 显示最近几天的数据
+    chartData.value = details.map((item, index) => ({
+      label: formatDate(item.date).split('-').slice(1).join('/'),
+      value: item.consumption,
+      active: index === details.length - 1 // 最后一个为当前日期
+    }))
+  } else {
+    // 本周/本月模式 - 显示所有日期数据
+    chartData.value = details.map((item, index) => ({
+      label: formatDate(item.date).split('-').slice(1).join('/'),
+      value: item.consumption,
+      active: index === details.length - 1 // 最后一个为当前日期
+    }))
+  }
+}
+
+// 计算柱状图高度
+const calculateBarHeight = (value) => {
+  if (maxChartValue.value === 0) return 0
+  // 设置最大高度为120px，根据数值比例计算
+  return (value / maxChartValue.value) * 120
+}
+
+// 格式化日期
+const formatDate = (dateString) => {
+  if (!dateString) return ''
+  // 如果是YYYY-MM-DD格式，直接返回
+  if (dateString.includes('-')) {
+    return dateString
+  }
+  // 如果是其他格式，转换为YYYY-MM-DD
+  return dateString
+}
+
 // 选择时间段
-const selectPeriod = (period) => {
+const selectPeriod = async (period) => {
   selectedPeriod.value = period
-  initChartData()
+  showChart.value = false
+
+  // 获取对应时间段的统计信息
+  await fetchDrinkStats(period)
+
+  // 模拟加载效果
+  setTimeout(() => {
+    showChart.value = true
+  }, 300)
 }
 
 // 跳转到历史记录
@@ -232,7 +353,6 @@ const handleLogout = () => {
   }
 }
 
-
 // 页面跳转
 const goToPage = (page) => {
   switch(page) {
@@ -248,7 +368,7 @@ const goToPage = (page) => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   // 从用户状态获取信息
   if (userStore.isLoggedIn) {
     userInfo.studentId = userStore.studentId
@@ -256,10 +376,10 @@ onMounted(() => {
     userInfo.lastName = userStore.username.charAt(0)
   }
 
-  // 初始化图表数据
-  initChartData()
+  // 获取今日饮水统计
+  await fetchDrinkStats('today')
 
-  // 模拟图表加载
+  // 显示图表
   setTimeout(() => {
     showChart.value = true
   }, 500)
@@ -379,6 +499,7 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 12px;
+  margin-bottom: 12px;
 }
 
 .stat-card {
@@ -546,10 +667,72 @@ onMounted(() => {
   white-space: nowrap;
 }
 
+
 .bar-label {
   font-size: 10px;
   color: #666;
   margin-top: 4px;
+}
+
+/* 每日详情区域 */
+.daily-details-section {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+
+.daily-details-section .section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 16px;
+  padding-left: 4px;
+  border-left: 4px solid #1890ff;
+}
+
+.daily-details-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.daily-detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e8e8e8;
+}
+
+.detail-date {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+}
+
+.detail-consumption {
+  font-size: 14px;
+  color: #1890ff;
+  font-weight: 600;
+}
+
+.detail-count {
+  font-size: 12px;
+  color: #666;
+  background: #e8f4fc;
+  padding: 4px 8px;
+  border-radius: 10px;
+}
+
+.no-data {
+  text-align: center;
+  padding: 20px;
+  color: #999;
+  font-size: 14px;
 }
 
 /* 功能按钮区域 */
