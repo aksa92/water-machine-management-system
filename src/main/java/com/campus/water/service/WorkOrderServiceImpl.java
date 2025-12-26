@@ -9,7 +9,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import com.campus.water.service.NotificationService;
+import com.campus.water.service.WorkOrderService;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
@@ -28,6 +29,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
 
     private final WorkOrderRepository workOrderRepository;
     private final RepairmanRepository repairmanRepository;
+    private final NotificationService notificationService;
 
     @Override
     public WorkOrder getOrderDetail(String orderId) {
@@ -287,6 +289,16 @@ public class WorkOrderServiceImpl implements WorkOrderService {
                     order.setAssignedRepairmanId(repairmanId);
                     order.setGrabbedTime(LocalDateTime.now());
                     workOrderRepository.save(order);
+
+                    // ===== 新增：派单通知 =====
+                    try {
+                        String notificationContent = String.format("您有新的维修工单待处理！工单ID：%s", orderId);
+                        notificationService.sendOrderAssignedNotification(repairmanId, orderId, notificationContent);
+                    } catch (Exception e) {
+                        // 捕获异常，不影响原有派单逻辑
+                        System.err.println("派单通知发送失败：" + e.getMessage());
+                    }
+                    // ==============================================
 
                     // 更新维修人员状态
                     Repairman repairman = repairmanOpt.get();
