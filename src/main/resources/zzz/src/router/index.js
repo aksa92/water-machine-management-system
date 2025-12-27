@@ -81,6 +81,12 @@ const router = createRouter({
       name: 'InspectionForm',
       component: () => import('../views/InspectionForm.vue'),
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/notifications',
+      name: 'NotificationsPage',
+      component: () => import('../views/NotificationsPage.vue'),
+      meta: { requiresAuth: true }
     }
   ]
 })

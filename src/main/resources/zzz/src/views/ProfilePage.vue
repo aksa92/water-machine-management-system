@@ -1,3 +1,4 @@
+<!-- src/views/ProfilePage.vue -->
 <template>
   <div class="profile-page">
     <!-- 顶部标题栏 -->
@@ -14,9 +15,9 @@
             <div class="avatar-icon">👤</div>
           </div>
           <div class="user-info">
-            <div class="user-name">维修员 张三</div>
-            <div class="user-id">工号：REP2023001</div>
-            <div class="user-area">负责片区：教学楼A区、图书馆、宿舍C区</div>
+            <div class="user-name">{{ userInfo?.username || '未登录' }}</div>
+            <div class="user-id">工号：{{ userInfo?.repairmanId || '未知' }}</div>
+            <div class="user-area">负责片区：{{ userInfo?.areaId || '未分配' }}</div>
           </div>
         </div>
       </div>
@@ -26,19 +27,19 @@
         <div class="section-title">本月工作统计</div>
         <div class="stats-grid">
           <div class="stat-item">
-            <div class="stat-number">23</div>
+            <div class="stat-number">{{ stats.processedOrders }}</div>
             <div class="stat-label">处理工单</div>
           </div>
           <div class="stat-item">
-            <div class="stat-number">45</div>
+            <div class="stat-number">{{ stats.inspections }}</div>
             <div class="stat-label">设备巡检</div>
           </div>
           <div class="stat-item">
-            <div class="stat-number">98%</div>
+            <div class="stat-number">{{ stats.responseRate }}%</div>
             <div class="stat-label">响应率</div>
           </div>
           <div class="stat-item">
-            <div class="stat-number">95%</div>
+            <div class="stat-number">{{ stats.completionRate }}%</div>
             <div class="stat-label">完成率</div>
           </div>
         </div>
@@ -126,17 +127,49 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { notificationService } from '@/services/notificationService'
 
 const authStore = useAuthStore()
 const router = useRouter()
 
+// 用户信息
+const userInfo = ref(null)
+
+// 统计数据
+const stats = ref({
+  processedOrders: 23,
+  inspections: 45,
+  responseRate: 98,
+  completionRate: 95
+})
+
 // 未读消息数量
-const unreadCount = ref(3)
+const unreadCount = ref(0)
 // 显示退出确认弹窗
 const showLogoutConfirm = ref(false)
+
+// 获取用户信息
+const loadUserInfo = () => {
+  userInfo.value = authStore.getUserInfo()
+}
+
+// 获取未读通知数量
+const loadUnreadNotifications = async () => {
+  try {
+    const repairmanId = authStore.getRepairmanId
+    if (repairmanId) {
+      const response = await notificationService.getUnreadNotifications(repairmanId)
+      if (response.code === 200) {
+        unreadCount.value = response.data.length
+      }
+    }
+  } catch (error) {
+    console.error('获取未读通知失败:', error)
+  }
+}
 
 // 导航函数
 const goToHome = () => {
@@ -154,8 +187,8 @@ const goToWorkOrders = () => {
 const goToProfile = () => {
   // 如果已经在个人中心页面，则刷新
   if (router.currentRoute.value.path === '/profile') {
-    // 可以重新加载数据
-    console.log('刷新个人中心')
+    loadUserInfo()
+    loadUnreadNotifications()
   }
 }
 
@@ -166,10 +199,7 @@ const goToSettings = () => {
 }
 
 const goToNotifications = () => {
-  console.log('跳转到消息通知')
-  alert('消息通知页面开发中')
-  // 可以在这里清空未读消息
-  // unreadCount.value = 0
+  router.push('/notifications')
 }
 
 const goToFeedback = () => {
@@ -205,6 +235,12 @@ const confirmLogout = () => {
   // 调用存储的登出方法
   authStore.logout();
 }
+
+// 页面加载时获取数据
+onMounted(() => {
+  loadUserInfo()
+  loadUnreadNotifications()
+})
 </script>
 
 <style scoped>

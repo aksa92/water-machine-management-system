@@ -104,9 +104,14 @@
               <span class="order-location">{{ getOrderLocation(order.deviceId) }}</span>
               <span class="order-time">{{ formatDate(order.completedTime) }}</span>
             </div>
+            <div class="order-status">
+              <span class="status-badge" :class="getStatusClass(order.status)">
+                {{ getStatusText(order.status) }}
+              </span>
+            </div>
           </div>
           <button class="order-btn completed">
-            已完成
+            {{ getStatusText(order.status) }}
           </button>
         </div>
 
@@ -138,7 +143,7 @@
     <div class="bottom-nav">
       <div class="nav-item" @click="goToHome">首页</div>
       <div class="nav-item" @click="goToInspection">巡检</div>
-      <div class="nav-item active" @click="goToWorkOrders">工单</div>
+      <div class="nav-item" @click="goToWorkOrders">工单</div>
       <div class="nav-item" @click="goToProfile">我的</div>
     </div>
   </div>
@@ -264,6 +269,24 @@ const formatDate = (dateStr) => {
   return new Date(dateStr).toLocaleDateString('zh-CN')
 }
 
+// 获取状态文本
+const getStatusText = (status) => {
+  const statusMap = {
+    completed: '已完成',
+    reviewing: '待审核'
+  }
+  return statusMap[status] || status
+}
+
+// 获取状态样式类
+const getStatusClass = (status) => {
+  const classMap = {
+    completed: 'completed',
+    reviewing: 'reviewing'
+  }
+  return classMap[status] || 'completed'
+}
+
 // 加载工单数据
 const loadOrders = async () => {
   loading.value = true
@@ -276,8 +299,9 @@ const loadOrders = async () => {
     processingOrders.value = allOrders.value.filter(order =>
       order.status === 'processing'
     )
+    // 包含已完成和待审核的工单，排除超时工单
     completedOrders.value = allOrders.value.filter(order =>
-      order.status === 'completed'
+      order.status === 'completed' || order.status === 'reviewing'
     )
 
     // 获取可抢工单
@@ -500,6 +524,18 @@ onMounted(() => {
   background: #f6ffed;
   color: #52c41a;
   border: 1px solid #b7eb8f;
+}
+
+.status-badge.completed {
+  background: #f6ffed;
+  color: #52c41a;
+  border: 1px solid #b7eb8f;
+}
+
+.status-badge.reviewing {
+  background: #fff7e6;
+  color: #fa8c16;
+  border: 1px solid #ffd591;
 }
 
 /* 工单按钮 */
