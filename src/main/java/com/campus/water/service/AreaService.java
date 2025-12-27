@@ -2,186 +2,171 @@ package com.campus.water.service;
 
 import com.campus.water.entity.Area;
 import com.campus.water.mapper.AreaRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 /**
- * 区域管理服务层
- * 处理校园/楼宇/区域的增删改查业务逻辑
+ * 区域管理服务类
+ * 完全适配你的 Area 实体类（areaId 主键、新增 address/manager 等字段）
+ * 核心规则：市区为根节点（无父级），校园必须以市区为父节点
  */
 @Service
-@RequiredArgsConstructor
 public class AreaService {
 
     private final AreaRepository areaRepository;
-    private final AdminService adminService; // 用于删除时校验管理员关联
+
+    // 构造器注入（推荐的注入方式）
+    public AreaService(AreaRepository areaRepository) {
+        this.areaRepository = areaRepository;
+    }
 
     /**
-     * 新增区域（校园/楼宇/区域）
-     * 校验规则：
-     * 1. 名称和类型不能为空
-     * 2. 楼宇必须关联校园作为父级
-     * 3. 区域必须关联楼宇作为父级
-     * 4. 校园无需父级（顶级节点）
+     * 新增区域
+     * @param area 区域对象（包含名称、类型、父级ID、地址、管理员等）
+     * @return 保存后的区域对象
      */
+    @Transactional(rollbackFor = Exception.class)
     public Area addArea(Area area) {
-        // 基础字段校验
-        if (area.getAreaName() == null || area.getAreaName().trim().isEmpty()) {
-            throw new RuntimeException("区域名称不能为空");
-        }
-        if (area.getAreaType() == null) {
-            throw new RuntimeException("区域类型不能为空（校园/楼宇/区域）");
-        }
+        // 1. 基础参数校验
+        validateBaseParams(area);
 
-        // 层级关联校验
-        handleAreaLevelCheck(area);
+        // 2. 层级规则校验（核心）
+        validateAreaHierarchy(area);
 
-        // 初始化时间字段（兜底，防止手动修改）
+        // 3. 补充基础字段（createdTime/updatedTime 已默认赋值，可手动刷新）
         area.setCreatedTime(LocalDateTime.now());
         area.setUpdatedTime(LocalDateTime.now());
 
+        // 4. 保存数据
         return areaRepository.save(area);
     }
 
     /**
-     * 删除区域
-     * 校验规则：
-     * 1. 区域必须存在
-     * 2. 无管理员关联该区域
-     * 3. 无下级子区域
+     * 修改区域
+     * @param areaId 区域ID
+     * @param area   待修改的区域信息
+     * @return 修改后的区域对象
      */
-    public void deleteArea(String areaId) {
+    @Transactional(rollbackFor = Exception.class)
+    public Area updateArea(String areaId, Area area) {
         // 1. 校验区域是否存在
-        Area existArea = areaRepository.findById(areaId)
-                .orElseThrow(() -> new RuntimeException("区域不存在：" + areaId));
+        Area existingArea = areaRepository.findByAreaId(areaId)
+                .orElseThrow(() -> new RuntimeException("区域不存在，ID：" + areaId));
 
-        // 2. 校验是否有管理员关联该区域
-        List<com.campus.water.entity.Admin> relatedAdmins = adminService.getAdminsByAreaId(areaId);
-        if (!relatedAdmins.isEmpty()) {
-            throw new RuntimeException("该区域关联了" + relatedAdmins.size() + "个管理员，无法删除");
+        // 2. 基础参数校验
+        validateBaseParams(area);
+
+        // 3. 层级规则校验（修改时需保持层级规则）
+        validateAreaHierarchy(area);
+
+        // 4. 覆盖可修改字段（适配你的实体类所有字段）
+        existingArea.setAreaName(area.getAreaName());
+        existingArea.setAreaType(area.getAreaType());
+        // 父级ID：市区不允许修改，校园必须指向市区
+        if (Area.AreaType.campus.equals(area.getAreaType())) {
+            existingArea.setParentAreaId(area.getParentAreaId());
         }
+        // 新增字段赋值
+        existingArea.setAddress(area.getAddress());
+        existingArea.setManager(area.getManager());
+        existingArea.setManagerPhone(area.getManagerPhone());
+        // 更新时间
+        existingArea.setUpdatedTime(LocalDateTime.now());
 
-        // 3. 校验是否有下级子区域
-        List<Area> childAreas = areaRepository.findByParentAreaId(areaId);
-        if (!childAreas.isEmpty()) {
-            throw new RuntimeException("该区域包含" + childAreas.size() + "个子区域，无法删除（请先删除子区域）");
-        }
-
-        // 执行删除
-        areaRepository.delete(existArea);
+        // 5. 保存修改
+        return areaRepository.save(existingArea);
     }
 
     /**
-     * 修改区域信息
-     * 支持修改：名称、父级、地址、负责人、联系电话
-     * 不允许修改：区域类型（避免层级混乱）
+     * 删除区域
+     * @param areaId 区域ID
      */
-    public Area updateArea(Area area) {
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteArea(String areaId) {
         // 1. 校验区域是否存在
-        Area existArea = areaRepository.findById(area.getAreaId())
-                .orElseThrow(() -> new RuntimeException("区域不存在：" + area.getAreaId()));
+        Area existingArea = areaRepository.findByAreaId(areaId)
+                .orElseThrow(() -> new RuntimeException("区域不存在，ID：" + areaId));
 
-        // 2. 基础字段校验
+        // 2. 校验删除规则：若为市区，需先删除其下所有校园
+        if (Area.AreaType.zone.equals(existingArea.getAreaType())) {
+            long campusCount = areaRepository.countByParentAreaId(areaId);
+            if (campusCount > 0) {
+                throw new RuntimeException("该市区下仍有 " + campusCount + " 个校园，无法删除，请先删除下属校园");
+            }
+        }
+
+        // 3. 物理删除（若需逻辑删除，可参考后续说明添加 isDeleted 字段）
+        areaRepository.delete(existingArea);
+    }
+
+    /**
+     * 查询所有市区（根节点）
+     * @return 市区列表
+     */
+    public List<Area> getAllCities() {
+        return areaRepository.findByAreaTypeAndParentAreaIdIsNull(Area.AreaType.zone);
+    }
+
+    /**
+     * 根据市区ID查询下属校园
+     * @param cityId 市区ID（areaId）
+     * @return 该市区下的校园列表
+     */
+    public List<Area> getCampusesByCityId(String cityId) {
+        // 校验市区是否存在
+        if (!areaRepository.existsByAreaId(cityId)) {
+            throw new RuntimeException("市区不存在，ID：" + cityId);
+        }
+        return areaRepository.findByParentAreaIdAndAreaType(cityId, Area.AreaType.campus );
+    }
+
+    /**
+     * 基础参数校验（名称、类型不能为空）
+     * @param area 区域对象
+     */
+    private void validateBaseParams(Area area) {
         if (area.getAreaName() == null || area.getAreaName().trim().isEmpty()) {
             throw new RuntimeException("区域名称不能为空");
         }
-
-        // 3. 层级关联校验（如果修改了父级ID）
-        if (!equalsWithNull(existArea.getParentAreaId(), area.getParentAreaId())) {
-            handleAreaLevelCheck(area);
+        if (area.getAreaType() == null) {
+            throw new RuntimeException("区域类型不能为空（市区/校园）");
         }
-
-        // 4. 赋值（仅更新允许修改的字段）
-        existArea.setAreaName(area.getAreaName());
-        existArea.setParentAreaId(area.getParentAreaId());
-        existArea.setAddress(area.getAddress());
-        existArea.setManager(area.getManager());
-        existArea.setManagerPhone(area.getManagerPhone());
-        existArea.setUpdatedTime(LocalDateTime.now());
-
-        // 5. 保存修改
-        return areaRepository.save(existArea);
     }
 
     /**
-     * 按ID查询区域详情
+     * 区域层级规则校验（核心）
+     * 规则1：市区必须是根节点，无父级ID（parentAreaId=null）
+     * 规则2：校园必须有父级ID，且父级必须是市区
      */
+    private void validateAreaHierarchy(Area area) {
+        if (Area.AreaType.zone.equals(area.getAreaType())) {
+            // 市区不允许设置父级ID
+            if (area.getParentAreaId() != null && !area.getParentAreaId().trim().isEmpty()) {
+                throw new RuntimeException("市区为根节点，不允许设置父级区域");
+            }
+        } else if (Area.AreaType.campus .equals(area.getAreaType())) {
+            // 校园必须设置父级ID
+            if (area.getParentAreaId() == null || area.getParentAreaId().trim().isEmpty()) {
+                throw new RuntimeException("校园必须关联市区作为父级区域");
+            }
+            // 校验父级区域是否存在且类型为市区
+            Optional<Area> parentAreaOpt = areaRepository.findByAreaId(area.getParentAreaId());
+            if (parentAreaOpt.isEmpty()) {
+                throw new RuntimeException("父级市区不存在，ID：" + area.getParentAreaId());
+            }
+            Area parentArea = parentAreaOpt.get();
+            if (!Area.AreaType.zone.equals(parentArea.getAreaType())) {
+                throw new RuntimeException("校园的父级区域必须是市区，当前父级类型为：" + parentArea.getAreaType().getDesc());
+            }
+        }
+    }
+
     public Area getAreaById(String areaId) {
-        return areaRepository.findById(areaId)
-                .orElseThrow(() -> new RuntimeException("区域不存在：" + areaId));
-    }
-
-    /**
-     * 条件查询区域列表
-     * 支持筛选条件：父级ID、区域类型、名称关键词
-     */
-    public List<Area> listAreas(String parentAreaId, Area.AreaType areaType, String keyword) {
-        if (parentAreaId != null && !parentAreaId.trim().isEmpty()) {
-            // 按父级ID查询
-            if (areaType != null) {
-                // 父级ID + 类型
-                return areaRepository.findByParentAreaIdAndAreaType(parentAreaId, areaType);
-            } else {
-                // 仅父级ID
-                return areaRepository.findByParentAreaId(parentAreaId);
-            }
-        } else if (areaType != null) {
-            // 按类型查询
-            return areaRepository.findByAreaTypeOrderByCreatedTimeDesc(areaType);
-        } else if (keyword != null && !keyword.trim().isEmpty()) {
-            // 按名称模糊查询
-            return areaRepository.findByAreaNameContaining(keyword);
-        } else {
-            // 查询所有（按创建时间倒序）
-            return areaRepository.findAllByOrderByCreatedTimeDesc();
-        }
-    }
-
-    /**
-     * 辅助方法：校验区域层级关联规则
-     */
-    private void handleAreaLevelCheck(Area area) {
-        Area.AreaType type = area.getAreaType();
-        String parentId = area.getParentAreaId();
-
-        // 1. 校园（顶级节点）：不允许设置父级
-        if (type == Area.AreaType.campus) {
-            if (parentId != null && !parentId.trim().isEmpty()) {
-                throw new RuntimeException("校园作为顶级节点，不允许关联父级区域");
-            }
-            return;
-        }
-
-        // 2. 楼宇/区域：必须设置父级
-        if (parentId == null || parentId.trim().isEmpty()) {
-            throw new RuntimeException(type.getDesc() + "必须关联父级区域");
-        }
-
-        // 3. 校验父级区域是否存在且类型匹配
-        Area parentArea = areaRepository.findById(parentId)
-                .orElseThrow(() -> new RuntimeException("父级区域不存在：" + parentId));
-
-        if (type == Area.AreaType.building && parentArea.getAreaType() != Area.AreaType.campus) {
-            throw new RuntimeException("楼宇的父级必须是校园");
-        }
-        if (type == Area.AreaType.zone && parentArea.getAreaType() != Area.AreaType.building) {
-            throw new RuntimeException("区域的父级必须是楼宇");
-        }
-    }
-
-    /**
-     * 辅助方法：判断两个值是否相等（兼容null）
-     */
-    private boolean equalsWithNull(Object a, Object b) {
-        if (a == null && b == null) {
-            return true;
-        }
-        if (a == null || b == null) {
-            return false;
-        }
-        return a.equals(b);
+        return areaRepository.findByAreaId(areaId)
+                .orElseThrow(() -> new RuntimeException("区域不存在，ID：" + areaId));
     }
 }

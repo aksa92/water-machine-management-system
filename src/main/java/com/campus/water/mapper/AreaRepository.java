@@ -2,39 +2,27 @@ package com.campus.water.mapper;
 
 import com.campus.water.entity.Area;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface AreaRepository extends JpaRepository<Area, String> {
-    // 根据区域类型查询
-    List<Area> findByAreaType(Area.AreaType areaType);
 
-    // 根据父区域ID查询子区域
-    List<Area> findByParentAreaId(String parentAreaId);
+    // 修正：将findByIdAndIsDeletedFalse改为findByAreaIdAndIsDeletedFalse（如果有isDeleted字段）
+    // 注意：你的实体类目前没有isDeleted字段，先删除该方法，或补充字段后再用
+    Optional<Area> findByAreaId(String areaId);
 
-    // 新增按区域类型查询
-    List<Area> findByAreaTypeOrderByCreatedTimeDesc(Area.AreaType areaType);
+    // 查询所有市区（根节点：areaType=CITY 且 parentAreaId=null）
+    List<Area> findByAreaTypeAndParentAreaIdIsNull(Area.AreaType areaType);
 
-    // 按父级ID+类型查询（如查询某校园下的所有楼宇）
+    // 根据父级ID和区域类型查询（指定市区下的校园）
     List<Area> findByParentAreaIdAndAreaType(String parentAreaId, Area.AreaType areaType);
 
+    // 统计指定父级ID下的区域数量
+    long countByParentAreaId(String parentAreaId);
 
-
-    // 按名称模糊查询
-    List<Area> findByAreaNameContaining(String keyword);
-
-    // 查询所有（按创建时间倒序）
-    List<Area> findAllByOrderByCreatedTimeDesc();
-
-    // 根据管理员姓名查询区域
-    List<Area> findByManager(String manager);
-
-    // 根据管理员手机号查询区域
-    List<Area> findByManagerPhone(String managerPhone);
-
-    // 查询指定类型的根级区域
-    @Query("SELECT a FROM Area a WHERE a.areaType = ?1 AND a.parentAreaId IS NULL")
-    List<Area> findRootAreasByType(Area.AreaType areaType);
+    // 校验区域ID是否存在
+    boolean existsByAreaId(String areaId);
 }
