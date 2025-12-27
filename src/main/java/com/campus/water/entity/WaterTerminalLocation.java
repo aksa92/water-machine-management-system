@@ -1,5 +1,5 @@
 package com.campus.water.entity;
-
+import java.math.BigDecimal;
 import lombok.Data;
 import jakarta.persistence.*;
 
@@ -25,16 +25,16 @@ public class WaterTerminalLocation {
     private String terminalName;
 
     /**
-     * 经度（高德GCJ-02坐标系，地图定位核心字段）
+     * 经度（高德GCJ-02坐标系，改用DECIMAL类型支持精度配置）
      */
-    @Column(name = "longitude", nullable = false, precision = 10, scale = 6)
-    private Double longitude;
+    @Column(name = "longitude", nullable = false, columnDefinition = "DECIMAL(10,6)")
+    private BigDecimal longitude;
 
     /**
-     * 纬度（高德GCJ-02坐标系，地图定位核心字段）
+     * 纬度（高德GCJ-02坐标系，改用DECIMAL类型支持精度配置）
      */
-    @Column(name = "latitude", nullable = false, precision = 10, scale = 6)
-    private Double latitude;
+    @Column(name = "latitude", nullable = false, columnDefinition = "DECIMAL(10,6)")
+    private BigDecimal latitude;
 
     /**
      * 是否可用（关联device表的status字段：online→true，offline/fault→false）
