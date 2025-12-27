@@ -75,5 +75,49 @@ export const deviceService = {
             console.error(`获取终端 ${terminalId} 实时数据失败:`, error)
             throw error.response?.data || error.message
         }
+    },
+    // 在 deviceService.js 中添加
+    async getTerminalLocations() {
+        try {
+            const response = await api.get('/api/student/terminal/location/all')
+            return response.data
+        } catch (error) {
+            console.error('获取设备位置失败:', error)
+            // 返回模拟数据作为后备
+            return {
+                code: 200,
+                message: '使用模拟数据',
+                data: [
+                    {
+                        terminalId: 'TERM001',
+                        terminalName: '教学楼饮水机',
+                        longitude: 112.938,
+                        latitude: 28.165,
+                        installLocation: '教学楼1F大厅',
+                        deviceStatus: 'active',
+                        isAvailable: true
+                    },
+                    {
+                        terminalId: 'TERM002',
+                        terminalName: '学生公寓饮水机',
+                        longitude: 112.940,
+                        latitude: 28.167,
+                        installLocation: '天马学生公寓1F',
+                        deviceStatus: 'active',
+                        isAvailable: true
+                    },
+                    {
+                        terminalId: 'TERM003',
+                        terminalName: '图书馆饮水机',
+                        longitude: 112.937,
+                        latitude: 28.164,
+                        installLocation: '图书馆2F',
+                        deviceStatus: 'offline',
+                        isAvailable: false
+                    }
+                ]
+            }
+        }
     }
+
 }

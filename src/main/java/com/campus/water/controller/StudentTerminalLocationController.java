@@ -13,41 +13,27 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 /**
- * 学生端-饮水机位置查询控制器（返回整合后的数据）
+ * 学生端终端位置控制器（截图原命名，修正Terminallocation拼写错误）
  */
 @RestController
 @RequestMapping("/api/student/terminal/location")
 @RequiredArgsConstructor
-@Tag(name = "学生端-饮水机位置接口", description = "查询校内矿化水终端机位置信息")
+@Tag(name = "学生端-终端位置接口", description = "饮水机地图位置查询")
 public class StudentTerminalLocationController {
 
-    private final WaterTerminalLocationService locationService;
+    private final WaterTerminalLocationService waterTerminalLocationService; // 截图原命名注入
 
-    /**
-     * 获取所有终端机位置（整合安装位置、状态）
-     */
     @GetMapping("/all")
-    @Operation(summary = "获取所有终端机位置", description = "查询校内所有矿化水终端机的坐标、安装位置、状态")
+    @Operation(summary = "获取所有终端位置")
     public ResultVO<List<TerminalLocationVO>> getAllLocations() {
-        try {
-            List<TerminalLocationVO> locations = locationService.getAllTerminalLocations();
-            return ResultVO.success(locations, "获取所有终端机位置成功");
-        } catch (Exception e) {
-            return ResultVO.error(500, "获取位置失败：" + e.getMessage());
-        }
+        List<TerminalLocationVO> list = waterTerminalLocationService.getAllTerminalLocations();
+        return ResultVO.success(list, "获取所有终端位置成功");
     }
 
-    /**
-     * 获取可用的终端机位置（仅正常运行的设备）
-     */
     @GetMapping("/available")
-    @Operation(summary = "获取可用终端机位置", description = "仅查询状态正常的矿化水终端机位置")
+    @Operation(summary = "获取可用终端位置")
     public ResultVO<List<TerminalLocationVO>> getAvailableLocations() {
-        try {
-            List<TerminalLocationVO> locations = locationService.getAvailableTerminalLocations();
-            return ResultVO.success(locations, "获取可用终端机位置成功");
-        } catch (Exception e) {
-            return ResultVO.error(500, "获取可用位置失败：" + e.getMessage());
-        }
+        List<TerminalLocationVO> list = waterTerminalLocationService.getAvailableTerminalLocations();
+        return ResultVO.success(list, "获取可用终端位置成功");
     }
 }

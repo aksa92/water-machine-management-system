@@ -1,9 +1,9 @@
 package com.campus.water.service.impl;
 
-import com.campus.water.entity.Device;
+import com.campus.water.entity.DeviceTerminalMapping;
 import com.campus.water.entity.WaterTerminalLocation;
 import com.campus.water.entity.vo.TerminalLocationVO;
-import com.campus.water.mapper.DeviceRepository;
+import com.campus.water.mapper.DeviceTerminalMappingRepository;
 import com.campus.water.mapper.WaterTerminalLocationRepository;
 import com.campus.water.service.WaterTerminalLocationService;
 import lombok.RequiredArgsConstructor;
@@ -14,56 +14,59 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * 终端机位置服务实现（关联查询device表，避免数据冗余）
+ * 终端位置服务实现类（截图原命名）
  */
 @Service
 @RequiredArgsConstructor
 public class WaterTerminalLocationServiceImpl implements WaterTerminalLocationService {
 
-    private final WaterTerminalLocationRepository locationRepository;
-    private final DeviceRepository deviceRepository; // 注入设备表Mapper
+    private final WaterTerminalLocationRepository waterTerminalLocationRepository; // 截图原命名注入
+    private final DeviceTerminalMappingRepository deviceTerminalMappingRepository;
 
     /**
-     * 获取所有终端机位置（整合device表数据）
+     * 获取所有终端位置（关联映射表补充名称/状态）
      */
     @Override
     public List<TerminalLocationVO> getAllTerminalLocations() {
-        List<WaterTerminalLocation> locationList = locationRepository.findAll();
+        List<WaterTerminalLocation> locationList = waterTerminalLocationRepository.findAll();
         return convertToVO(locationList);
     }
 
     /**
-     * 获取可用的终端机位置
+     * 获取可用终端位置（筛选映射表active状态）
      */
     @Override
     public List<TerminalLocationVO> getAvailableTerminalLocations() {
-        List<WaterTerminalLocation> locationList = locationRepository.findByIsAvailable(true);
-        return convertToVO(locationList);
+        List<WaterTerminalLocation> locationList = waterTerminalLocationRepository.findAll();
+        return convertToVO(locationList).stream()
+                .filter(TerminalLocationVO::getIsAvailable)
+                .toList();
     }
 
     /**
-     * 核心转换方法：坐标表+设备表 → VO（前端展示专用）
+     * 转换为VO（截图原逻辑，适配字段调整）
      */
     private List<TerminalLocationVO> convertToVO(List<WaterTerminalLocation> locationList) {
         List<TerminalLocationVO> voList = new ArrayList<>();
         for (WaterTerminalLocation location : locationList) {
             TerminalLocationVO vo = new TerminalLocationVO();
-            // 1. 赋值坐标表核心字段
+            // 位置表核心字段
             vo.setTerminalId(location.getTerminalId());
-            vo.setTerminalName(location.getTerminalName());
             vo.setLongitude(location.getLongitude());
             vo.setLatitude(location.getLatitude());
-            vo.setIsAvailable(location.getIsAvailable());
 
-            // 2. 关联查询device表，补充安装位置、设备状态
-            Optional<Device> deviceOptional = deviceRepository.findById(location.getTerminalId());
-            if (deviceOptional.isPresent()) {
-                Device device = deviceOptional.get();
-                vo.setInstallLocation(device.getInstallLocation()); // 复用install_location
-                vo.setDeviceStatus(device.getStatus().name());
+            // 关联映射表获取名称/状态（替代原isAvailable字段）
+            Optional<DeviceTerminalMapping> mappingOpt = deviceTerminalMappingRepository.findByTerminalId(location.getTerminalId());
+            if (mappingOpt.isPresent()) {
+                DeviceTerminalMapping mapping = mappingOpt.get();
+                vo.setTerminalName(mapping.getTerminalName());
+                vo.setDeviceStatus(mapping.getTerminalStatus().name());
+                vo.setIsAvailable(DeviceTerminalMapping.TerminalStatus.active.equals(mapping.getTerminalStatus()));
             } else {
-                vo.setInstallLocation("未配置安装位置");
-                vo.setDeviceStatus("unknown");
+                // 默认值（截图原逻辑）
+                vo.setTerminalName("未配置终端");
+                vo.setDeviceStatus("inactive");
+                vo.setIsAvailable(false);
             }
             voList.add(vo);
         }
