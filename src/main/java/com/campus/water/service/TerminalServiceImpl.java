@@ -94,22 +94,29 @@ public class TerminalServiceImpl implements TerminalService {
     }
 
     @Override
-    @Transactional
-    public void deleteTerminal(String terminalId) {
-        // 1. 校验终端是否已绑定设备（使用新增的existsByTerminalId方法）
-        if (mappingRepository.existsByTerminalId(terminalId)) {
+@Transactional
+public void deleteTerminal(String terminalId) {
+    // 1. 检查终端映射记录是否存在
+    Optional<DeviceTerminalMapping> mappingOpt = mappingRepository.findByTerminalId(terminalId);
+
+    if (mappingOpt.isPresent()) {
+        // 检查是否实际绑定了设备（deviceId不为null）
+        DeviceTerminalMapping mapping = mappingOpt.get();
+        if (mapping.getDeviceId() != null && !mapping.getDeviceId().isEmpty()) {
             throw new RuntimeException("终端已绑定设备，无法删除，请先解除设备关联");
         }
-
-        // 2. 校验终端是否存在（复用原有existsById方法）
-        if (!locationRepository.existsById(terminalId)) {
-            throw new RuntimeException("终端不存在，无需删除：" + terminalId);
-        }
-
-        // 3. 级联删除数据（先删映射表，再删位置表，保证数据一致性）
-        mappingRepository.deleteByTerminalId(terminalId); // 新增的批量删除方法
-        locationRepository.deleteById(terminalId); // 复用原有删除方法
     }
+
+    // 2. 校验终端是否存在
+    if (!locationRepository.existsById(terminalId)) {
+        throw new RuntimeException("终端不存在，无需删除：" + terminalId);
+    }
+
+    // 3. 级联删除数据
+    mappingRepository.deleteByTerminalId(terminalId);
+    locationRepository.deleteById(terminalId);
+}
+
 
     @Override
     public TerminalManageVO getTerminalById(String terminalId) {

@@ -10,6 +10,8 @@
     <!-- 操作按钮区 -->
     <div class="action-bar">
       <button class="btn-add" @click="showAddModal = true">添加制水机</button>
+      <!-- 在操作按钮列中添加删除按钮 -->
+
 
       <div class="filters">
         <!-- 搜索框 -->
@@ -99,6 +101,12 @@
               设为故障
             </button>
 
+            <button
+                class="btn-delete"
+                @click="deleteDevice(device.deviceId)"
+            >
+              删除
+            </button>
           </td>
         </tr>
         <tr v-if="paginatedDevices.length === 0">
@@ -495,6 +503,41 @@ const updateDeviceStatus = async (deviceId: string, status: string) => {
   }
 }
 
+// 删除设备
+const deleteDevice = async (deviceId: string) => {
+  if (!confirm(`确定要删除设备 ${deviceId} 吗？此操作不可恢复。`)) {
+    return
+  }
+
+  try {
+    const token = authStore.token
+    if (!token) {
+      router.push('/login')
+      return
+    }
+
+    const result = await request<ResultVO<boolean>>(`/api/web/device/delete/${deviceId}`, {
+      method: 'DELETE'
+    })
+
+    if (result.code === 200) {
+      // 从本地列表中移除设备
+      devices.value = devices.value.filter(d => d.deviceId !== deviceId)
+      alert('设备删除成功')
+    } else {
+      alert(`删除设备失败: ${result.message}`)
+    }
+  } catch (error) {
+    console.error('删除设备失败:', error)
+    alert('删除设备失败')
+    if ((error as Error).message.includes('401')) {
+      authStore.logout()
+      router.push('/login')
+    }
+  }
+}
+
+
 // 添加设备
 const addDevice = async () => {
   try {
@@ -851,6 +894,11 @@ onMounted(async () => {
   .modal-content {
     width: 90%;
     min-width: auto;
+  }
+
+  .btn-delete {
+    background-color: #ff4d4f;
+    color: white;
   }
 }
 </style>
