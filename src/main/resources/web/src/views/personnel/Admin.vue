@@ -287,7 +287,7 @@ const fetchAdminList = async () => {
       admins.value = (response.data || []).map((admin: any) => ({
         adminId: admin.adminId || '',
         name: admin.adminName || '未知姓名', // 正确映射
-        account: admin.account || '',
+        account: admin.adminId || '',
         phone: admin.phone || '未知电话',
         role: admin.role || '未知角色',
         status: 'active' as AdminStatus

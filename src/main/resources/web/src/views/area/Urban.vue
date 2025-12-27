@@ -1,4 +1,3 @@
-<!-- src/views/area/AreaManagement.vue -->
 <template>
   <div class="area-page">
     <!-- 页面标题和面包屑 -->
@@ -11,15 +10,14 @@
     <div class="action-bar">
       <!-- 新增片区按钮 -->
       <button class="btn-add" @click="handleAddArea">新增片区</button>
-      
+
       <!-- 片区下拉筛选 -->
       <div class="filter-box">
         <label>选择片区：</label>
         <select v-model="selectedArea" @change="handleAreaChange" class="area-select">
           <option value="">全部片区</option>
-          <!-- 核心修改：移除下拉选项中的设备数量展示，仅保留片区名称 -->
-          <option v-for="area in areaList" :key="area.id" :value="area.id">
-            {{ area.name }}
+          <option v-for="area in areaList" :key="area.areaId" :value="area.areaId">
+            {{ area.areaName }}
           </option>
         </select>
       </div>
@@ -37,20 +35,29 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="area in filteredAreas" :key="area.id">
-            <td>{{ area.name }}</td>
-            <td>{{ area.deviceCount }}</td>
-            <td>{{ area.range }}</td>
+          <tr v-for="area in filteredAreas" :key="area.areaId">
+            <td>{{ area.areaName }}</td>
+            <td>{{ area.deviceCount || 0 }}</td>
+            <td>{{ area.address || '未设置' }}</td>
             <td class="operation-buttons">
-              <button 
-                class="btn-delete" 
-                @click="handleDelete(area.id)"
+              <button
+                class="btn-edit"
+                @click="handleEdit(area)"
+              >
+                编辑
+              </button>
+              <button
+                class="btn-delete"
+                @click="handleDelete(area.areaId, area.areaName)"
               >
                 删除
               </button>
             </td>
           </tr>
-          <tr v-if="filteredAreas.length === 0">
+          <tr v-if="loading">
+            <td colspan="4" class="no-data">正在加载数据...</td>
+          </tr>
+          <tr v-else-if="filteredAreas.length === 0">
             <td colspan="4" class="no-data">暂无片区数据</td>
           </tr>
         </tbody>
@@ -59,9 +66,9 @@
 
     <!-- 分页控件 -->
     <div class="pagination">
-      <button 
-        class="page-btn" 
-        :disabled="currentPage === 1"
+      <button
+        class="page-btn"
+        :disabled="currentPage === 1 || loading"
         @click="currentPage--"
       >
         上一页
@@ -69,9 +76,9 @@
       <span class="page-info">
         第 {{ currentPage }} 页 / 共 {{ totalPages }} 页
       </span>
-      <button 
-        class="page-btn" 
-        :disabled="currentPage === totalPages"
+      <button
+        class="page-btn"
+        :disabled="currentPage === totalPages || loading"
         @click="currentPage++"
       >
         下一页
@@ -89,35 +96,42 @@
           <form @submit.prevent="handleSave">
             <div class="form-item">
               <label>片区名称：</label>
-              <input 
-                type="text" 
-                v-model="formData.name" 
+              <input
+                type="text"
+                v-model="formData.areaName"
                 placeholder="请输入片区名称"
                 required
               >
             </div>
             <div class="form-item">
               <label>片区范围：</label>
-              <textarea 
-                v-model="formData.range" 
+              <textarea
+                v-model="formData.address"
                 placeholder="请输入片区范围描述"
                 rows="3"
-                required
               ></textarea>
             </div>
             <div class="form-item">
-              <label>设备数量：</label>
-              <input 
-                type="number" 
-                v-model="formData.deviceCount" 
-                placeholder="请输入设备数量"
-                min="0"
-                required
+              <label>负责人：</label>
+              <input
+                type="text"
+                v-model="formData.manager"
+                placeholder="请输入负责人姓名"
+              >
+            </div>
+            <div class="form-item">
+              <label>联系电话：</label>
+              <input
+                type="text"
+                v-model="formData.managerPhone"
+                placeholder="请输入负责人联系电话"
               >
             </div>
             <div class="form-actions">
               <button type="button" class="btn-cancel" @click="showModal = false">取消</button>
-              <button type="submit" class="btn-submit">保存</button>
+              <button type="submit" class="btn-submit" :disabled="saving">
+                {{ saving ? '保存中...' : '保存' }}
+              </button>
             </div>
           </form>
         </div>
@@ -135,7 +149,9 @@
           <p>确定要删除 "{{ deleteAreaName }}" 片区吗？此操作不可撤销。</p>
           <div class="form-actions">
             <button type="button" class="btn-cancel" @click="showDeleteConfirm = false">取消</button>
-            <button type="button" class="btn-delete-confirm" @click="confirmDelete">确认删除</button>
+            <button type="button" class="btn-delete-confirm" @click="confirmDelete" :disabled="deleting">
+              {{ deleting ? '删除中...' : '确认删除' }}
+            </button>
           </div>
         </div>
       </div>
@@ -144,45 +160,31 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { request } from '@/api/request'  // 导入项目封装的请求工具
+import { useAuthStore } from '@/stores/auth'  // 导入 authStore
 
-// 片区数据接口
+// 路由和状态管理
+const router = useRouter()
+const authStore = useAuthStore()
+
+// 片区数据接口，与后端Area实体对应
 interface Area {
-  id: string
-  name: string
-  deviceCount: number
-  range: string
+  areaId: string
+  areaName: string
+  areaType: 'campus' | 'building' | 'zone'
+  parentAreaId: string | null
+  address: string
+  manager: string
+  managerPhone: string
+  deviceCount?: number
+  createdTime?: Date
+  updatedTime?: Date
 }
 
-// 模拟片区数据
-const areaList = ref<Area[]>([
-  {
-    id: '1',
-    name: '市区东区',
-    deviceCount: 28,
-    range: '东至东风路，西至解放路，南至人民路，北至建设路'
-  },
-  {
-    id: '2',
-    name: '市区西区',
-    deviceCount: 19,
-    range: '东至解放路，西至滨河路，南至青年路，北至黄河路'
-  },
-  {
-    id: '3',
-    name: '校区南区',
-    deviceCount: 45,
-    range: '大学校园内南部区域，包含教学楼、图书馆、学生宿舍1-8号楼'
-  },
-  {
-    id: '4',
-    name: '校区北区',
-    deviceCount: 32,
-    range: '大学校园内北部区域，包含实验楼、体育馆、学生宿舍9-16号楼'
-  }
-])
-
 // 响应式数据
+const areaList = ref<Area[]>([])
 const selectedArea = ref('')
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -191,24 +193,31 @@ const isEdit = ref(false)
 const showDeleteConfirm = ref(false)
 const deleteAreaId = ref('')
 const deleteAreaName = ref('')
+const loading = ref(false)  // 添加加载状态
+const saving = ref(false)   // 添加保存状态
+const deleting = ref(false) // 添加删除状态
 
 // 表单数据
-const formData = ref<Area>({
-  id: '',
-  name: '',
-  deviceCount: 0,
-  range: ''
+const formData = ref<Partial<Area>>({
+  areaId: '',
+  areaName: '',
+  areaType: 'zone',
+  parentAreaId: null,
+  address: '',
+  manager: '',
+  managerPhone: '',
+  deviceCount: 0
 })
 
 // 筛选后的片区列表
 const filteredAreas = computed(() => {
   let filtered = [...areaList.value]
-  
+
   // 根据下拉选择筛选片区
   if (selectedArea.value) {
-    filtered = filtered.filter(area => area.id === selectedArea.value)
+    filtered = filtered.filter(area => area.areaId === selectedArea.value)
   }
-  
+
   // 分页处理
   const startIndex = (currentPage.value - 1) * pageSize.value
   const endIndex = startIndex + pageSize.value
@@ -217,11 +226,54 @@ const filteredAreas = computed(() => {
 
 // 总页数计算
 const totalPages = computed(() => {
-  const filteredCount = selectedArea.value 
-    ? areaList.value.filter(area => area.id === selectedArea.value).length
+  const filteredCount = selectedArea.value
+    ? areaList.value.filter(area => area.areaId === selectedArea.value).length
     : areaList.value.length
   return Math.ceil(filteredCount / pageSize.value)
 })
+
+// 获取片区列表
+// 修改获取片区列表的方法
+const fetchAreaList = async () => {
+  loading.value = true
+  try {
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
+    }
+
+    // 将参数拼接到URL中
+    const url = `/api/web/area/list?areaType=zone`
+    const response = await request<{
+      code: number
+      msg: string
+      data: Area[]
+    }>(url, {
+      method: 'GET',
+    })
+
+    if (response.code === 200) {
+      areaList.value = response.data
+    } else {
+      const errorMsg = response.msg || `获取失败（错误码：${response.code}）`
+      console.error('获取片区列表失败:', errorMsg)
+      alert(`获取片区列表失败：${errorMsg}`)
+    }
+  } catch (error: any) {
+    console.error('请求异常:', error)
+    const errorMsg = error.message.includes('401') || error.message.includes('403')
+        ? '权限不足或登录已过期，请重新登录'
+        : error.message.includes('Network')
+            ? '网络连接失败，请检查网络'
+            : error.message || '获取数据失败，请稍后重试'
+    alert(`获取片区列表失败：${errorMsg}`)
+  } finally {
+    loading.value = false
+  }
+}
+
 
 // 片区选择变更处理
 const handleAreaChange = () => {
@@ -233,56 +285,159 @@ const handleAddArea = () => {
   isEdit.value = false
   // 重置表单
   formData.value = {
-    id: '',
-    name: '',
-    deviceCount: 0,
-    range: ''
+    areaId: '',
+    areaName: '',
+    areaType: 'zone',
+    parentAreaId: null,
+    address: '',
+    manager: '',
+    managerPhone: '',
+    deviceCount: 0
   }
   showModal.value = true
 }
 
+// 编辑片区
+const handleEdit = (area: Area) => {
+  isEdit.value = true
+  formData.value = { ...area }
+  showModal.value = true
+}
+
 // 删除片区（先显示确认弹窗）
-const handleDelete = (id: string) => {
-  const area = areaList.value.find(item => item.id === id)
+const handleDelete = (id: string, name: string) => {
+  const area = areaList.value.find(item => item.areaId === id)
   if (area) {
     deleteAreaId.value = id
-    deleteAreaName.value = area.name
+    deleteAreaName.value = name
     showDeleteConfirm.value = true
   }
 }
 
 // 确认删除
-const confirmDelete = () => {
-  areaList.value = areaList.value.filter(area => area.id !== deleteAreaId.value)
-  showDeleteConfirm.value = false
-  // 如果删除的是当前选中的片区，清空选择
-  if (selectedArea.value === deleteAreaId.value) {
-    selectedArea.value = ''
+const confirmDelete = async () => {
+  deleting.value = true
+  try {
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
+    }
+
+    const response = await request<{
+      code: number
+      msg: string
+    }>(`/api/web/area/delete/${deleteAreaId.value}`, {
+      method: 'DELETE',
+    })
+
+    if (response.code === 200) {
+      fetchAreaList() // 重新获取列表
+      showDeleteConfirm.value = false
+    } else {
+      const errorMsg = response.msg || `删除失败（错误码：${response.code}）`
+      console.error('删除片区失败:', errorMsg)
+      alert(`删除片区失败：${errorMsg}`)
+    }
+  } catch (error: any) {
+    console.error('删除请求异常:', error)
+    const errorMsg = error.message.includes('401') || error.message.includes('403')
+        ? '权限不足或登录已过期，请重新登录'
+        : error.message.includes('Network')
+            ? '网络连接失败，请检查网络'
+            : error.message || '删除失败，请稍后重试'
+    alert(`删除片区失败：${errorMsg}`)
+  } finally {
+    deleting.value = false
   }
 }
 
 // 保存片区信息
-const handleSave = () => {
-  if (isEdit.value) {
-    // 编辑模式
-    const index = areaList.value.findIndex(item => item.id === formData.value.id)
-    if (index !== -1) {
-      areaList.value[index] = { ...formData.value }
+// 在 handleSave 方法中修改新增逻辑
+const handleSave = async () => {
+  saving.value = true
+  try {
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
     }
-  } else {
-    // 新增模式
-    const newArea: Area = {
-      ...formData.value,
-      id: Date.now().toString() // 生成唯一ID
+
+    let response
+
+    if (isEdit.value) {
+      // 编辑模式 - 保持原有逻辑
+      response = await request<{
+        code: number
+        msg: string
+        data: Area
+      }>('/api/web/area/update', {
+        method: 'PUT',
+        body: JSON.stringify(formData.value)
+      })
+
+      if (response.code === 200) {
+        fetchAreaList() // 重新获取列表
+        showModal.value = false
+      } else {
+        const errorMsg = response.msg || `更新失败（错误码：${response.code}）`
+        console.error('更新片区失败:', errorMsg)
+        alert(`更新片区失败：${errorMsg}`)
+      }
+    } else {
+      // 新增模式 - 修改为不设置 parentAreaId
+      const newArea = {
+        areaName: formData.value.areaName,
+        areaType: 'zone' as const,
+        address: formData.value.address,
+        manager: formData.value.manager,
+        managerPhone: formData.value.managerPhone
+      }
+
+      response = await request<{
+        code: number
+        msg: string
+        data: Area
+      }>('/api/web/area/add', {
+        method: 'POST',
+        body: JSON.stringify(newArea)
+      })
+
+      if (response.code === 200) {
+        fetchAreaList() // 重新获取列表
+        showModal.value = false
+      } else {
+        const errorMsg = response.msg || `新增失败（错误码：${response.code}）`
+        console.error('新增片区失败:', errorMsg)
+        alert(`新增片区失败：${errorMsg}`)
+      }
     }
-    areaList.value.unshift(newArea)
+  } catch (error: any) {
+    console.error('保存请求异常:', error)
+    const errorMsg = error.message.includes('401') || error.message.includes('403')
+        ? '权限不足或登录已过期，请重新登录'
+        : error.message.includes('Network')
+            ? '网络连接失败，请检查网络'
+            : error.message || '保存失败，请稍后重试'
+    alert(`保存片区失败：${errorMsg}`)
+  } finally {
+    saving.value = false
   }
-  showModal.value = false
 }
+
+
+// 初始化加载数据
+onMounted(() => {
+  console.log('Token:', authStore.token)
+  fetchAreaList()
+})
 </script>
 
+<!-- 在 Urban.vue 文件中确保有正确的样式定义 -->
 <style scoped>
-/* 基础样式 - 与人员管理页面保持一致 */
+/* 确保样式规则完整且正确 */
 .area-page {
   padding: 20px;
 }
@@ -369,6 +524,21 @@ const handleSave = () => {
 .operation-buttons {
   display: flex;
   gap: 8px;
+}
+
+.btn-edit {
+  background-color: #e6f4ff;
+  color: #1890ff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.3s;
+}
+
+.btn-edit:hover {
+  opacity: 0.9;
 }
 
 .btn-delete {
@@ -541,11 +711,11 @@ const handleSave = () => {
     flex-direction: column;
     align-items: flex-start;
   }
-  
+
   .filter-box {
     width: 100%;
   }
-  
+
   .area-select {
     width: 100%;
   }

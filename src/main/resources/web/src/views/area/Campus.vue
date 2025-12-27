@@ -1,4 +1,4 @@
-<!-- src/views/area/CampusManagement.vue -->
+<!-- src/views/area/Campus.vue -->
 <template>
   <div class="campus-page">
     <!-- 页面标题和面包屑 -->
@@ -11,48 +11,49 @@
     <div class="action-bar">
       <!-- 新增校区按钮 -->
       <button class="btn-add" @click="handleAddCampus">新增校区</button>
-      
-      <!-- 校区下拉筛选 -->
-      <div class="filter-box">
-        <label>选择校区：</label>
-        <select v-model="selectedCampus" @change="handleCampusChange" class="campus-select">
-          <option value="">全部校区</option>
-          <option v-for="campus in campusList" :key="campus.id" :value="campus.id">
-            {{ campus.name }}
-          </option>
-        </select>
-      </div>
+      <!-- 导航到片区管理按钮 -->
+      <button class="btn-nav" @click="goToZoneManagement">管理片区</button>
     </div>
 
-    <!-- 校区表格（新增所属市区列） -->
+    <!-- 校区表格 -->
     <div class="card">
       <table class="campus-table">
         <thead>
           <tr>
-            <th>校区</th>
-            <th>所属市区</th> <!-- 新增列 -->
-            <th>设备数量</th>
-            <th>范围</th>
+            <th>校区名称</th>
+            <th>地址</th>
+            <th>负责人</th>
+            <th>联系电话</th>
+            <th>创建时间</th>
             <th>操作</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="campus in filteredCampus" :key="campus.id">
-            <td>{{ campus.name }}</td>
-            <td>{{ getAreaName(campus.areaId) }}</td> <!-- 显示所属市区名称 -->
-            <td>{{ campus.deviceCount }}</td>
-            <td>{{ campus.range }}</td>
+          <tr v-for="campus in filteredCampus" :key="campus.areaId">
+            <td>{{ campus.areaName }}</td>
+            <td>{{ campus.address }}</td>
+            <td>{{ campus.manager }}</td>
+            <td>{{ campus.managerPhone }}</td>
+            <td>{{ formatDate(campus.createdTime) }}</td>
             <td class="operation-buttons">
-              <button 
-                class="btn-delete" 
-                @click="handleDelete(campus.id)"
+              <button
+                class="btn-edit"
+                @click="handleEdit(campus)"
+              >
+                编辑
+              </button>
+              <button
+                class="btn-delete"
+                @click="handleDelete(campus.areaId, campus.areaName)"
               >
                 删除
               </button>
             </td>
           </tr>
           <tr v-if="filteredCampus.length === 0">
-            <td colspan="5" class="no-data">暂无校区数据</td> <!-- 列数调整为5 -->
+            <td colspan="6" class="no-data">
+              {{ loading ? '正在加载数据...' : '暂无校区数据' }}
+            </td>
           </tr>
         </tbody>
       </table>
@@ -60,9 +61,9 @@
 
     <!-- 分页控件 -->
     <div class="pagination">
-      <button 
-        class="page-btn" 
-        :disabled="currentPage === 1"
+      <button
+        class="page-btn"
+        :disabled="currentPage === 1 || loading"
         @click="currentPage--"
       >
         上一页
@@ -70,16 +71,16 @@
       <span class="page-info">
         第 {{ currentPage }} 页 / 共 {{ totalPages }} 页
       </span>
-      <button 
-        class="page-btn" 
-        :disabled="currentPage === totalPages"
+      <button
+        class="page-btn"
+        :disabled="currentPage === totalPages || loading"
         @click="currentPage++"
       >
         下一页
       </button>
     </div>
 
-    <!-- 新增/编辑校区弹窗（新增所属市区选择） -->
+    <!-- 新增/编辑校区弹窗 -->
     <div class="modal-mask" v-if="showModal">
       <div class="modal-container">
         <div class="modal-header">
@@ -90,48 +91,45 @@
           <form @submit.prevent="handleSave">
             <div class="form-item">
               <label>校区名称：</label>
-              <input 
-                type="text" 
-                v-model="formData.name" 
+              <input
+                type="text"
+                v-model="formData.areaName"
                 placeholder="请输入校区名称"
                 required
               >
             </div>
             <div class="form-item">
-              <label>所属市区：</label> <!-- 新增表单项 -->
-              <select 
-                v-model="formData.areaId" 
-                class="area-select"
+              <label>地址：</label>
+              <input
+                type="text"
+                v-model="formData.address"
+                placeholder="请输入校区地址"
                 required
               >
-                <option value="">请选择所属市区</option>
-                <option v-for="area in areaList" :key="area.id" :value="area.id">
-                  {{ area.name }}
-                </option>
-              </select>
             </div>
             <div class="form-item">
-              <label>校区范围：</label>
-              <textarea 
-                v-model="formData.range" 
-                placeholder="请输入校区范围描述"
-                rows="3"
+              <label>负责人：</label>
+              <input
+                type="text"
+                v-model="formData.manager"
+                placeholder="请输入负责人姓名"
                 required
-              ></textarea>
+              >
             </div>
             <div class="form-item">
-              <label>设备数量：</label>
-              <input 
-                type="number" 
-                v-model="formData.deviceCount" 
-                placeholder="请输入设备数量"
-                min="0"
+              <label>联系电话：</label>
+              <input
+                type="text"
+                v-model="formData.managerPhone"
+                placeholder="请输入负责人联系电话"
                 required
               >
             </div>
             <div class="form-actions">
               <button type="button" class="btn-cancel" @click="showModal = false">取消</button>
-              <button type="submit" class="btn-submit">保存</button>
+              <button type="submit" class="btn-submit" :disabled="saving">
+                {{ saving ? '保存中...' : '保存' }}
+              </button>
             </div>
           </form>
         </div>
@@ -149,7 +147,9 @@
           <p>确定要删除 "{{ deleteCampusName }}" 校区吗？此操作不可撤销。</p>
           <div class="form-actions">
             <button type="button" class="btn-cancel" @click="showDeleteConfirm = false">取消</button>
-            <button type="button" class="btn-delete-confirm" @click="confirmDelete">确认删除</button>
+            <button type="button" class="btn-delete-confirm" @click="confirmDelete" :disabled="deleting">
+              {{ deleting ? '删除中...' : '确认删除' }}
+            </button>
           </div>
         </div>
       </div>
@@ -158,67 +158,30 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { request } from '@/api/request'  // 导入项目封装的请求工具
+import { useAuthStore } from '@/stores/auth'  // 导入 authStore
 
-// 市区数据接口（用于关联校区所属市区）
+// 路由和状态管理
+const router = useRouter()
+const authStore = useAuthStore()
+
+// 校区数据接口，与后端Area实体对应
 interface Area {
-  id: string
-  name: string
-  deviceCount: number
-  range: string
+  areaId: string
+  areaName: string
+  areaType: 'campus' | 'building' | 'zone'
+  parentAreaId: string | null
+  address: string
+  manager: string
+  managerPhone: string
+  createdTime?: Date
+  updatedTime?: Date
 }
-
-// 校区数据接口（新增areaId字段关联市区）
-interface Campus {
-  id: string
-  name: string
-  areaId: string // 所属市区ID
-  deviceCount: number
-  range: string
-}
-
-// 模拟市区数据（用于校区关联）
-const areaList = ref<Area[]>([
-  {
-    id: '1',
-    name: '市区东区',
-    deviceCount: 28,
-    range: '东至东风路，西至解放路，南至人民路，北至建设路'
-  },
-  {
-    id: '2',
-    name: '市区西区',
-    deviceCount: 19,
-    range: '东至解放路，西至滨河路，南至青年路，北至黄河路'
-  }
-])
-
-// 模拟校区数据
-const campusList = ref<Campus[]>([
-  {
-    id: '1',
-    name: '主校区',
-    areaId: '1', // 关联市区东区
-    deviceCount: 89,
-    range: '包含教学区、生活区、运动区，覆盖整个主校区范围'
-  },
-  {
-    id: '2',
-    name: '分校区',
-    areaId: '2', // 关联市区西区
-    deviceCount: 45,
-    range: '包含新教学楼、实训楼、学生公寓1-5号楼'
-  },
-  {
-    id: '3',
-    name: '南校区',
-    areaId: '1', // 关联市区东区
-    deviceCount: 67,
-    range: '包含研究生院、国际交流中心、留学生公寓'
-  }
-])
 
 // 响应式数据
+const campusList = ref<Area[]>([])
 const selectedCampus = ref('')
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -227,31 +190,39 @@ const isEdit = ref(false)
 const showDeleteConfirm = ref(false)
 const deleteCampusId = ref('')
 const deleteCampusName = ref('')
+const loading = ref(false)  // 添加加载状态
+const saving = ref(false)   // 添加保存状态
+const deleting = ref(false) // 添加删除状态
 
-// 表单数据（新增areaId字段）
-const formData = ref<Campus>({
-  id: '',
-  name: '',
+// 表单数据
+const formData = ref<Area>({
   areaId: '',
-  deviceCount: 0,
-  range: ''
+  areaName: '',
+  areaType: 'campus',
+  parentAreaId: null,
+  address: '',
+  manager: '',
+  managerPhone: '',
+  createdTime: undefined,
+  updatedTime: undefined
 })
 
-// 根据市区ID获取市区名称
-const getAreaName = (areaId: string) => {
-  const area = areaList.value.find(item => item.id === areaId)
-  return area ? area.name : '未指定'
+// 格式化日期
+const formatDate = (date: Date | undefined) => {
+  if (!date) return '-'
+  const d = new Date(date)
+  return d.toLocaleDateString('zh-CN')
 }
 
 // 筛选后的校区列表
 const filteredCampus = computed(() => {
   let filtered = [...campusList.value]
-  
+
   // 根据下拉选择筛选校区
   if (selectedCampus.value) {
-    filtered = filtered.filter(campus => campus.id === selectedCampus.value)
+    filtered = filtered.filter(campus => campus.areaId === selectedCampus.value)
   }
-  
+
   // 分页处理
   const startIndex = (currentPage.value - 1) * pageSize.value
   const endIndex = startIndex + pageSize.value
@@ -260,15 +231,49 @@ const filteredCampus = computed(() => {
 
 // 总页数计算
 const totalPages = computed(() => {
-  const filteredCount = selectedCampus.value 
-    ? campusList.value.filter(campus => campus.id === selectedCampus.value).length
+  const filteredCount = selectedCampus.value
+    ? campusList.value.filter(campus => campus.areaId === selectedCampus.value).length
     : campusList.value.length
   return Math.ceil(filteredCount / pageSize.value)
 })
 
-// 校区选择变更处理
-const handleCampusChange = () => {
-  currentPage.value = 1 // 重置到第一页
+// 获取校区列表
+const fetchCampusList = async () => {
+  loading.value = true
+  try {
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
+    }
+
+    const response = await request<{
+      code: number
+      msg: string
+      data: Area[]
+    }>('/api/web/area/list-campus', {
+      method: 'GET',
+    })
+
+    if (response.code === 200) {
+      campusList.value = response.data
+    } else {
+      const errorMsg = response.msg || `获取失败（错误码：${response.code}）`
+      console.error('获取校区列表失败:', errorMsg)
+      alert(`获取校区列表失败：${errorMsg}`)
+    }
+  } catch (error: any) {
+    console.error('请求异常:', error)
+    const errorMsg = error.message.includes('401') || error.message.includes('403')
+        ? '权限不足或登录已过期，请重新登录'
+        : error.message.includes('Network')
+            ? '网络连接失败，请检查网络'
+            : error.message || '获取数据失败，请稍后重试'
+    alert(`获取校区列表失败：${errorMsg}`)
+  } finally {
+    loading.value = false
+  }
 }
 
 // 新增校区
@@ -276,57 +281,160 @@ const handleAddCampus = () => {
   isEdit.value = false
   // 重置表单
   formData.value = {
-    id: '',
-    name: '',
     areaId: '',
-    deviceCount: 0,
-    range: ''
+    areaName: '',
+    areaType: 'campus',
+    parentAreaId: null,
+    address: '',
+    manager: '',
+    managerPhone: '',
+    createdTime: undefined,
+    updatedTime: undefined
   }
   showModal.value = true
 }
 
+// 编辑校区
+const handleEdit = (campus: Area) => {
+  isEdit.value = true
+  formData.value = { ...campus }
+  showModal.value = true
+}
+
 // 删除校区（先显示确认弹窗）
-const handleDelete = (id: string) => {
-  const campus = campusList.value.find(item => item.id === id)
-  if (campus) {
-    deleteCampusId.value = id
-    deleteCampusName.value = campus.name
-    showDeleteConfirm.value = true
-  }
+const handleDelete = (id: string, name: string) => {
+  deleteCampusId.value = id
+  deleteCampusName.value = name
+  showDeleteConfirm.value = true
 }
 
 // 确认删除
-const confirmDelete = () => {
-  campusList.value = campusList.value.filter(campus => campus.id !== deleteCampusId.value)
-  showDeleteConfirm.value = false
-  // 如果删除的是当前选中的校区，清空选择
-  if (selectedCampus.value === deleteCampusId.value) {
-    selectedCampus.value = ''
+const confirmDelete = async () => {
+  deleting.value = true
+  try {
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
+    }
+
+    const response = await request<{
+      code: number
+      msg: string
+    }>(`/api/web/area/delete/${deleteCampusId.value}`, {
+      method: 'DELETE',
+    })
+
+    if (response.code === 200) {
+      fetchCampusList() // 重新获取列表
+      showDeleteConfirm.value = false
+    } else {
+      const errorMsg = response.msg || `删除失败（错误码：${response.code}）`
+      console.error('删除校区失败:', errorMsg)
+      alert(`删除校区失败：${errorMsg}`)
+    }
+  } catch (error: any) {
+    console.error('删除请求异常:', error)
+    const errorMsg = error.message.includes('401') || error.message.includes('403')
+        ? '权限不足或登录已过期，请重新登录'
+        : error.message.includes('Network')
+            ? '网络连接失败，请检查网络'
+            : error.message || '删除失败，请稍后重试'
+    alert(`删除校区失败：${errorMsg}`)
+  } finally {
+    deleting.value = false
   }
 }
 
 // 保存校区信息
-const handleSave = () => {
-  if (isEdit.value) {
-    // 编辑模式
-    const index = campusList.value.findIndex(item => item.id === formData.value.id)
-    if (index !== -1) {
-      campusList.value[index] = { ...formData.value }
+const handleSave = async () => {
+  saving.value = true
+  try {
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
     }
-  } else {
-    // 新增模式
-    const newCampus: Campus = {
-      ...formData.value,
-      id: Date.now().toString() // 生成唯一ID
+
+    let response
+    let result
+
+    if (isEdit.value) {
+      // 编辑模式
+      response = await request<{
+        code: number
+        msg: string
+        data: Area
+      }>('/api/web/area/update', {
+        method: 'PUT',
+        body: JSON.stringify(formData.value)
+      })
+
+      if (response.code === 200) {
+        fetchCampusList() // 重新获取列表
+        showModal.value = false
+      } else {
+        const errorMsg = response.msg || `更新失败（错误码：${response.code}）`
+        console.error('更新校区失败:', errorMsg)
+        alert(`更新校区失败：${errorMsg}`)
+      }
+    } else {
+      // 新增模式
+      const newCampus = {
+        areaName: formData.value.areaName,
+        areaType: 'campus' as const,
+        address: formData.value.address,
+        manager: formData.value.manager,
+        managerPhone: formData.value.managerPhone
+      }
+
+      response = await request<{
+        code: number
+        msg: string
+        data: Area
+      }>('/api/web/area/add', {
+        method: 'POST',
+        body: JSON.stringify(newCampus)
+      })
+
+      if (response.code === 200) {
+        fetchCampusList() // 重新获取列表
+        showModal.value = false
+      } else {
+        const errorMsg = response.msg || `新增失败（错误码：${response.code}）`
+        console.error('新增校区失败:', errorMsg)
+        alert(`新增校区失败：${errorMsg}`)
+      }
     }
-    campusList.value.unshift(newCampus)
+  } catch (error: any) {
+    console.error('保存请求异常:', error)
+    const errorMsg = error.message.includes('401') || error.message.includes('403')
+        ? '权限不足或登录已过期，请重新登录'
+        : error.message.includes('Network')
+            ? '网络连接失败，请检查网络'
+            : error.message || '保存失败，请稍后重试'
+    alert(`保存校区失败：${errorMsg}`)
+  } finally {
+    saving.value = false
   }
-  showModal.value = false
 }
+
+// 导航到片区管理页面
+const goToZoneManagement = () => {
+  router.push('/area/zone')
+}
+
+// 初始化加载数据
+onMounted(() => {
+  console.log('Token:', authStore.token)
+  fetchCampusList()
+})
 </script>
 
 <style scoped>
-/* 基础样式 - 与市区管理页面完全一致 */
+/* 基础样式 */
 .campus-page {
   padding: 20px;
 }
@@ -371,19 +479,20 @@ const handleSave = () => {
   background: #359e75;
 }
 
-.filter-box {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #666;
+/* 新增导航按钮样式 */
+.btn-nav {
+  background: #1890ff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.3s;
 }
 
-.campus-select, .area-select { /* 新增area-select样式 */
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  min-width: 200px;
-  font-size: 14px;
+.btn-nav:hover {
+  background: #096dd9;
 }
 
 /* 表格样式 */
@@ -413,6 +522,21 @@ const handleSave = () => {
 .operation-buttons {
   display: flex;
   gap: 8px;
+}
+
+.btn-edit {
+  background-color: #e6f4ff;
+  color: #1890ff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.3s;
+}
+
+.btn-edit:hover {
+  opacity: 0.9;
 }
 
 .btn-delete {
@@ -534,7 +658,7 @@ const handleSave = () => {
 
 .form-item input,
 .form-item textarea,
-.form-item select { /* 新增select样式 */
+.form-item select {
   width: 100%;
   padding: 8px 12px;
   border: 1px solid #ddd;
@@ -570,6 +694,11 @@ const handleSave = () => {
   font-size: 14px;
 }
 
+.btn-submit:disabled {
+  background: #a0d911;
+  cursor: not-allowed;
+}
+
 .btn-delete-confirm {
   background: #cf1322;
   color: white;
@@ -580,17 +709,22 @@ const handleSave = () => {
   font-size: 14px;
 }
 
+.btn-delete-confirm:disabled {
+  background: #ff7875;
+  cursor: not-allowed;
+}
+
 /* 响应式调整 */
 @media (max-width: 768px) {
   .action-bar {
     flex-direction: column;
     align-items: flex-start;
   }
-  
+
   .filter-box {
     width: 100%;
   }
-  
+
   .campus-select, .area-select {
     width: 100%;
   }
