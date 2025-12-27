@@ -45,19 +45,22 @@ public class Area {
     @Column(name = "updated_time")
     private LocalDateTime updatedTime = LocalDateTime.now();
 
+
+
+    // 枚举值与数据库完全匹配：zone=市区，campus=校园，building=楼栋（暂时保留）
     public enum AreaType {
-        campus("校园"),
-        building("楼宇"),
-        zone("区域");
+        zone("市区"),    // 对应数据库的zone，含义是市区
+        campus("校园"); // 对应数据库的campus，含义是校园
+
 
         private final String desc;
-
         AreaType(String desc) {
             this.desc = desc;
         }
-
         public String getDesc() {
             return desc;
         }
     }
+
+
 }
