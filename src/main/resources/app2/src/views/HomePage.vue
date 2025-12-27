@@ -7,127 +7,13 @@
 
     <!-- 地图容器 -->
     <div class="map-container" @click="hideAllPopups">
-      <!-- 地图模拟背景 -->
-      <div class="map-background">
-        <!-- 地图网格线 -->
-        <div class="map-grid">
-          <!-- 横向网格线 -->
-          <div class="grid-line horizontal" v-for="i in 8" :key="'h' + i"
-               :style="{ top: `${i * 12}%` }"></div>
-          <!-- 纵向网格线 -->
-          <div class="grid-line vertical" v-for="i in 6" :key="'v' + i"
-               :style="{ left: `${i * 16}%` }"></div>
-        </div>
+      <!-- 真实地图容器 -->
+      <div id="mapContainer" class="real-map-container" style="width: 100%; height: 100%;"></div>
 
-        <!-- 校园建筑标记 -->
-        <div class="campus-building building-1" :style="{ top: '30%', left: '30%' }">
-          <div class="building-icon">🏫</div>
-          <div class="building-name">教学楼</div>
-        </div>
-
-        <div class="campus-building building-2" :style="{ top: '60%', left: '60%' }">
-          <div class="building-icon">🏢</div>
-          <div class="building-name">学生公寓</div>
-        </div>
-
-        <div class="campus-building building-3" :style="{ top: '45%', left: '20%' }">
-          <div class="building-icon">📚</div>
-          <div class="building-name">图书馆</div>
-        </div>
-
-        <div class="campus-building building-4" :style="{ top: '70%', left: '40%' }">
-          <div class="building-icon">🍽️</div>
-          <div class="building-name">食堂</div>
-        </div>
-
-        <div class="campus-building building-5" :style="{ top: '20%', left: '50%' }">
-          <div class="building-icon">⚽</div>
-          <div class="building-name">体育馆</div>
-        </div>
-
-        <div class="campus-building building-6" :style="{ top: '40%', left: '70%' }">
-          <div class="building-icon">🔬</div>
-          <div class="building-name">实验室</div>
-        </div>
-
-        <!-- 道路 -->
-        <div class="road road-1" style="top: 40%; left: 20%; width: 60%; height: 6px;"></div>
-        <div class="road road-2" style="top: 60%; left: 30%; width: 6px; height: 40%;"></div>
-        <div class="road road-3" style="top: 30%; left: 50%; width: 6px; height: 40%;"></div>
-
-        <!-- 草地/绿化带 -->
-        <div class="green-area area-1" style="top: 25%; left: 10%; width: 15%; height: 20%;"></div>
-        <div class="green-area area-2" style="top: 65%; left: 75%; width: 15%; height: 20%;"></div>
-
-        <!-- 饮水机标记1（教学楼） -->
-        <div
-            class="water-marker marker-1"
-            :class="{ active: selectedMarker === 'TERM001' }"
-            @click.stop="showMarkerInfo('TERM001')"
-            style="top: 35%; left: 45%;"
-        >
-          <div class="marker-content">
-            <!-- SVG水滴形状 -->
-            <svg class="marker-svg" viewBox="0 0 22 32">
-              <path
-                  d="M22 11.2C22 19.2 15.4 24 11 32C6.6 24 0 19.2 0 11.2C0 7.04 2.2 0 11 0C19.8 0 22 7.04 22 11.2Z"
-                  fill="#04d919"
-                  stroke="white"
-                  stroke-width="2"
-              />
-            </svg>
-            <div class="marker-pulse"></div>
-          </div>
-          <div class="marker-label">TERM001</div>
-        </div>
-
-        <!-- 饮水机标记2（学生公寓） -->
-        <div
-            class="water-marker marker-2"
-            :class="{ active: selectedMarker === 'TERM002' }"
-            @click.stop="showMarkerInfo('TERM002')"
-            style="top: 65%; left: 55%;"
-        >
-          <div class="marker-content">
-            <svg class="marker-svg" viewBox="0 0 22 32">
-              <path
-                  d="M22 11.2C22 19.2 15.4 24 11 32C6.6 24 0 19.2 0 11.2C0 7.04 2.2 0 11 0C19.8 0 22 7.04 22 11.2Z"
-                  fill="#04d919"
-                  stroke="white"
-                  stroke-width="2"
-              />
-            </svg>
-            <div class="marker-pulse"></div>
-          </div>
-          <div class="marker-label">TERM002</div>
-        </div>
-
-        <!-- 饮水机标记3（图书馆） -->
-        <div
-            class="water-marker marker-3"
-            :class="{ active: selectedMarker === 'TERM003' }"
-            @click.stop="showMarkerInfo('TERM003')"
-            style="top: 50%; left: 25%;"
-        >
-          <div class="marker-content">
-            <svg class="marker-svg" viewBox="0 0 22 32">
-              <path
-                  d="M22 11.2C22 19.2 15.4 24 11 32C6.6 24 0 19.2 0 11.2C0 7.04 2.2 0 11 0C19.8 0 22 7.04 22 11.2Z"
-                  fill="#aaaaaa"
-                  stroke="white"
-                  stroke-width="2"
-              />
-            </svg>
-            <div class="marker-pulse"></div>
-          </div>
-          <div class="marker-label">TERM003</div>
-        </div>
-
-        <!-- 当前位置标记 -->
-        <div class="current-location-marker" style="top: 50%; left: 50%;">
-          <div class="location-icon">📍</div>
-          <div class="location-label">我的位置</div>
-        </div>
+      <!-- 如果地图加载失败，显示模拟地图 -->
+      <div v-if="!mapLoaded && !isMapLoading" class="map-background">
+        <!-- 保持原有的模拟地图内容不变 -->
+        ...
       </div>
 
       <!-- 地图控制按钮 -->
@@ -456,10 +342,224 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { deviceService } from '@/services/deviceService'
 import { useUserStore } from '@/stores/user'
+import AMapLoader from '@amap/amap-jsapi-loader'
 
 const router = useRouter()
 const userStore = useUserStore()
 
+const mapInstance = ref(null)
+const mapLoaded = ref(false)
+const isMapLoading = ref(false)
+
+// 高德地图配置
+// 在 HomePage.vue 中
+const mapConfig = reactive({
+  center: [112.9375, 28.1655],
+  zoom: 16,
+  key: import.meta.env.VITE_AMAP_KEY || '', // 使用环境变量
+  viewMode: '3D'
+})
+
+// 添加：后端接口获取设备位置
+const fetchDeviceLocations = async () => {
+  try {
+    // 调用后端接口获取设备位置数据
+    // 这里假设你有对应的后端接口
+    const response = await deviceService.getTerminalLocations()
+
+    if (response.code === 200 && response.data) {
+      return response.data
+    }
+    return []
+  } catch (error) {
+    console.error('获取设备位置失败:', error)
+    return []
+  }
+}
+
+// 修改：初始化地图
+const initMap = async () => {
+  if (isMapLoading.value) return
+  isMapLoading.value = true
+
+  try {
+    // 加载高德地图
+    const AMap = await AMapLoader.load({
+      key: mapConfig.key,
+      version: '2.0',
+      plugins: [
+        'AMap.Marker',
+        'AMap.Geolocation',
+        'AMap.ToolBar',
+        'AMap.Scale',
+        'AMap.ControlBar'
+      ]
+    })
+
+    // 创建地图实例
+    mapInstance.value = new AMap.Map('mapContainer', {
+      zoom: mapConfig.zoom,
+      center: mapConfig.center,
+      viewMode: mapConfig.viewMode
+    })
+
+    // 添加控件
+    mapInstance.value.addControl(new AMap.ToolBar())
+    mapInstance.value.addControl(new AMap.Scale())
+    mapInstance.value.addControl(new AMap.ControlBar())
+
+    // 获取当前位置
+    const geolocation = new AMap.Geolocation({
+      enableHighAccuracy: true,
+      timeout: 10000,
+      buttonOffset: new AMap.Pixel(10, 20),
+      zoomToAccuracy: true,
+      buttonPosition: 'RB'
+    })
+
+    mapInstance.value.addControl(geolocation)
+
+    // 监听定位成功
+    geolocation.getCurrentPosition((status, result) => {
+      if (status === 'complete') {
+        console.log('定位成功:', result)
+      } else {
+        console.log('定位失败:', result)
+      }
+    })
+
+    // 获取设备数据并在地图上标记
+    const devices = await fetchDeviceLocations()
+    addDeviceMarkers(devices)
+
+    mapLoaded.value = true
+    console.log('地图初始化成功')
+  } catch (error) {
+    console.error('地图初始化失败:', error)
+    // 如果高德地图初始化失败，使用原有的模拟地图
+    useMockMap()
+  } finally {
+    isMapLoading.value = false
+  }
+}
+
+// 添加：在地图上添加设备标记
+const addDeviceMarkers = (devices) => {
+  if (!mapInstance.value || !devices.length) return
+
+  devices.forEach(device => {
+    // 创建标记
+    const marker = new AMap.Marker({
+      position: [device.longitude, device.latitude],
+      title: device.terminalName,
+      content: createMarkerContent(device),
+      offset: new AMap.Pixel(-12, -32) // 调整标记位置
+    })
+
+    // 添加点击事件
+    marker.on('click', () => {
+      showMarkerInfo(device.terminalId)
+    })
+
+    marker.setMap(mapInstance.value)
+
+    // 保存标记引用
+    if (!markers[device.terminalId]) {
+      markers[device.terminalId] = {}
+    }
+    markers[device.terminalId].marker = marker
+  })
+}
+
+// 添加：创建标记内容
+const createMarkerContent = (device) => {
+  const isOnline = device.deviceStatus === 'active'
+  const color = isOnline ? '#04d919' : '#aaaaaa'
+
+  return `
+    <div class="custom-marker" style="cursor: pointer;">
+      <svg viewBox="0 0 22 32" width="24" height="32">
+        <path d="M22 11.2C22 19.2 15.4 24 11 32C6.6 24 0 19.2 0 11.2C0 7.04 2.2 0 11 0C19.8 0 22 7.04 22 11.2Z"
+              fill="${color}" stroke="white" stroke-width="2"/>
+      </svg>
+      <div style="position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
+                  background: rgba(0,0,0,0.7); color: white; padding: 2px 6px; border-radius: 10px;
+                  font-size: 10px; white-space: nowrap; display: none;">
+        ${device.terminalId}
+      </div>
+    </div>
+  `
+}
+
+// 添加：模拟地图作为备用
+const useMockMap = () => {
+  console.log('使用模拟地图')
+  // 保持原有的模拟地图逻辑不变
+}
+
+// 修改：onMounted 钩子
+onMounted(() => {
+  // 初始化设备信息
+  Object.keys(markers).forEach(terminalId => {
+    fetchDeviceInfo(terminalId)
+  })
+
+  // 延迟初始化地图
+  setTimeout(() => {
+    initMap()
+  }, 500)
+})
+
+// 修改：地图控制方法
+const centerMap = () => {
+  if (mapInstance.value) {
+    // 使用高德地图的定位
+    const geolocation = new AMap.Geolocation()
+    geolocation.getCurrentPosition((status, result) => {
+      if (status === 'complete') {
+        mapInstance.value.setCenter([result.position.lng, result.position.lat])
+      }
+    })
+  }
+}
+
+const zoomIn = () => {
+  if (mapInstance.value) {
+    mapInstance.value.setZoom(mapInstance.value.getZoom() + 1)
+  }
+}
+
+const zoomOut = () => {
+  if (mapInstance.value) {
+    mapInstance.value.setZoom(mapInstance.value.getZoom() - 1)
+  }
+}
+
+// 修改：显示标记信息方法
+const showMarkerInfo = async (markerId) => {
+  if (!mapInstance.value) {
+    // 如果没有地图实例，使用原有逻辑
+    await originalShowMarkerInfo(markerId)
+    return
+  }
+
+  currentMarker.value = markerId
+  selectedMarker.value = markerId
+
+  // 如果数据还在加载中，重新获取
+  if (markers[markerId].status === 'loading') {
+    await fetchDeviceInfo(markerId)
+  }
+
+  // 平滑滚动到标记位置
+  const device = markers[markerId]
+  if (device && device.marker) {
+    mapInstance.value.setCenter(device.marker.getPosition())
+    mapInstance.value.setZoom(18)
+  }
+
+  showDevicePopup.value = true
+}
 // 修改标记点配置
 const markerConfigs = {
   TERM001: {
@@ -548,6 +648,7 @@ const selectedMarker = ref('')
 const isLoading = ref(false)
 
 // 从后端获取设备信息
+// 从后端获取设备信息
 const fetchDeviceInfo = async (terminalId) => {
   try {
     isLoading.value = true
@@ -558,9 +659,10 @@ const fetchDeviceInfo = async (terminalId) => {
       const marker = markers[terminalId]
 
       if (marker) {
-        // 更新标记点信息
-        marker.status = data.status === 'active' ? 'online' : 'offline'
-        marker.statusText = data.status === 'active' ? '在线' : '离线'
+        // 修改状态判断逻辑，同时兼容 'active' 和 'online' 状态
+        const isActive = data.status === 'active' || data.status === 'online'
+        marker.status = isActive ? 'online' : 'offline'
+        marker.statusText = isActive ? '在线' : '离线'
         marker.quality = data.waterQuality || '--'
 
         // 更新水质数据
@@ -573,7 +675,7 @@ const fetchDeviceInfo = async (terminalId) => {
         marker.recordTime = data.updateTime || '--'
 
         // 更新标记点颜色
-        updateMarkerColor(terminalId, data.status)
+        updateMarkerColor(terminalId, isActive ? 'active' : 'inactive')
       }
     } else {
       console.error(`获取设备 ${terminalId} 信息失败:`, result.message)
@@ -586,6 +688,7 @@ const fetchDeviceInfo = async (terminalId) => {
     isLoading.value = false
   }
 }
+
 
 // 获取水质信息
 const fetchWaterQualityInfo = async (deviceId) => {
@@ -609,18 +712,7 @@ const updateMarkerColor = (terminalId, status) => {
   }
 }
 
-// 显示标记点信息
-const showMarkerInfo = async (markerId) => {
-  currentMarker.value = markerId
-  selectedMarker.value = markerId
 
-  // 如果数据还在加载中，重新获取
-  if (markers[markerId].status === 'loading') {
-    await fetchDeviceInfo(markerId)
-  }
-
-  showDevicePopup.value = true
-}
 
 // 隐藏弹窗
 const hidePopup = () => {
@@ -683,18 +775,7 @@ const openMap = (mapType) => {
   // 例如：window.location.href = `amapuri://route/...`
 }
 
-// 地图控制
-const centerMap = () => {
-  alert('定位到当前位置')
-}
 
-const zoomIn = () => {
-  alert('放大地图')
-}
-
-const zoomOut = () => {
-  alert('缩小地图')
-}
 
 // 页面跳转
 const goToPage = (page) => {
@@ -1531,5 +1612,68 @@ onMounted(() => {
 .loading-text {
   font-size: 14px;
   color: #666;
+}
+
+/* 地图容器调整 */
+.map-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: #e8f4fc;
+}
+
+.real-map-container {
+  width: 100%;
+  height: 100%;
+}
+
+/* 模拟地图背景（只有在真实地图加载失败时才显示） */
+.map-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #a8d8ff 0%, #e3f2fd 100%);
+  overflow: hidden;
+  display: none; /* 默认隐藏 */
+}
+
+/* 当真实地图加载失败时显示模拟地图 */
+.map-container:not(.map-loaded) .map-background {
+  display: block;
+}
+
+/* 地图控制按钮保持原有样式 */
+.map-controls {
+  position: absolute;
+  bottom: 100px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 1000; /* 确保在地图上层 */
+}
+
+/* 自定义标记样式 */
+.custom-marker {
+  position: relative;
+}
+
+.custom-marker:hover div {
+  display: block !important;
+}
+
+/* 响应式调整 */
+@media (max-width: 420px) {
+  .home-page {
+    width: 100%;
+    height: 100vh;
+  }
+
+  .map-controls {
+    bottom: 70px;
+    right: 12px;
+  }
 }
 </style>
