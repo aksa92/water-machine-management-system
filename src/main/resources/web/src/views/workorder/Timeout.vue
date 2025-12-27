@@ -165,8 +165,8 @@
               <option value="">请选择维修人员</option>
               <option
                 v-for="staff in filteredStaff"
-                :key="staff.id"
-                :value="staff.id"
+                :key="staff.repairmanId"
+                :value="staff.repairmanId"
               >
                 {{ staff.repairmanName }} ({{ staff.phone }})
               </option>
@@ -221,12 +221,12 @@ interface TimeoutOrder {
 }
 
 // 维修人员接口
-interface MaintenanceStaff {
-  id: string
+interface Repairman {
+  repairmanId: string
   repairmanName: string
-  phone: string
-  areaId: string // 负责片区
-  status: 'idle' | 'busy' | 'vacation' // 状态
+  phone?: string
+  areaId: string
+  status?: 'idle' | 'busy' | 'vacation'
 }
 
 // 响应式数据
@@ -251,7 +251,7 @@ const assignDialogVisible = ref(false)
 const currentOrder = ref<TimeoutOrder | null>(null)
 const selectedStaffId = ref('')
 const assignRemark = ref('')
-const allStaff = ref<MaintenanceStaff[]>([])
+const allStaff = ref<Repairman[]>([])
 
 // 加载超时工单数据 - 修改此函数以支持时间筛选
 const loadTimeoutOrders = async () => {
@@ -371,7 +371,7 @@ const loadMaintenanceStaff = async (areaId: string) => {
     const response = await request<{
       code: number
       msg: string
-      data: MaintenanceStaff[]
+      data: Repairman[]
     }>('/api/web/repairman/by-area/' + areaId, {
       method: 'GET',
       headers: {
@@ -383,7 +383,13 @@ const loadMaintenanceStaff = async (areaId: string) => {
     console.log('响应数据结构:', typeof response.data, response.data)
 
     if (response.code === 200) {
-      allStaff.value = response.data || []  // 成功时会设置维修人员数据
+      allStaff.value = (response.data || []).map(staff => ({
+        repairmanId: staff.repairmanId,
+        repairmanName: staff.repairmanName,
+        phone: staff.phone || '未知',
+        areaId: staff.areaId || '',
+        status: staff.status || 'idle'
+      }))
     } else {
       console.error('获取维修人员失败:', response.msg)  // 失败时输出错误信息
       alert('获取维修人员失败：' + response.msg)
@@ -498,17 +504,28 @@ const handleStaffChange = () => {
 }
 
 // 确认派单
+// 确认派单 - 修改为JSON格式
 const confirmAssign = async () => {
   if (!currentOrder.value || !selectedStaffId.value) return
 
   try {
+    console.log('🚀 发送派单请求（使用JSON格式）...')
+
+    // 检查Token是否存在
     const token = authStore.token
     if (!token) {
-      router.push('/login')
+      alert('认证失败：未找到用户Token，请重新登录')
       return
     }
 
-    // 调用派单API
+    // 构建 JSON 数据
+    const requestData = {
+      orderId: currentOrder.value.id,
+      repairmanId: selectedStaffId.value
+    }
+
+    console.log('📤 JSON请求数据:', requestData)
+
     const response = await request<{
       code: number
       msg: string
@@ -516,28 +533,40 @@ const confirmAssign = async () => {
     }>('/api/work-orders/assign', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/x-www-form-urlencoded'
+        'Content-Type': 'application/json', // 修改为JSON格式
+        'Authorization': `Bearer ${token}`
       },
-      body: new URLSearchParams({
-        orderId: currentOrder.value.id,
-        repairmanId: selectedStaffId.value
-      })
+      body: JSON.stringify(requestData) // 发送JSON字符串
     })
+
+    console.log('✅ 派单响应:', response)
 
     if (response.code === 200 && response.data) {
       alert('派单成功')
       closeAssignDialog()
-      loadTimeoutOrders() // 重新加载工单列表
+      loadTimeoutOrders()
     } else {
       const errorMsg = response.msg || '派单失败'
-      alert(errorMsg)
+      alert(`派单失败：${errorMsg} (错误码: ${response.code})`)
     }
   } catch (error: any) {
-    console.error('派单请求异常:', error)
-    alert('派单失败：' + (error.message || '网络错误'))
+    console.error('❌ 派单请求异常:', error)
+
+    // 显示详细的错误信息
+    if (error.message.includes('401') || error.message.includes('403')) {
+      alert('权限不足或认证失败：请重新登录')
+      authStore.logout()
+    } else if (error.message.includes('Unexpected token')) {
+      alert('派单失败：后端期望JSON格式，但可能接口配置不正确。请联系后端开发人员确认接口参数接收方式。')
+    } else {
+      alert('派单失败：' + (error.message || '未知错误'))
+    }
   }
 }
+
+
+
+
 
 // 页面加载时获取数据
 onMounted(() => {
