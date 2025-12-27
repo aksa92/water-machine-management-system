@@ -1,4 +1,3 @@
-<!-- src/views/equipment/WaterSupplierDetail.vue -->
 <template>
   <div class="water-supplier-detail-page">
     <!-- 页面标题和面包屑 -->
@@ -55,6 +54,37 @@
       </div>
     </div>
 
+    <!-- 关联的制水机信息卡片 -->
+    <div class="card detail-card" v-if="associatedMaker">
+      <h3>关联的制水机</h3>
+      <div class="detail-grid">
+        <div class="detail-item">
+          <span class="label">制水机ID:</span>
+          <span class="value">{{ associatedMaker.deviceId }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">制水机名称:</span>
+          <span class="value">{{ associatedMaker.deviceName }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">制水机状态:</span>
+          <span class="value">
+            <span :class="`status-tag ${associatedMaker.status}`">
+              {{ formatStatus(associatedMaker.status) }}
+            </span>
+          </span>
+        </div>
+        <div class="detail-item">
+          <span class="label">安装位置:</span>
+          <span class="value">{{ associatedMaker.installLocation }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">所属片区:</span>
+          <span class="value">{{ associatedMaker.areaId }}</span>
+        </div>
+      </div>
+    </div>
+
     <!-- 实时数据卡片 -->
     <div class="card detail-card" v-if="deviceDetail && deviceDetail.realtimeData">
       <h3>实时数据</h3>
@@ -71,10 +101,7 @@
           <span class="label">温度:</span>
           <span class="value">{{ deviceDetail.realtimeData?.temperature || '-' }} °C</span>
         </div>
-        <div class="detail-item">
-          <span class="label">水质(TDS):</span>
-          <span class="value">{{ deviceDetail.realtimeData?.tds || '-' }} ppm</span>
-        </div>
+
         <div class="detail-item">
           <span class="label">运行状态:</span>
           <span class="value">
@@ -119,6 +146,7 @@ interface DeviceInfo {
   status: string
   createTime?: string
   lastHeartbeatTime?: string
+  parentMakerId?: string // 关联的制水机ID
 }
 
 // 根据 WaterSupplyRealtimeData 实体类定义
@@ -142,6 +170,7 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const deviceDetail = ref<DeviceDetail | null>(null)
+const associatedMaker = ref<DeviceInfo | null>(null) // 关联的制水机信息
 const loading = ref(true)
 const error = ref('')
 
@@ -219,6 +248,11 @@ const loadDeviceDetail = async () => {
     if (result.code === 200 && result.data) {
       deviceDetail.value = result.data
       console.log('设备详情数据:', deviceDetail.value)
+
+      // 如果供水机有关联的制水机，加载制水机信息
+      if (result.data.deviceInfo.parentMakerId) {
+        await loadAssociatedMaker(result.data.deviceInfo.parentMakerId)
+      }
     } else {
       error.value = result.message || '获取设备详情失败'
     }
@@ -231,6 +265,80 @@ const loadDeviceDetail = async () => {
     }
   } finally {
     loading.value = false
+  }
+}
+
+// 加载指定片区内可用的制水机设备
+const loadAvailableMakers = async () => {
+  if (!newDevice.value.areaId) {
+    availableMakers.value = []
+    return
+  }
+
+  try {
+    const token = authStore.token
+    if (!token) {
+      router.push('/login')
+      return
+    }
+
+    // 请求该片区内的所有制水机
+    const params = new URLSearchParams();
+    params.append('areaId', newDevice.value.areaId);
+    params.append('deviceType', 'water_maker');
+
+    const queryString = params.toString();
+    const url = `/api/web/device-status/by-type${queryString ? `?${queryString}` : ''}`;
+
+    const response = await request<ResultVO<any[]>>(url, { method: 'GET' });
+
+    if (response.code === 200 && response.data && Array.isArray(response.data)) {
+      // 转换为选项格式，包含ID和位置信息
+      availableMakers.value = response.data.map((maker: any) => ({
+        id: maker.deviceId,
+        name: `${maker.deviceId} - ${maker.installLocation}`
+      }))
+    } else {
+      console.error('获取制水机列表失败:', response.message);
+      availableMakers.value = []
+    }
+  } catch (error) {
+    console.error('加载制水机列表失败:', error);
+    availableMakers.value = []
+    if ((error as Error).message.includes('401')) {
+      authStore.logout()
+      router.push('/login')
+    }
+  }
+}
+
+
+// 加载关联的制水机信息
+const loadAssociatedMaker = async (makerId: string) => {
+  try {
+    const token = authStore.token
+    if (!token) {
+      router.push('/login')
+      return
+    }
+
+    const result = await request<ResultVO<DeviceDetail>>(
+      `/api/web/device/${makerId}`,
+      { method: 'GET' }
+    )
+
+    if (result.code === 200 && result.data) {
+      associatedMaker.value = result.data.deviceInfo
+      console.log('关联的制水机数据:', associatedMaker.value)
+    } else {
+      console.error('获取关联制水机失败:', result.message)
+    }
+  } catch (err) {
+    console.error('加载关联制水机失败:', err)
+    if ((err as Error).message.includes('401')) {
+      authStore.logout()
+      router.push('/login')
+    }
   }
 }
 

@@ -124,12 +124,23 @@
           </div>
           <div class="form-group">
             <label>所属片区:</label>
-            <select v-model="newDevice.areaId" required>
+            <select v-model="newDevice.areaId" @change="loadAvailableMakers" required>
+              <option value="">请选择片区</option>
               <option value="A">A区</option>
               <option value="B">B区</option>
               <option value="C">C区</option>
               <option value="D">D区</option>
             </select>
+          </div>
+          <div class="form-group">
+            <label>关联制水机:</label>
+            <select v-model="newDevice.parentMakerId" :disabled="!newDevice.areaId">
+              <option value="">请选择关联制水机</option>
+              <option v-for="maker in availableMakers" :key="maker.id" :value="maker.id">
+                {{ maker.name }}
+              </option>
+            </select>
+            <p v-if="!newDevice.areaId" class="help-text">请先选择片区以加载可关联的制水机</p>
           </div>
           <div class="form-group">
             <label>安装位置:</label>
@@ -191,10 +202,14 @@ const showAddModal = ref(false)
 const newDevice = ref({
   deviceId: '',
   deviceName: '',
-  areaId: 'A',
+  areaId: '',
+  parentMakerId: '', // 关联的制水机ID
   installLocation: '',
   deviceType: 'water_supply'
 })
+
+// 新增：可关联的制水机列表
+const availableMakers = ref<{id: string, name: string}[]>([])
 
 // 新增：删除设备相关状态
 const showDeleteModal = ref(false)
@@ -245,6 +260,50 @@ const loadWaterSuppliers = async () => {
     if (error instanceof Error && error.message.includes('401')) {
       authStore.logout();
       router.push('/login');
+    }
+  }
+}
+
+// 加载指定片区内可用的制水机设备
+const loadAvailableMakers = async () => {
+  if (!newDevice.value.areaId) {
+    availableMakers.value = []
+    return
+  }
+
+  try {
+    const token = authStore.token
+    if (!token) {
+      router.push('/login')
+      return
+    }
+
+    // 请求该片区内的所有制水机
+    const params = new URLSearchParams();
+    params.append('areaId', newDevice.value.areaId);
+    params.append('deviceType', 'water_maker');
+
+    const queryString = params.toString();
+    const url = `/api/web/device-status/by-type${queryString ? `?${queryString}` : ''}`;
+
+    const response = await request<ResultVO<any[]>>(url, { method: 'GET' });
+
+    if (response.code === 200 && response.data && Array.isArray(response.data)) {
+      // 转换为选项格式，包含ID和位置信息
+      availableMakers.value = response.data.map((maker: any) => ({
+        id: maker.deviceId,
+        name: `${maker.deviceId} - ${maker.installLocation}`
+      }))
+    } else {
+      console.error('获取制水机列表失败:', response.message);
+      availableMakers.value = []
+    }
+  } catch (error) {
+    console.error('加载制水机列表失败:', error);
+    availableMakers.value = []
+    if ((error as Error).message.includes('401')) {
+      authStore.logout()
+      router.push('/login')
     }
   }
 }
@@ -310,7 +369,8 @@ const addDevice = async () => {
       deviceName: newDevice.value.deviceName,
       areaId: newDevice.value.areaId,
       installLocation: newDevice.value.installLocation,
-      deviceType: newDevice.value.deviceType
+      deviceType: newDevice.value.deviceType,
+      parentMakerId: newDevice.value.parentMakerId || null // 关联的制水机ID
     }
 
     const result = await request<ResultVO<any>>('/api/web/device/add', {
@@ -321,6 +381,7 @@ const addDevice = async () => {
     if (result.code === 200) {
       await loadWaterSuppliers()
       showAddModal.value = false
+      resetAddForm()
       alert('设备添加成功')
     } else {
       alert(`设备添加失败: ${result.message}`)
@@ -333,6 +394,19 @@ const addDevice = async () => {
       router.push('/login')
     }
   }
+}
+
+// 重置添加表单
+const resetAddForm = () => {
+  newDevice.value = {
+    deviceId: '',
+    deviceName: '',
+    areaId: '',
+    parentMakerId: '',
+    installLocation: '',
+    deviceType: 'water_supply'
+  }
+  availableMakers.value = []
 }
 
 // 删除设备
@@ -647,6 +721,13 @@ onMounted(() => {
   background: #42b983;
   border: none;
   color: white;
+}
+
+.help-text {
+  font-size: 12px;
+  color: #8c8c8c;
+  margin-top: 4px;
+  margin-bottom: 0;
 }
 
 /* 响应式调整 */
