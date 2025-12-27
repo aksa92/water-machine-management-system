@@ -15,13 +15,11 @@ public interface AreaRepository extends JpaRepository<Area, String> {
     // 根据父区域ID查询子区域
     List<Area> findByParentAreaId(String parentAreaId);
 
-    // 新增按区域类型查询
+    // 新增按区域类型查询（按创建时间倒序）
     List<Area> findByAreaTypeOrderByCreatedTimeDesc(Area.AreaType areaType);
 
     // 按父级ID+类型查询（如查询某校园下的所有楼宇）
     List<Area> findByParentAreaIdAndAreaType(String parentAreaId, Area.AreaType areaType);
-
-
 
     // 按名称模糊查询
     List<Area> findByAreaNameContaining(String keyword);
@@ -39,22 +37,16 @@ public interface AreaRepository extends JpaRepository<Area, String> {
     @Query("SELECT a FROM Area a WHERE a.areaType = ?1 AND a.parentAreaId IS NULL")
     List<Area> findRootAreasByType(Area.AreaType areaType);
 
-    // 根据ID和未删除状态查询
-    Optional<Area> findByIdAndIsDeletedFalse(String id);
-    // 查询指定类型、无父级、未删除的区域（所有市区）
-    List<Area> findByAreaTypeAndParentAreaIdIsNullAndIsDeletedFalse(Area.AreaType areaType);
-    // 根据父级ID、类型、未删除状态查询（市区下的校园）
-    List<Area> findByParentAreaIdAndAreaTypeAndIsDeletedFalse(String parentAreaId, Area.AreaType areaType);
-    // 统计父级ID下未删除的区域数量（删除市区时校验）
-    long countByParentAreaIdAndIsDeletedFalse(String parentAreaId);
-    // 校验ID是否存在且未删除
-    boolean existsByIdAndIsDeletedFalse(String id);
+    // 移除所有含isDeleted的方法（实体无该属性）
+    // Optional<Area> findByIdAndIsDeletedFalse(String id); // 已移除
+    // List<Area> findByAreaTypeAndParentAreaIdIsNullAndIsDeletedFalse(Area.AreaType areaType); // 已移除
+    // List<Area> findByParentAreaIdAndAreaTypeAndIsDeletedFalse(String parentAreaId, Area.AreaType areaType); // 已移除
+    // long countByParentAreaIdAndIsDeletedFalse(String parentAreaId); // 已移除
+    // boolean existsByIdAndIsDeletedFalse(String id); // 已移除
 
+    // 保留原有正确方法
     Optional<Area> findByAreaId(String areaId);
-
     long countByParentAreaId(String areaId);
-
     List<Area> findByAreaTypeAndParentAreaIdIsNull(Area.AreaType areaType);
-
     boolean existsByAreaId(String cityId);
 }
