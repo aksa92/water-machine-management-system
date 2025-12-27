@@ -25,8 +25,7 @@ import java.util.Map;
 public class TerminalController {
 
     private final TerminalService terminalService;
-    // 步骤1：添加DeviceService的final成员变量，由Spring自动注入（依赖@RequiredArgsConstructor）
-    private final DeviceService deviceService;
+
 
     @PostMapping("/add")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN')")
@@ -103,17 +102,6 @@ public class TerminalController {
             Map<String, String> errorMap = new HashMap<>();
             errorMap.put("message", "终端列表查询失败: " + e.getMessage());
             return new ResponseEntity<>(errorMap, HttpStatus.BAD_REQUEST);
-        }
-    }
-
-    @DeleteMapping("/unbind/{terminalId}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN')")
-    public ResultVO<Void> unbindTerminal(@PathVariable String terminalId) {
-        try {
-            deviceService.unbindTerminal(terminalId);
-            return ResultVO.success(null, "终端与设备解除绑定成功");
-        } catch (Exception e) {
-            return ResultVO.error("解除绑定失败: " + e.getMessage());
         }
     }
 

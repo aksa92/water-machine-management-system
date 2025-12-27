@@ -9,7 +9,6 @@ import com.campus.water.mapper.DeviceRepository;
 import com.campus.water.mapper.DeviceTerminalMappingRepository;
 import com.campus.water.util.ResultVO;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,11 +26,7 @@ import java.util.stream.Collectors;
 public class DeviceService {
 
     private final DeviceRepository deviceRepository;
-
-    @Autowired
     private final DeviceTerminalMappingRepository terminalMappingRepository;
-    // 1. 注入 Repository 实例（非静态成员，由 Spring 容器自动赋值）
-
 
     /**
      * 根据设备ID查询设备详情
@@ -229,19 +224,4 @@ public class DeviceService {
 
 
 
-    // 2. 改为非静态方法（消除静态上下文），这是 Spring 业务方法的标准写法
-    @Transactional
-    public void unbindTerminal(String terminalId) {
-        // 3. 通过注入的实例调用非静态方法 findByTerminalId，无编译错误，且能正常执行数据库操作
-        Optional<DeviceTerminalMapping> mapping = terminalMappingRepository.findByTerminalId(terminalId);
-
-        // 后续业务逻辑：存在则删除映射（可直接调用你接口中新增的 deleteByTerminalId 方法，更高效）
-        if (mapping.isPresent()) {
-            // 调用你定义的 deleteByTerminalId，批量清理该终端的所有映射
-            terminalMappingRepository.deleteByTerminalId(terminalId);
-        } else {
-            throw new RuntimeException("终端未绑定设备，无需解除关联");
-        }
-    }
 }
-
