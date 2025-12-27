@@ -176,4 +176,34 @@ public class AdminController {
         }
     }
 
+    /**
+     * 管理员密码修改
+     * 允许当前登录管理员修改自己的密码（需验证原密码）
+     */
+    @PostMapping("/password/update")
+    @PreAuthorize("isAuthenticated()") // 登录即可访问
+    @Operation(summary = "修改密码", description = "当前登录管理员修改自己的密码（需验证原密码）")
+    public ResponseEntity<ResultVO<Void>> updatePassword(
+            @RequestParam String oldPassword,
+            @RequestParam String newPassword,
+            Authentication authentication) {
+        try {
+            // 1. 获取当前登录用户名
+            String currentUsername = authentication.getName();
+
+            // 2. 验证原密码并更新新密码
+            boolean success = adminService.updatePassword(currentUsername, oldPassword, newPassword);
+            if (success) {
+                return ResponseEntity.ok(ResultVO.success(null, "密码修改成功"));
+            } else {
+                return ResponseEntity.ok(ResultVO.error(400, "原密码验证失败"));
+            }
+        } catch (IllegalArgumentException e) {
+            // 处理新密码格式错误等参数问题
+            return ResponseEntity.ok(ResultVO.error(400, e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ResultVO.error(500, "密码修改失败：" + e.getMessage()));
+        }
+    }
+
 }

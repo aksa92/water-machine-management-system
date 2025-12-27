@@ -144,4 +144,47 @@ public class AdminService {
         return adminRepository.findByAdminName(username);
     }
 
+    /**
+     * 管理员密码修改（验证原密码，校验新密码，更新密码）
+     * @param username 登录用户名
+     * @param oldPassword 原密码（明文）
+     * @param newPassword 新密码（明文）
+     * @return 密码修改是否成功
+     */
+    public boolean updatePassword(String username, String oldPassword, String newPassword) {
+        // 1. 校验参数合法性
+        if (oldPassword == null || oldPassword.trim().isEmpty()) {
+            throw new IllegalArgumentException("原密码不能为空");
+        }
+        if (newPassword == null || newPassword.trim().isEmpty()) {
+            throw new IllegalArgumentException("新密码不能为空");
+        }
+        if (oldPassword.equals(newPassword)) {
+            throw new IllegalArgumentException("新密码不能与原密码一致");
+        }
+        // 可选：新密码复杂度校验（增强安全性，根据项目需求调整）
+        if (newPassword.length() < 6 || newPassword.length() > 20) {
+            throw new IllegalArgumentException("新密码长度必须在6-20位之间");
+        }
+
+        // 2. 根据用户名查询当前管理员信息
+        Admin existingAdmin = adminRepository.findByAdminName(username)
+                .orElseThrow(() -> new RuntimeException("管理员不存在"));
+
+        // 3. 验证原密码是否正确（使用项目已有的 PasswordEncoder 进行匹配）
+        boolean oldPasswordMatch = passwordEncoder.matches(oldPassword, existingAdmin.getPassword());
+        if (!oldPasswordMatch) {
+            return false; // 原密码错误，返回修改失败
+        }
+
+        // 4. 加密新密码并更新管理员信息
+        String encodedNewPassword = passwordEncoder.encode(newPassword);
+        existingAdmin.setPassword(encodedNewPassword);
+        existingAdmin.setUpdatedTime(LocalDateTime.now()); // 更新修改时间，保持与其他方法一致
+
+        // 5. 保存到数据库
+        adminRepository.save(existingAdmin);
+        return true;
+    }
+
 }
