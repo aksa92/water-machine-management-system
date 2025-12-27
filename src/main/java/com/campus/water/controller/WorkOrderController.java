@@ -73,15 +73,20 @@ public class WorkOrderController {
         }
     }
 
-    // 新增：审核工单接口（管理员专用）
+    // 1. 创建请求体类
+    @Data
+    public static class ReviewOrderRequest {
+        private String orderId;
+        private boolean approved;
+    }
+
+    // 2. 修改接口接收方式
     @PostMapping("/review")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN')")
-    public ResultVO<Boolean> reviewOrder(
-            @RequestParam String orderId,
-            @RequestParam boolean approved) {
+    public ResultVO<Boolean> reviewOrder(@RequestBody ReviewOrderRequest request) {
         try {
-            boolean result = workOrderService.reviewOrder(orderId, approved);
-            return result ? ResultVO.success(true, approved ? "审核通过" : "审核不通过")
+            boolean result = workOrderService.reviewOrder(request.getOrderId(), request.isApproved());
+            return result ? ResultVO.success(true, request.isApproved() ? "审核通过" : "审核不通过")
                     : ResultVO.error(400, "审核失败，工单状态异常");
         } catch (Exception e) {
             return ResultVO.error(500, "审核失败：" + e.getMessage());

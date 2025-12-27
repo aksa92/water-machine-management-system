@@ -26,8 +26,10 @@
         <div class="filter-item">
           <select v-model="searchFilters.areaId" @change="handleSearch">
             <option value="">全部区域</option>
-            <option value="市区">市区</option>
-            <option value="校区">校区</option>
+            <option value="A">A区</option>
+            <option value="B">B区</option>
+            <option value="C">C区</option>
+            <option value="D">D区</option>
           </select>
         </div>
 
