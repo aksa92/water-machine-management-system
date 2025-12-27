@@ -115,4 +115,33 @@ public class AdminService {
     public void setPasswordEncoder(PasswordEncoder passwordEncoder) {
         this.passwordEncoder = passwordEncoder;
     }
+
+    /**
+     * 个人信息更新（限制可修改字段）
+     */
+    public Admin updateProfile(Admin profile) {
+        // 1. 获取数据库中原始信息
+        Admin existingAdmin = adminRepository.findByAdminId(profile.getAdminId())
+                .orElseThrow(() -> new RuntimeException("管理员不存在"));
+
+        // 2. 仅更新允许修改的字段（排除角色、区域等敏感信息）
+        existingAdmin.setAdminName(profile.getAdminName());
+        existingAdmin.setPhone(profile.getPhone());
+        existingAdmin.setUpdatedTime(LocalDateTime.now());
+
+        // 3. 密码修改单独处理（如果有密码更新需求）
+        if (profile.getPassword() != null && !profile.getPassword().isEmpty()) {
+            existingAdmin.setPassword(passwordEncoder.encode(profile.getPassword()));
+        }
+
+        return adminRepository.save(existingAdmin);
+    }
+
+    /**
+     * 辅助方法：通过用户名查询管理员
+     */
+    public Optional<Admin> getAdminByName(String username) {
+        return adminRepository.findByAdminName(username);
+    }
+
 }
