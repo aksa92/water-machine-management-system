@@ -155,4 +155,25 @@ public class AdminController {
         }
     }
 
+    /**
+     * 获取当前登录管理员信息
+     */
+    @GetMapping("/current")
+    @PreAuthorize("isAuthenticated()") // 只要登录即可访问
+    @Operation(summary = "获取当前登录管理员信息", description = "返回当前登录管理员的完整信息（含角色、区域等）")
+    public ResponseEntity<ResultVO<Admin>> getCurrentAdmin(Authentication authentication) {
+        try {
+            // 1. 从Authentication中获取当前登录用户名
+            String currentUsername = authentication.getName();
+
+            // 2. 调用服务层查询完整管理员信息
+            Admin currentAdmin = adminService.getAdminByName(currentUsername)
+                    .orElseThrow(() -> new RuntimeException("当前登录用户信息不存在"));
+
+            return ResponseEntity.ok(ResultVO.success(currentAdmin));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ResultVO.error(500, "获取当前用户信息失败：" + e.getMessage()));
+        }
+    }
+
 }
