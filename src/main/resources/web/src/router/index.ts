@@ -70,6 +70,17 @@ const router = createRouter({
                         title: '供水设备'
                     }
                 },
+                {
+                 path: '/home/equipment/terminal',
+                 component: () => import('@/views/equipment/Terminal.vue'),
+                 meta: { requiresAuth: true }
+                 },
+                 {
+                 path: '/home/equipment/terminal/:id',
+                 component: () => import('@/views/equipment/TerminalDetail.vue'), // 如果需要详情页
+                 meta: { requiresAuth: true }
+                 },
+
                 // 工单管理相关路由
                 {
                     path: 'work-order',

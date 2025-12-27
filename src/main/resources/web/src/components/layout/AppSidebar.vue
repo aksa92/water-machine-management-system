@@ -55,7 +55,8 @@ const menuItems: MenuItem[] = [
     route: '/home/equipment',
     children: [
       { name: '制水机', route: '/home/equipment/water-maker' },
-      { name: '供水机', route: '/home/equipment/water-supplier' }
+      { name: '供水机', route: '/home/equipment/water-supplier' },
+      { name: '终端机', route: '/home/equipment/terminal' }  // 添加终端机菜单项
     ]
   },
   { 

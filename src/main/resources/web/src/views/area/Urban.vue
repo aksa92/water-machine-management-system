@@ -27,39 +27,39 @@
     <div class="card">
       <table class="area-table">
         <thead>
-          <tr>
-            <th>片区</th>
-            <th>设备数量</th>
-            <th>范围</th>
-            <th>操作</th>
-          </tr>
+        <tr>
+          <th>片区</th>
+          <th>设备数量</th>
+          <th>范围</th>
+          <th>操作</th>
+        </tr>
         </thead>
         <tbody>
-          <tr v-for="area in filteredAreas" :key="area.areaId">
-            <td>{{ area.areaName }}</td>
-            <td>{{ area.deviceCount || 0 }}</td>
-            <td>{{ area.address || '未设置' }}</td>
-            <td class="operation-buttons">
-              <button
+        <tr v-for="area in filteredAreas" :key="area.areaId">
+          <td>{{ area.areaName }}</td>
+          <td>{{ area.deviceCount || 0 }}</td>
+          <td>{{ area.address || '未设置' }}</td>
+          <td class="operation-buttons">
+            <button
                 class="btn-edit"
                 @click="handleEdit(area)"
-              >
-                编辑
-              </button>
-              <button
+            >
+              编辑
+            </button>
+            <button
                 class="btn-delete"
                 @click="handleDelete(area.areaId, area.areaName)"
-              >
-                删除
-              </button>
-            </td>
-          </tr>
-          <tr v-if="loading">
-            <td colspan="4" class="no-data">正在加载数据...</td>
-          </tr>
-          <tr v-else-if="filteredAreas.length === 0">
-            <td colspan="4" class="no-data">暂无片区数据</td>
-          </tr>
+            >
+              删除
+            </button>
+          </td>
+        </tr>
+        <tr v-if="loading">
+          <td colspan="4" class="no-data">正在加载数据...</td>
+        </tr>
+        <tr v-else-if="filteredAreas.length === 0">
+          <td colspan="4" class="no-data">暂无片区数据</td>
+        </tr>
         </tbody>
       </table>
     </div>
@@ -67,9 +67,9 @@
     <!-- 分页控件 -->
     <div class="pagination">
       <button
-        class="page-btn"
-        :disabled="currentPage === 1 || loading"
-        @click="currentPage--"
+          class="page-btn"
+          :disabled="currentPage === 1 || loading"
+          @click="currentPage--"
       >
         上一页
       </button>
@@ -77,9 +77,9 @@
         第 {{ currentPage }} 页 / 共 {{ totalPages }} 页
       </span>
       <button
-        class="page-btn"
-        :disabled="currentPage === totalPages || loading"
-        @click="currentPage++"
+          class="page-btn"
+          :disabled="currentPage === totalPages || loading"
+          @click="currentPage++"
       >
         下一页
       </button>
@@ -97,34 +97,34 @@
             <div class="form-item">
               <label>片区名称：</label>
               <input
-                type="text"
-                v-model="formData.areaName"
-                placeholder="请输入片区名称"
-                required
+                  type="text"
+                  v-model="formData.areaName"
+                  placeholder="请输入片区名称"
+                  required
               >
             </div>
             <div class="form-item">
               <label>片区范围：</label>
               <textarea
-                v-model="formData.address"
-                placeholder="请输入片区范围描述"
-                rows="3"
+                  v-model="formData.address"
+                  placeholder="请输入片区范围描述"
+                  rows="3"
               ></textarea>
             </div>
             <div class="form-item">
               <label>负责人：</label>
               <input
-                type="text"
-                v-model="formData.manager"
-                placeholder="请输入负责人姓名"
+                  type="text"
+                  v-model="formData.manager"
+                  placeholder="请输入负责人姓名"
               >
             </div>
             <div class="form-item">
               <label>联系电话：</label>
               <input
-                type="text"
-                v-model="formData.managerPhone"
-                placeholder="请输入负责人联系电话"
+                  type="text"
+                  v-model="formData.managerPhone"
+                  placeholder="请输入负责人联系电话"
               >
             </div>
             <div class="form-actions">
@@ -227,8 +227,8 @@ const filteredAreas = computed(() => {
 // 总页数计算
 const totalPages = computed(() => {
   const filteredCount = selectedArea.value
-    ? areaList.value.filter(area => area.areaId === selectedArea.value).length
-    : areaList.value.length
+      ? areaList.value.filter(area => area.areaId === selectedArea.value).length
+      : areaList.value.length
   return Math.ceil(filteredCount / pageSize.value)
 })
 
@@ -245,7 +245,7 @@ const fetchAreaList = async () => {
     }
 
     // 将参数拼接到URL中
-    const url = `/api/web/area/list?areaType=zone`
+    const url = `/api/web/area/cities`
     const response = await request<{
       code: number
       msg: string

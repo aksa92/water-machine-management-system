@@ -79,7 +79,7 @@ public class WorkOrderController {
         private String orderId;
         private boolean approved;
     }
-
+    // 审核工单
     // 2. 修改接口接收方式
     @PostMapping("/review")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN')")
