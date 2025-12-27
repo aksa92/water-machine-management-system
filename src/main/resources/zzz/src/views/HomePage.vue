@@ -9,7 +9,12 @@
         </div>
       </div>
       <div class="header-title">运维工作台</div>
-      <div class="header-right"></div>
+      <div class="header-right">
+        <div class="notification-icon" @click="goToNotifications">
+          <span>🔔</span>
+          <span v-if="unreadCount > 0" class="notification-badge">{{ unreadCount }}</span>
+        </div>
+      </div>
     </div>
     <!-- 主要内容区域 -->
     <div class="main-content">
@@ -91,11 +96,28 @@
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { workOrderService } from '@/services/workOrderService'
+import { notificationService } from '@/services/notificationService'
 
 const authStore = useAuthStore()
 const userInfo = authStore.getUserInfo()
 const router = useRouter()
+// 添加未读通知数量
+const unreadCount = ref(0)
 
+// 获取未读通知数量
+const loadUnreadNotifications = async () => {
+  try {
+    const repairmanId = authStore.getRepairmanId
+    if (repairmanId) {
+      const response = await notificationService.getUnreadNotifications(repairmanId)
+      if (response.code === 200) {
+        unreadCount.value = response.data.length
+      }
+    }
+  } catch (error) {
+    console.error('获取未读通知失败:', error)
+  }
+}
 // 工单数据
 const processingOrders = ref([])
 const loading = ref(false)
@@ -195,9 +217,15 @@ const goToProfile = () => {
   router.push('/profile')
 }
 
+// 添加跳转到通知页面的函数
+const goToNotifications = () => {
+  router.push('/notifications')
+}
+
 // 页面加载时获取工单数据
 onMounted(() => {
   fetchProcessingOrders()
+  loadUnreadNotifications()
 })
 </script>
 
@@ -434,5 +462,29 @@ onMounted(() => {
   text-align: center;
   padding: 20px;
   color: #666;
+}
+
+.notification-icon {
+  position: relative;
+  cursor: pointer;
+  font-size: 20px;
+  display: inline-block;
+}
+
+.notification-badge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  background: #ff4d4f;
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
 }
 </style>
