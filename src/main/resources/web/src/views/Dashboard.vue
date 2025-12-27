@@ -74,7 +74,7 @@
 
         <!-- 告警列表 -->
         <div v-else class="alert-list">
-          <!-- 只显示前10条告警 -->
+          <!-- 只显示前10条告警，按时间倒序排列 -->
           <div v-for="(alert, index) in recentAlerts.slice(0, 10)" :key="alert.alertId" class="alert-item">
             <div class="alert-text">{{ alert.deviceId }}：{{ alert.alertMessage }}</div>
             <div class="alert-time">{{ formatDateTime(alert.timestamp) }}</div>
@@ -245,6 +245,7 @@ const fetchStatsData = async () => {
 }
 
 // 获取告警数据
+// 获取告警数据
 const fetchAlertData = async () => {
   loadingAlerts.value = true
   alertPermissionError.value = false
@@ -271,24 +272,25 @@ const fetchAlertData = async () => {
       // 确保数据是数组
       const alerts = Array.isArray(alertResult.data) ? alertResult.data : []
 
-      // 只取前10条
-      recentAlerts.value = alerts.slice(0, 10)
+      // 按时间倒序排序（最新的在前面）
+      const sortedAlerts = [...alerts].sort((a, b) => {
+        // 将时间字符串转换为Date对象进行比较
+        const timeA = new Date(a.timestamp).getTime()
+        const timeB = new Date(b.timestamp).getTime()
+        return timeB - timeA // 降序排列（最新的在前）
+      })
 
-      // 如果有告警，设置最新告警
-      if (recentAlerts.value.length > 0) {
-        const sortedAlerts = [...recentAlerts.value].sort((a, b) => {
-          const priorityMap: Record<string, number> = {
-            'critical': 4,
-            'error': 3,
-            'warning': 2,
-            'info': 1
-          };
-          return (priorityMap[b.alertLevel?.toLowerCase()] || 0) - (priorityMap[a.alertLevel?.toLowerCase()] || 0);
-        });
-        latestAlert.value = sortedAlerts[0] ?? null;
+      // 只取前10条
+      recentAlerts.value = sortedAlerts.slice(0, 10)
+
+      // 如果有告警，设置最新告警（时间最新的）
+      // 修改第222行附近的代码
+      if (recentAlerts.value.length > 0 && recentAlerts.value[0]) {
+        latestAlert.value = recentAlerts.value[0] // 第一个是最新时间的告警
       } else {
-        latestAlert.value = null;
+        latestAlert.value = null
       }
+
     }
   } catch (error: any) {
     console.error('获取告警数据失败:', error)
@@ -317,6 +319,7 @@ const fetchAlertData = async () => {
     loadingAlerts.value = false
   }
 }
+
 
 // 组件挂载时获取数据
 onMounted(() => {

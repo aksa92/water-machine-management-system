@@ -82,6 +82,11 @@ public class AdminController {
     public ResponseEntity<ResultVO<Admin>> saveAdmin(@RequestBody Admin admin) {
         // 实现保持不变
         try {
+
+            if (admin.getAdminName() == null || admin.getAdminName().trim().isEmpty()) {
+                return ResponseEntity.ok(ResultVO.error(400, "管理员姓名不能为空"));
+            }
+
             Admin savedAdmin = adminService.saveAdmin(admin);
             return ResponseEntity.ok(ResultVO.success(savedAdmin));
         } catch (Exception e) {

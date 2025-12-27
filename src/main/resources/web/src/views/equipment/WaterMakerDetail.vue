@@ -1,4 +1,3 @@
-<!-- src/views/equipment/WaterMakerDetail.vue -->
 <template>
   <div class="water-maker-detail-page">
     <!-- 页面标题和面包屑 -->
@@ -114,6 +113,49 @@
       </div>
     </div>
 
+    <!-- 关联的供水机列表卡片 -->
+    <div class="card detail-card">
+      <h3>
+        关联的供水机
+        <span v-if="loadingSuppliers" class="loading-indicator">加载中...</span>
+      </h3>
+      <div v-if="supplierDevices.length > 0" class="suppliers-list">
+        <div
+          v-for="(supplier, index) in supplierDevices"
+          :key="index"
+          class="supplier-item"
+        >
+          <div class="supplier-header">
+            <h4>{{ supplier.deviceName || supplier.deviceId }}</h4>
+            <span :class="`status-tag ${supplier.status}`">
+              {{ formatStatus(supplier.status) }}
+            </span>
+          </div>
+          <div class="supplier-details">
+            <div class="detail-item">
+              <span class="label">设备ID:</span>
+              <span class="value">{{ supplier.deviceId }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">设备类型:</span>
+              <span class="value">{{ formatDeviceType(supplier.deviceType) }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">安装位置:</span>
+              <span class="value">{{ supplier.installLocation || '-' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">所属片区:</span>
+              <span class="value">{{ supplier.areaId || '-' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div v-else-if="!loadingSuppliers" class="no-data">
+        该制水机暂未关联任何供水机
+      </div>
+    </div>
+
     <!-- 加载中提示 -->
     <div v-if="loading" class="loading">
       正在加载设备详情...
@@ -161,6 +203,18 @@ interface WaterMakerRealtimeData {
   createdTime?: string // 创建时间
 }
 
+// 供水机设备信息
+interface SupplierDevice {
+  deviceId: string
+  deviceName: string
+  deviceType: string
+  areaId: string
+  installLocation: string
+  status: string
+  createTime?: string
+  lastHeartbeatTime?: string
+}
+
 interface DeviceDetail {
   deviceInfo: DeviceInfo
   realtimeData?: WaterMakerRealtimeData
@@ -171,7 +225,9 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const deviceDetail = ref<DeviceDetail | null>(null)
+const supplierDevices = ref<SupplierDevice[]>([]) // 新增：关联的供水机列表
 const loading = ref(true)
+const loadingSuppliers = ref(false) // 新增：供水机加载状态
 const error = ref('')
 
 // 获取设备ID
@@ -226,6 +282,43 @@ const goBack = () => {
   router.go(-1)
 }
 
+// 获取关联的供水机信息
+const loadSupplierDevices = async (makerId: string) => {
+  try {
+    loadingSuppliers.value = true
+
+    // 检查token
+    const token = authStore.token
+    if (!token) {
+      router.push('/login')
+      return
+    }
+
+    // 调用现有的接口获取供水机列表
+    const result = await request<ResultVO<SupplierDevice[]>>(
+      `/api/web/device/maker/${makerId}/suppliers`,
+      { method: 'GET' }
+    )
+
+    if (result.code === 200 && result.data && Array.isArray(result.data)) {
+      supplierDevices.value = result.data
+      console.log('关联的供水机数据:', result.data)
+    } else {
+      console.warn('获取关联供水机失败:', result.message)
+      supplierDevices.value = []
+    }
+  } catch (err) {
+    console.error('加载关联供水机失败:', err)
+    supplierDevices.value = []
+    if ((err as Error).message.includes('401')) {
+      authStore.logout()
+      router.push('/login')
+    }
+  } finally {
+    loadingSuppliers.value = false
+  }
+}
+
 // 加载设备详情
 const loadDeviceDetail = async () => {
   try {
@@ -248,6 +341,11 @@ const loadDeviceDetail = async () => {
     if (result.code === 200 && result.data) {
       deviceDetail.value = result.data
       console.log('设备详情数据:', deviceDetail.value)
+
+      // 如果是制水机，加载关联的供水机信息
+      if (result.data.deviceInfo?.deviceType === 'water_maker') {
+        await loadSupplierDevices(deviceId)
+      }
     } else {
       error.value = result.message || '获取设备详情失败'
     }
@@ -408,5 +506,53 @@ onMounted(() => {
   .water-maker-detail-page {
     padding: 16px;
   }
+}
+
+/* 新增样式 */
+.suppliers-list {
+  margin-top: 16px;
+}
+
+.supplier-item {
+  border: 1px solid #eee;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  padding: 16px;
+  background-color: #fafafa;
+}
+
+.supplier-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eee;
+}
+
+.supplier-header h4 {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.supplier-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.no-data {
+  text-align: center;
+  color: #999;
+  font-style: italic;
+  padding: 20px 0;
+}
+
+.loading-indicator {
+  font-size: 14px;
+  color: #666;
+  font-weight: normal;
+  margin-left: 8px;
 }
 </style>

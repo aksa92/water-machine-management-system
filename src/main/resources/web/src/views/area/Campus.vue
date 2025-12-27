@@ -11,8 +11,7 @@
     <div class="action-bar">
       <!-- 新增校区按钮 -->
       <button class="btn-add" @click="handleAddCampus">新增校区</button>
-      <!-- 导航到片区管理按钮 -->
-      <button class="btn-nav" @click="goToZoneManagement">管理片区</button>
+
     </div>
 
     <!-- 校区表格 -->
@@ -89,6 +88,18 @@
         </div>
         <div class="modal-body">
           <form @submit.prevent="handleSave">
+            <div class="form-item" v-if="!isEdit">
+              <label>所属市区：</label>
+              <select
+                v-model="formData.parentAreaId"
+                required
+              >
+                <option value="">请选择所属市区</option>
+                <option v-for="city in cityList" :key="city.areaId" :value="city.areaId">
+                  {{ city.areaName }}
+                </option>
+              </select>
+            </div>
             <div class="form-item">
               <label>校区名称：</label>
               <input
@@ -109,20 +120,24 @@
             </div>
             <div class="form-item">
               <label>负责人：</label>
-              <input
-                type="text"
-                v-model="formData.manager"
-                placeholder="请输入负责人姓名"
+              <select
+                v-model="selectedManager"
+                @change="onManagerChange"
                 required
               >
+                <option value="">请选择负责人</option>
+                <option v-for="admin in adminList" :key="admin.adminId" :value="admin">
+                  {{ admin.adminName }}
+                </option>
+              </select>
             </div>
             <div class="form-item">
               <label>联系电话：</label>
               <input
                 type="text"
                 v-model="formData.managerPhone"
-                placeholder="请输入负责人联系电话"
-                required
+                placeholder="联系电话会自动填充"
+                readonly
               >
             </div>
             <div class="form-actions">
@@ -167,6 +182,18 @@ import { useAuthStore } from '@/stores/auth'  // 导入 authStore
 const router = useRouter()
 const authStore = useAuthStore()
 
+// 管理员数据接口
+interface Admin {
+  adminId: string
+  adminName: string
+  password: string
+  phone: string
+  role: string
+  areaId: string | null
+  createdTime?: Date
+  updatedTime?: Date
+}
+
 // 校区数据接口，与后端Area实体对应
 interface Area {
   areaId: string
@@ -182,6 +209,9 @@ interface Area {
 
 // 响应式数据
 const campusList = ref<Area[]>([])
+const cityList = ref<Area[]>([])
+const adminList = ref<Admin[]>([])
+const selectedManager = ref<Admin | null>(null)
 const selectedCampus = ref('')
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -248,21 +278,47 @@ const fetchCampusList = async () => {
       return
     }
 
-    const response = await request<{
+    // 需要先获取所有市区，然后获取所有校区
+    // 方案1: 获取所有市区，然后获取每个市区下的校区
+    const citiesResponse = await request<{
       code: number
       msg: string
       data: Area[]
-    }>('/api/web/area/list-campus', {
+    }>('/api/web/area/cities', {
       method: 'GET',
     })
 
-    if (response.code === 200) {
-      campusList.value = response.data
-    } else {
-      const errorMsg = response.msg || `获取失败（错误码：${response.code}）`
-      console.error('获取校区列表失败:', errorMsg)
-      alert(`获取校区列表失败：${errorMsg}`)
+    if (citiesResponse?.code !== 200 || !citiesResponse?.data) {
+      console.error('获取市区列表失败:', citiesResponse?.msg || '未知错误')
+      alert(`获取市区列表失败：${citiesResponse?.msg || '未知错误'}`)
+      return
     }
+
+    const cities = citiesResponse.data
+    const allCampuses: Area[] = []
+
+    // 获取每个市区下的校区
+    for (const city of cities) {
+      try {
+        const campusResponse = await request<{
+          code: number
+          msg: string
+          data: Area[]
+        }>(`/api/web/area/campuses/${city.areaId}`, {
+          method: 'GET',
+        })
+
+        if (campusResponse?.code === 200 && campusResponse?.data) {
+          allCampuses.push(...campusResponse.data)
+        } else {
+          console.warn(`获取市区 ${city.areaName} 的校区失败:`, campusResponse?.msg || '未知错误')
+        }
+      } catch (error) {
+        console.warn(`获取市区 ${city.areaName} 的校区时出错:`, error)
+      }
+    }
+
+    campusList.value = allCampuses
   } catch (error: any) {
     console.error('请求异常:', error)
     const errorMsg = error.message.includes('401') || error.message.includes('403')
@@ -276,6 +332,94 @@ const fetchCampusList = async () => {
   }
 }
 
+// 获取市区列表
+const fetchCityList = async () => {
+  try {
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
+    }
+
+    const response = await request<{
+      code: number
+      msg: string
+      data: Area[]
+    }>('/api/web/area/cities', {
+      method: 'GET',
+    })
+
+    if (response?.code === 200 && response?.data) {
+      cityList.value = response.data
+    } else {
+      console.error('获取市区列表失败:', response?.msg || '未知错误')
+      alert(`获取市区列表失败：${response?.msg || '未知错误'}`)
+    }
+  } catch (error: any) {
+    console.error('获取市区列表异常:', error)
+    const errorMsg = error.message.includes('401') || error.message.includes('403')
+        ? '权限不足或登录已过期，请重新登录'
+        : error.message.includes('Network')
+            ? '网络连接失败，请检查网络'
+            : error.message || '获取市区列表失败，请稍后重试'
+    alert(`获取市区列表失败：${errorMsg}`)
+  }
+}
+
+// 获取区域管理员列表
+// 修改获取管理员列表的函数
+const fetchAdminList = async () => {
+  try {
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
+    }
+
+    // 先获取所有管理员，然后在前端过滤
+    const response = await request<{
+      code: number
+      msg: string
+      data: Admin[]
+    }>('/api/web/admin/list', {
+      method: 'GET',
+    })
+
+    if (response?.code === 200 && response?.data) {
+      // 过滤出区域管理员
+      const areaAdmins = response.data.filter(admin =>
+        admin.role === 'AREA_ADMIN' || admin.role === 'ROLE_AREA_ADMIN'
+      )
+      adminList.value = areaAdmins
+    } else {
+      console.error('获取管理员列表失败:', response?.msg || '未知错误')
+      alert(`获取管理员列表失败：${response?.msg || '未知错误'}`)
+    }
+  } catch (error: any) {
+    console.error('获取管理员列表异常:', error)
+    const errorMsg = error.message.includes('401') || error.message.includes('403')
+        ? '权限不足或登录已过期，请重新登录'
+        : error.message.includes('Network')
+            ? '网络连接失败，请检查网络'
+            : error.message || '获取管理员列表失败，请稍后重试'
+    alert(`获取管理员列表失败：${errorMsg}`)
+  }
+}
+
+
+// 处理负责人选择变化
+const onManagerChange = () => {
+  if (selectedManager.value) {
+    formData.value.manager = selectedManager.value.adminName
+    formData.value.managerPhone = selectedManager.value.phone
+  } else {
+    formData.value.manager = ''
+    formData.value.managerPhone = ''
+  }
+}
+
 // 新增校区
 const handleAddCampus = () => {
   isEdit.value = false
@@ -284,13 +428,14 @@ const handleAddCampus = () => {
     areaId: '',
     areaName: '',
     areaType: 'campus',
-    parentAreaId: null,
+    parentAreaId: null, // 重置为null，让用户选择
     address: '',
     manager: '',
     managerPhone: '',
     createdTime: undefined,
     updatedTime: undefined
   }
+  selectedManager.value = null
   showModal.value = true
 }
 
@@ -298,6 +443,11 @@ const handleAddCampus = () => {
 const handleEdit = (campus: Area) => {
   isEdit.value = true
   formData.value = { ...campus }
+
+  // 尝试匹配现有的负责人
+  const matchedAdmin = adminList.value.find(admin => admin.adminName === campus.manager)
+  selectedManager.value = matchedAdmin || null
+
   showModal.value = true
 }
 
@@ -326,11 +476,11 @@ const confirmDelete = async () => {
       method: 'DELETE',
     })
 
-    if (response.code === 200) {
+    if (response?.code === 200) {
       fetchCampusList() // 重新获取列表
       showDeleteConfirm.value = false
     } else {
-      const errorMsg = response.msg || `删除失败（错误码：${response.code}）`
+      const errorMsg = response?.msg || `删除失败（错误码：${response?.code || '未知'}）`
       console.error('删除校区失败:', errorMsg)
       alert(`删除校区失败：${errorMsg}`)
     }
@@ -358,8 +508,19 @@ const handleSave = async () => {
       return
     }
 
+    // 校园类型必须有父级区域ID
+    if (!isEdit.value && (!formData.value.parentAreaId || formData.value.parentAreaId.trim() === '')) {
+      alert('新增校区时必须选择所属市区')
+      return
+    }
+
+    // 必须选择负责人
+    if (!selectedManager.value) {
+      alert('请选择负责人')
+      return
+    }
+
     let response
-    let result
 
     if (isEdit.value) {
       // 编辑模式
@@ -372,11 +533,11 @@ const handleSave = async () => {
         body: JSON.stringify(formData.value)
       })
 
-      if (response.code === 200) {
+      if (response?.code === 200 && response?.data) {
         fetchCampusList() // 重新获取列表
         showModal.value = false
       } else {
-        const errorMsg = response.msg || `更新失败（错误码：${response.code}）`
+        const errorMsg = response?.msg || `更新失败（错误码：${response?.code || '未知'}）`
         console.error('更新校区失败:', errorMsg)
         alert(`更新校区失败：${errorMsg}`)
       }
@@ -385,6 +546,7 @@ const handleSave = async () => {
       const newCampus = {
         areaName: formData.value.areaName,
         areaType: 'campus' as const,
+        parentAreaId: formData.value.parentAreaId, // 必须包含父级区域ID
         address: formData.value.address,
         manager: formData.value.manager,
         managerPhone: formData.value.managerPhone
@@ -399,11 +561,11 @@ const handleSave = async () => {
         body: JSON.stringify(newCampus)
       })
 
-      if (response.code === 200) {
+      if (response?.code === 200 && response?.data) {
         fetchCampusList() // 重新获取列表
         showModal.value = false
       } else {
-        const errorMsg = response.msg || `新增失败（错误码：${response.code}）`
+        const errorMsg = response?.msg || `新增失败（错误码：${response?.code || '未知'}）`
         console.error('新增校区失败:', errorMsg)
         alert(`新增校区失败：${errorMsg}`)
       }
@@ -421,14 +583,11 @@ const handleSave = async () => {
   }
 }
 
-// 导航到片区管理页面
-const goToZoneManagement = () => {
-  router.push('/area/zone')
-}
-
 // 初始化加载数据
-onMounted(() => {
+onMounted(async () => {
   console.log('Token:', authStore.token)
+  await fetchCityList() // 先加载市区列表
+  await fetchAdminList() // 加载管理员列表
   fetchCampusList()
 })
 </script>
