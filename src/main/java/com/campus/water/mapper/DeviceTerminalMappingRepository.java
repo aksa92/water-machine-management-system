@@ -19,4 +19,15 @@ public interface DeviceTerminalMappingRepository extends JpaRepository<DeviceTer
 
     // 根据设备和终端ID精确查找映射
     Optional<DeviceTerminalMapping> findByDeviceIdAndTerminalId(String deviceId, String terminalId);
+
+    // ========== 新增必要方法（支撑终端增删改查业务） ==========
+    // 1. 判断终端是否已绑定设备（删除终端时的核心校验）
+    boolean existsByTerminalId(String terminalId);
+
+    // 2. 按终端名称模糊查询（终端列表筛选）
+    List<DeviceTerminalMapping> findByTerminalNameContaining(String terminalName);
+
+    // 3. 按终端ID删除所有关联映射（删除终端时级联清理映射数据）
+    void deleteByTerminalId(String terminalId);
+
 }
