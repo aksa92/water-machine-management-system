@@ -4,6 +4,7 @@ import com.campus.water.entity.Area;
 import com.campus.water.service.AreaService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -16,7 +17,7 @@ import java.util.Map;
  * 适配 Area 实体（areaId 主键、市区-校园层级）
  */
 @RestController
-@RequestMapping("/api/area")
+@RequestMapping("/api/web/area") // 统一管理端接口前缀：/api/web
 @CrossOrigin // 允许跨域（前端调用时需要）
 public class AreaController {
 
@@ -44,19 +45,17 @@ public class AreaController {
 
     /**
      * 新增区域（市区/校园）
-     * @param area 区域信息（JSON格式）
-     * @return 新增后的区域对象
+     * 权限：超级管理员/区域管理员可操作
      */
     @PostMapping("/add")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN')") // 补充权限注解
     public ResponseEntity<Map<String, Object>> addArea(@RequestBody Area area) {
         try {
             Area savedArea = areaService.addArea(area);
             return ResponseEntity.ok(buildResponse(200, "新增成功", savedArea));
         } catch (RuntimeException e) {
-            // 业务异常：400状态码 + 具体提示
             return ResponseEntity.badRequest().body(buildResponse(400, e.getMessage(), null));
         } catch (Exception e) {
-            // 系统异常：500状态码 + 通用提示
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(buildResponse(500, "新增区域失败：" + e.getMessage(), null));
         }
@@ -64,11 +63,10 @@ public class AreaController {
 
     /**
      * 修改区域
-     * @param areaId 区域ID
-     * @param area 待修改的区域信息
-     * @return 修改后的区域对象
+     * 权限：超级管理员/区域管理员可操作
      */
     @PutMapping("/update/{areaId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN')") // 补充权限注解
     public ResponseEntity<Map<String, Object>> updateArea(@PathVariable String areaId, @RequestBody Area area) {
         try {
             Area updatedArea = areaService.updateArea(areaId, area);
@@ -83,10 +81,10 @@ public class AreaController {
 
     /**
      * 删除区域
-     * @param areaId 区域ID
-     * @return 操作结果
+     * 权限：仅超级管理员可操作
      */
     @DeleteMapping("/delete/{areaId}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')") // 补充权限注解（删除权限更严格）
     public ResponseEntity<Map<String, Object>> deleteArea(@PathVariable String areaId) {
         try {
             areaService.deleteArea(areaId);
@@ -101,9 +99,10 @@ public class AreaController {
 
     /**
      * 查询所有市区（根节点）
-     * @return 市区列表
+     * 权限：超级管理员/区域管理员/维修人员均可查看（根据你项目实际需求调整）
      */
     @GetMapping("/cities")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN', 'REPAIRMAN')") // 补充权限注解
     public ResponseEntity<Map<String, Object>> getAllCities() {
         try {
             List<Area> cities = areaService.getAllCities();
@@ -116,10 +115,10 @@ public class AreaController {
 
     /**
      * 根据市区ID查询下属校园
-     * @param cityId 市区ID（areaId）
-     * @return 该市区下的校园列表
+     * 权限：超级管理员/区域管理员/维修人员均可查看
      */
     @GetMapping("/campuses/{cityId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN', 'REPAIRMAN')") // 补充权限注解
     public ResponseEntity<Map<String, Object>> getCampusesByCityId(@PathVariable String cityId) {
         try {
             List<Area> campuses = areaService.getCampusesByCityId(cityId);
@@ -134,11 +133,10 @@ public class AreaController {
 
     /**
      * 根据区域ID查询单个区域信息
-     * （扩展接口：方便前端回显详情）
-     * @param areaId 区域ID
-     * @return 区域详情
+     * 权限：超级管理员/区域管理员/维修人员均可查看
      */
     @GetMapping("/{areaId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN', 'REPAIRMAN')") // 补充权限注解
     public ResponseEntity<Map<String, Object>> getAreaById(@PathVariable String areaId) {
         try {
             Area area = areaService.getAreaById(areaId);
