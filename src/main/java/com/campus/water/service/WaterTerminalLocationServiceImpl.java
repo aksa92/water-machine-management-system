@@ -1,4 +1,4 @@
-package com.campus.water.service.impl;
+package com.campus.water.service;
 
 import com.campus.water.entity.DeviceTerminalMapping;
 import com.campus.water.entity.WaterTerminalLocation;
