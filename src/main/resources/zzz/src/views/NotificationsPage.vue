@@ -31,7 +31,7 @@
         <div
           v-for="notification in notifications"
           :key="notification.id"
-          :class="['notification-item', { 'unread': !notification.isRead }]"
+          :class="['notification-item', { 'unread': !getNotificationReadStatus(notification) }]"
           @click="viewNotification(notification)"
         >
           <div class="notification-content">
@@ -42,12 +42,12 @@
             <div class="notification-body">
               <div class="notification-text">{{ notification.content }}</div>
               <div class="notification-status">
-                <span v-if="!notification.isRead" class="unread-dot"></span>
-                <span class="status-text">{{ notification.isRead ? '已读' : '未读' }}</span>
+                <span v-if="!getNotificationReadStatus(notification)" class="unread-dot"></span>
+                <span class="status-text">{{ getNotificationReadStatus(notification) ? '已读' : '未读' }}</span>
               </div>
             </div>
           </div>
-          <div class="notification-actions" v-if="!notification.isRead">
+          <div class="notification-actions" v-if="!getNotificationReadStatus(notification)">
             <button class="mark-read-btn" @click.stop="markAsRead(notification.id)">
               标记已读
             </button>
@@ -80,6 +80,7 @@ const notifications = ref([])
 const loading = ref(true)
 
 // 获取通知列表
+// 修改 loadNotifications 函数，正确处理字段映射
 const loadNotifications = async () => {
   try {
     const repairmanId = authStore.getRepairmanId
@@ -92,7 +93,8 @@ const loadNotifications = async () => {
     if (response.code === 200) {
       notifications.value = response.data.map(notification => ({
         ...notification,
-        isRead: notification.isRead || false
+        // 重点：后端返回的字段可能是 'read' 而不是 'isRead'
+        isRead: notification.read !== undefined ? notification.read : notification.isRead || false
       }))
     } else {
       console.error('获取通知失败:', response.message)
@@ -105,25 +107,44 @@ const loadNotifications = async () => {
   }
 }
 
-// 标记单个通知为已读
+
+// 修正 markAsRead 函数，确保本地状态与后端同步
 const markAsRead = async (notificationId) => {
   try {
-    await notificationService.markNotificationAsRead(notificationId)
-    // 更新本地状态
-    const notification = notifications.value.find(n => n.id === notificationId)
-    if (notification) {
-      notification.isRead = true
+    const response = await notificationService.markNotificationAsRead(notificationId);
+    if (response.code === 200) {
+      console.log('标记已读成功');
+
+      // 重新加载通知列表以确保状态同步
+      await loadNotifications();
     }
   } catch (error) {
-    console.error('标记已读失败:', error)
-    alert('标记已读失败: ' + (error.message || '未知错误'))
+    console.error('标记已读失败:', error);
   }
-}
+};
 
-// 标记所有通知为已读
+// 创建一个辅助函数来获取通知的已读状态
+const getNotificationReadStatus = (notification) => {
+  return notification.read !== undefined ? notification.read : notification.isRead || false;
+};
+
+
+
+// 修复 markAsReadAndRefresh 函数
+const markAsReadAndRefresh = async (notificationId) => {
+  try {
+    await notificationService.markNotificationAsRead(notificationId);  // 修正函数名
+    // 立即刷新通知列表以获取最新状态
+    await loadNotifications();
+  } catch (error) {
+    console.error('操作失败:', error);
+  }
+};
+
+// 确保 markAllAsRead 函数也使用正确的函数名
 const markAllAsRead = async () => {
   try {
-    const unreadNotifications = notifications.value.filter(n => !n.isRead)
+    const unreadNotifications = notifications.value.filter(n => !n.isRead)  // 使用正确的字段名
     if (unreadNotifications.length === 0) {
       alert('没有未读通知')
       return
@@ -131,8 +152,11 @@ const markAllAsRead = async () => {
 
     for (const notification of unreadNotifications) {
       await notificationService.markNotificationAsRead(notification.id)
-      notification.isRead = true
+      notification.isRead = true  // 使用正确的字段名
     }
+
+    // 重新加载通知列表以获取最新状态
+    await loadNotifications();
 
     alert('已标记所有通知为已读')
   } catch (error) {
@@ -140,6 +164,8 @@ const markAllAsRead = async () => {
     alert('标记失败: ' + (error.message || '未知错误'))
   }
 }
+
+
 
 // 获取通知标题
 const getNotificationTitle = (notification) => {
@@ -174,16 +200,18 @@ const formatTime = (timeStr) => {
 
 // 查看通知详情
 const viewNotification = (notification) => {
+  const isRead = getNotificationReadStatus(notification);
+
   // 如果是派单通知，跳转到工单详情
   if (notification.type === 'ORDER_ASSIGNED' && notification.orderId) {
     router.push(`/work-orders/${notification.orderId}`)
     // 同时标记为已读
-    if (!notification.isRead) {
+    if (!isRead) {
       markAsRead(notification.id)
     }
   } else {
     // 标记为已读
-    if (!notification.isRead) {
+    if (!isRead) {
       markAsRead(notification.id)
     }
     // 显示通知内容
