@@ -86,7 +86,10 @@ const router = createRouter({
       path: '/notifications',
       name: 'NotificationsPage',
       component: () => import('../views/NotificationsPage.vue'),
-      meta: { requiresAuth: true }
+      meta: {
+        requiresAuth: true,
+        keepAlive: false  // 禁用 keep-alive，确保每次进入都重新加载
+      }
     }
   ]
 })
