@@ -46,4 +46,13 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, String> {
 
     //获取处于某些状态的工单
     List<WorkOrder> findByStatusIn(List<WorkOrder.OrderStatus> list);
+
+    /**
+     * 查询指定维修人员的待处理工单数量
+     * @param repairmanId 维修人员ID
+     * @param statuses 待处理工单状态集合
+     * @return 待处理工单数量
+     */
+    long countByAssignedRepairmanIdAndStatusIn(String repairmanId, List<WorkOrder.OrderStatus> statuses);
+
 }
