@@ -24,16 +24,6 @@
           <div class="area-divider"></div>
           <button class="view-btn" @click="viewYueluArea">查看</button>
         </div>
-
-        <!-- 雨花片区 -->
-        <div class="area-card">
-          <div class="area-info">
-            <div class="area-name">雨花片区</div>
-            <div class="area-details">3所学校 · 8台制水机</div>
-          </div>
-          <div class="area-divider"></div>
-          <button class="view-btn" @click="viewYuhuaArea">查看</button>
-        </div>
       </div>
     </div>
 
@@ -80,12 +70,6 @@ const goToProfile = () => {
 
 const viewYueluArea = () => {
   console.log('查看岳麓片区详情')
-  // 跳转到扫码页面
-  router.push('/inspection/scan')
-}
-
-const viewYuhuaArea = () => {
-  console.log('查看雨花片区详情')
   // 跳转到扫码页面
   router.push('/inspection/scan')
 }
