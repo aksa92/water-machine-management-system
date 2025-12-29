@@ -284,9 +284,9 @@ const userInfo = computed(() => {
 
 // 取水量选项
 const waterAmounts = [
-  { value: 150, price: '免费' },
-  { value: 200, price: '免费' },
-  { value: 250, price: '免费' }
+  { value: 250, price: '免费' },
+  { value: 500, price: '免费' },
+  { value: 750, price: '免费' }
 ]
 
 // 修改：将所有设备设置为在线状态
