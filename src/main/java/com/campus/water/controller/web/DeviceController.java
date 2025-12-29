@@ -1,6 +1,5 @@
 package com.campus.water.controller.web;
 
-import com.campus.water.entity.*;
 import com.campus.water.mapper.RepairerAuthRepository;
 import com.campus.water.mapper.WaterMakerRealtimeDataRepository;
 import com.campus.water.mapper.WaterSupplyRealtimeDataRepository;
@@ -17,7 +16,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.access.prepost.PreAuthorize;
-
+import com.campus.water.entity.Device;
+import com.campus.water.entity.RepairerAuth;
+import com.campus.water.entity.Repairman;
+import com.campus.water.entity.WaterMakerRealtimeData;
+import com.campus.water.entity.WaterSupplyRealtimeData;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -202,5 +205,52 @@ public class DeviceController {
             return ResponseEntity.ok(ResultVO.error(500, "按类型查询设备失败: " + e.getMessage()));
         }
     }*/
+
+    // ========== 新增1：获取所有片区列表（假设从Device表中提取唯一片区ID，若有Area实体可直接查询） ==========
+    @GetMapping("/areas")
+    @Operation(summary = "获取所有片区列表", description = "返回系统中所有已配置的片区ID和相关信息")
+    public ResponseEntity<ResultVO<List<String>>> getAllAreas() {
+        try {
+            // 从设备表中提取唯一的片区ID（若有独立Area表，可替换为AreaRepository查询）
+            List<Device> allDevices = deviceService.queryDevices(null, null, null);
+            List<String> areaList = allDevices.stream()
+                    .map(Device::getAreaId)
+                    .filter(areaId -> areaId != null && !areaId.trim().isEmpty())
+                    .distinct()
+                    .toList();
+            return ResponseEntity.ok(ResultVO.success(areaList, "片区列表查询成功"));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ResultVO.error(500, "片区列表查询失败: " + e.getMessage()));
+        }
+    }
+
+    // ========== 新增2：根据片区ID查询该片区的供水机列表 ==========
+    @GetMapping("/area/{areaId}/water-supplies")
+    @Operation(summary = "查询片区内供水机", description = "根据片区ID获取该片区下所有可用的供水机")
+    public ResponseEntity<ResultVO<List<Device>>> getWaterSuppliesByArea(@PathVariable String areaId) {
+        try {
+            List<Device> waterSupplies = deviceService.getWaterSuppliesByArea(areaId);
+            return ResponseEntity.ok(ResultVO.success(waterSupplies, "片区供水机查询成功"));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ResultVO.error(500, "片区供水机查询失败: " + e.getMessage()));
+        }
+    }
+
+    // ========== 新增：管理员编辑设备基本信息接口 ==========
+    @PutMapping("/edit")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')") // 限制仅管理员/超级管理员可访问
+    @Operation(summary = "编辑设备基本信息", description = "管理员更新设备名称、类型、安装位置等基本信息（不含设备状态、创建时间）")
+    public ResponseEntity<ResultVO<Device>> editDevice(@Valid @RequestBody Device device) {
+        try {
+            // 校验设备ID不能为空（编辑必须指定设备ID）
+            if (device.getDeviceId() == null || device.getDeviceId().trim().isEmpty()) {
+                return ResponseEntity.ok(ResultVO.error(400, "设备ID不能为空"));
+            }
+            Device updatedDevice = deviceService.updateDeviceInfo(device);
+            return ResponseEntity.ok(ResultVO.success(updatedDevice, "设备信息编辑成功"));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ResultVO.error(500, "设备信息编辑失败: " + e.getMessage()));
+        }
+    }
 
 }

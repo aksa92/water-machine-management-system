@@ -21,6 +21,8 @@ public class TerminalServiceImpl implements TerminalService {
 
     private final WaterTerminalLocationRepository locationRepository;
     private final DeviceTerminalMappingRepository mappingRepository;
+    // ========== 新增：注入DeviceService，用于片区和供水机校验 ==========
+    private final DeviceService deviceService;
 
     @Override
     @Transactional
@@ -33,6 +35,14 @@ public class TerminalServiceImpl implements TerminalService {
         // 2. 保存终端位置信息（经纬度为必填项，校验非空）
         if (terminalVO.getLongitude() == null || terminalVO.getLatitude() == null) {
             throw new RuntimeException("终端经度和纬度为必填项，不可为空");
+        }
+        // ========== 新增：校验片区ID非空 ==========
+        if (terminalVO.getAreaId() == null || terminalVO.getAreaId().trim().isEmpty()) {
+            throw new RuntimeException("片区ID不能为空，请先选择片区");
+        }
+        // ========== 新增：若传递了deviceId，校验供水机是否属于该片区 ==========
+        if (terminalVO.getDeviceId() != null && !terminalVO.getDeviceId().trim().isEmpty()) {
+            deviceService.validateDeviceBelongsToArea(terminalVO.getDeviceId(), terminalVO.getAreaId());
         }
         WaterTerminalLocation location = new WaterTerminalLocation();
         location.setTerminalId(terminalVO.getTerminalId());
@@ -49,6 +59,7 @@ public class TerminalServiceImpl implements TerminalService {
                 : terminalVO.getTerminalStatus());
         mapping.setDeviceId(terminalVO.getDeviceId());
         mapping.setInstallDate(terminalVO.getInstallDate());
+        mapping.setAreaId(terminalVO.getAreaId()); // 保存片区ID
         mappingRepository.save(mapping);
 
         // 4. 封装返回结果
@@ -61,7 +72,12 @@ public class TerminalServiceImpl implements TerminalService {
         // 1. 校验终端是否存在（通过位置表查询，复用原有findById方法）
         WaterTerminalLocation existingLocation = locationRepository.findById(terminalVO.getTerminalId())
                 .orElseThrow(() -> new RuntimeException("终端不存在，无法更新：" + terminalVO.getTerminalId()));
-
+        // ========== 新增：若更新片区/设备，校验供水机与片区的关联 ==========
+        if (terminalVO.getAreaId() != null && !terminalVO.getAreaId().trim().isEmpty()) {
+            if (terminalVO.getDeviceId() != null && !terminalVO.getDeviceId().trim().isEmpty()) {
+                deviceService.validateDeviceBelongsToArea(terminalVO.getDeviceId(), terminalVO.getAreaId());
+            }
+        }
         // 2. 更新终端位置信息（仅更新有值字段，复用原有save方法）
         if (terminalVO.getLongitude() != null) {
             existingLocation.setLongitude(terminalVO.getLongitude());
@@ -86,6 +102,9 @@ public class TerminalServiceImpl implements TerminalService {
         }
         if (terminalVO.getInstallDate() != null) {
             existingMapping.setInstallDate(terminalVO.getInstallDate());
+        }
+        if (terminalVO.getAreaId() != null && !terminalVO.getAreaId().trim().isEmpty()) {
+            existingMapping.setAreaId(terminalVO.getAreaId()); // 更新片区ID
         }
         mappingRepository.save(existingMapping);
 
@@ -166,6 +185,7 @@ public void deleteTerminal(String terminalId) {
         vo.setTerminalStatus(mapping.getTerminalStatus());
         vo.setDeviceId(mapping.getDeviceId());
         vo.setInstallDate(mapping.getInstallDate());
+        vo.setAreaId(mapping.getAreaId()); // 封装片区ID返回给前端
         return vo;
     }
 }
