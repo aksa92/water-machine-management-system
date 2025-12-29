@@ -156,12 +156,6 @@
           <span class="btn-arrow">›</span>
         </button>
 
-        <button class="action-btn setting-btn" @click="goToSettings">
-          <span class="btn-icon">⚙️</span>
-          <span class="btn-text">设置</span>
-          <span class="btn-arrow">›</span>
-        </button>
-
         <button class="action-btn logout-btn" @click="handleLogout">
           <span class="btn-icon">🚪</span>
           <span class="btn-text">退出登录</span>
