@@ -203,4 +203,34 @@ public class DeviceController {
         }
     }*/
 
+    // ========== 新增1：获取所有片区列表（假设从Device表中提取唯一片区ID，若有Area实体可直接查询） ==========
+    @GetMapping("/areas")
+    @Operation(summary = "获取所有片区列表", description = "返回系统中所有已配置的片区ID和相关信息")
+    public ResponseEntity<ResultVO<List<String>>> getAllAreas() {
+        try {
+            // 从设备表中提取唯一的片区ID（若有独立Area表，可替换为AreaRepository查询）
+            List<Device> allDevices = deviceService.queryDevices(null, null, null);
+            List<String> areaList = allDevices.stream()
+                    .map(Device::getAreaId)
+                    .filter(areaId -> areaId != null && !areaId.trim().isEmpty())
+                    .distinct()
+                    .toList();
+            return ResponseEntity.ok(ResultVO.success(areaList, "片区列表查询成功"));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ResultVO.error(500, "片区列表查询失败: " + e.getMessage()));
+        }
+    }
+
+    // ========== 新增2：根据片区ID查询该片区的供水机列表 ==========
+    @GetMapping("/area/{areaId}/water-supplies")
+    @Operation(summary = "查询片区内供水机", description = "根据片区ID获取该片区下所有可用的供水机")
+    public ResponseEntity<ResultVO<List<Device>>> getWaterSuppliesByArea(@PathVariable String areaId) {
+        try {
+            List<Device> waterSupplies = deviceService.getWaterSuppliesByArea(areaId);
+            return ResponseEntity.ok(ResultVO.success(waterSupplies, "片区供水机查询成功"));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ResultVO.error(500, "片区供水机查询失败: " + e.getMessage()));
+        }
+    }
+
 }

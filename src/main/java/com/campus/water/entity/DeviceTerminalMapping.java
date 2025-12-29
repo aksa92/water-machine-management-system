@@ -22,6 +22,9 @@ public class DeviceTerminalMapping {
     @Column(name = "device_id", length = 20)
     private String deviceId;
 
+    @Column(name = "area_id", length = 36)
+    private String areaId;
+
     @Column(name = "terminal_id", length = 20)
     private String terminalId;
 
