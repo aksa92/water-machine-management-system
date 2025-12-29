@@ -47,12 +47,6 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
-      path: '/inspection/scan',
-      name: 'InspectionScan',
-      component: () => import('../views/InspectionScan.vue'),
-      meta: { requiresAuth: true }
-    },
-    {
       path: '/inspection/water-maker',
       name: 'WaterMakerList',
       component: () => import('../views/WaterMakerList.vue'),

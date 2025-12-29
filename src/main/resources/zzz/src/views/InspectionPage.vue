@@ -70,8 +70,8 @@ const goToProfile = () => {
 
 const viewYueluArea = () => {
   console.log('查看岳麓片区详情')
-  // 跳转到扫码页面
-  router.push('/inspection/scan')
+  // 直接跳转到制水机列表页面，不再经过扫码页面
+  router.push('/inspection/water-maker')
 }
 </script>
 
