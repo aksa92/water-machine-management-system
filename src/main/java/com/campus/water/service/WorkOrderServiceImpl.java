@@ -55,9 +55,9 @@ public class WorkOrderServiceImpl implements WorkOrderService {
 
             // 检查工单状态是否为"待处理"（只有待处理的工单可被抢单）
             if (order.getStatus() == WorkOrder.OrderStatus.pending) {
-                // 查询维修人员是否存在且状态为"空闲"
+                // 查询维修人员是否存在
                 Optional<Repairman> repairman = repairmanRepository.findById(repairmanId);
-                if (repairman.isPresent() && repairman.get().getStatus() == Repairman.RepairmanStatus.idle) {
+                if (repairman.isPresent()) {
 
                     // 更新工单状态：改为"已抢单"，记录抢单时间和维修人员ID
                     order.setStatus(WorkOrder.OrderStatus.processing);
@@ -65,10 +65,8 @@ public class WorkOrderServiceImpl implements WorkOrderService {
                     order.setGrabbedTime(LocalDateTime.now());
                     workOrderRepository.save(order);
 
-                    // 更新维修人员状态：改为"忙碌"
-                    Repairman repairmanEntity = repairman.get();
-                    repairmanEntity.setStatus(Repairman.RepairmanStatus.busy);
-                    repairmanRepository.save(repairmanEntity);
+                    // 改造点1：不再手动设置维修人员为忙碌，改为动态更新状态
+                    updateRepairmanStatusByPendingOrders(repairmanId);
 
                     return true; // 抢单成功
                 }
@@ -105,11 +103,8 @@ public class WorkOrderServiceImpl implements WorkOrderService {
                 order.setGrabbedTime(null);
                 workOrderRepository.save(order);
 
-                // 重置维修人员状态：改为"空闲"
-                repairmanRepository.findById(repairmanId).ifPresent(rm -> {
-                    rm.setStatus(Repairman.RepairmanStatus.idle);
-                    repairmanRepository.save(rm);
-                });
+                // 改造点2：拒单后动态更新维修人员状态（而非直接设为空闲）
+                updateRepairmanStatusByPendingOrders(repairmanId);
 
                 return true; // 拒单成功
             }
@@ -147,12 +142,13 @@ public class WorkOrderServiceImpl implements WorkOrderService {
                 order.setImgUrl(imgUrl);
                 workOrderRepository.save(order);
 
-                // 更新维修人员状态为"空闲"，并增加工作量
+                // 改造点3：提交结果后动态更新维修人员状态（而非直接设为空闲）
+                // 同时保留工作量统计逻辑
                 repairmanRepository.findById(repairmanId).ifPresent(rm -> {
-                    rm.setStatus(Repairman.RepairmanStatus.idle);
                     rm.setWorkCount(rm.getWorkCount() + 1);
                     repairmanRepository.save(rm);
                 });
+                updateRepairmanStatusByPendingOrders(repairmanId);
 
                 return true; // 提交成功
             }
@@ -174,16 +170,16 @@ public class WorkOrderServiceImpl implements WorkOrderService {
                 if (approved) {
                     // 审核通过：改为"已完成"
                     order.setStatus(WorkOrder.OrderStatus.completed);
+                    // 改造点4：审核通过后，动态更新维修人员状态
+                    if (order.getAssignedRepairmanId() != null) {
+                        updateRepairmanStatusByPendingOrders(order.getAssignedRepairmanId());
+                    }
                 } else {
                     // 审核不通过：退回"处理中"
                     order.setStatus(WorkOrder.OrderStatus.processing);
-                    // 同时将维修人员状态改回忙碌
+                    // 改造点5：审核不通过后，动态更新维修人员状态（而非直接设为忙碌）
                     if (order.getAssignedRepairmanId() != null) {
-                        repairmanRepository.findById(order.getAssignedRepairmanId())
-                                .ifPresent(rm -> {
-                                    rm.setStatus(Repairman.RepairmanStatus.busy);
-                                    repairmanRepository.save(rm);
-                                });
+                        updateRepairmanStatusByPendingOrders(order.getAssignedRepairmanId());
                     }
                 }
                 workOrderRepository.save(order);
@@ -281,9 +277,9 @@ public class WorkOrderServiceImpl implements WorkOrderService {
             if (order.getStatus() == WorkOrder.OrderStatus.pending ||
                     order.getStatus() == WorkOrder.OrderStatus.timeout) {
 
-                // 查询维修人员是否存在且状态为"空闲"
+                // 查询维修人员是否存在
                 Optional<Repairman> repairmanOpt = repairmanRepository.findById(repairmanId);
-                if (repairmanOpt.isPresent() && repairmanOpt.get().getStatus() == Repairman.RepairmanStatus.idle) {
+                if (repairmanOpt.isPresent()) {
                     // 更新工单状态
                     order.setStatus(WorkOrder.OrderStatus.processing);
                     order.setAssignedRepairmanId(repairmanId);
@@ -300,10 +296,8 @@ public class WorkOrderServiceImpl implements WorkOrderService {
                     }
                     // ==============================================
 
-                    // 更新维修人员状态
-                    Repairman repairman = repairmanOpt.get();
-                    repairman.setStatus(Repairman.RepairmanStatus.busy);
-                    repairmanRepository.save(repairman);
+                    // 改造点6：派单后动态更新维修人员状态（而非直接设为忙碌）
+                    updateRepairmanStatusByPendingOrders(repairmanId);
 
                     return true; // 派单成功
                 }
@@ -341,4 +335,40 @@ public class WorkOrderServiceImpl implements WorkOrderService {
                 })
                 .toList();
     }
+
+    // ===================== 新增核心辅助方法 =====================
+    /**
+     * 动态更新维修人员状态：根据待处理工单数量自动判定
+     * 规则：无待处理工单（pending/processing/reviewing）= 空闲；有待处理工单=忙碌
+     * @param repairmanId 维修人员ID
+     */
+    @Transactional
+    private void updateRepairmanStatusByPendingOrders(String repairmanId) {
+        // 1. 定义「待处理工单」状态集合（根据业务调整，此处包含待抢、已抢、待审核）
+        List<WorkOrder.OrderStatus> pendingStatuses = Arrays.asList(
+                WorkOrder.OrderStatus.pending,
+                WorkOrder.OrderStatus.processing,
+                WorkOrder.OrderStatus.reviewing
+        );
+
+        // 2. 查询该维修人员的待处理工单数量（需在WorkOrderRepository中定义该方法）
+        long pendingOrderCount = workOrderRepository.countByAssignedRepairmanIdAndStatusIn(repairmanId, pendingStatuses);
+
+        // 3. 动态更新维修人员状态
+        Optional<Repairman> repairmanOpt = repairmanRepository.findById(repairmanId);
+        if (repairmanOpt.isPresent()) {
+            Repairman repairman = repairmanOpt.get();
+            if (pendingOrderCount <= 0) {
+                // 无待处理工单 → 空闲状态
+                repairman.setStatus(Repairman.RepairmanStatus.idle);
+            } else {
+                // 有待处理工单 → 忙碌状态
+                repairman.setStatus(Repairman.RepairmanStatus.busy);
+            }
+            repairmanRepository.save(repairman);
+            log.debug("维修人员{}状态更新完成，当前待处理工单数量：{}，状态：{}",
+                    repairmanId, pendingOrderCount, repairman.getStatus());
+        }
+    }
+
 }
