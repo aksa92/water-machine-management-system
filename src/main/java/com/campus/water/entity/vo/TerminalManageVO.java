@@ -31,4 +31,7 @@ public class TerminalManageVO {
 
     // 设备ID（关联的设备，来自映射表）
     private String deviceId;
+
+    // ========== 新增：片区ID字段（前端传递选中的片区ID） ==========
+    private String areaId;
 }
