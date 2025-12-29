@@ -1,4 +1,3 @@
-<!-- src/views/equipment/WaterMaker.vue -->
 <template>
   <div class="water-maker-page">
     <!-- 页面标题和面包屑 -->
@@ -10,8 +9,6 @@
     <!-- 操作按钮区 -->
     <div class="action-bar">
       <button class="btn-add" @click="showAddModal = true">添加制水机</button>
-      <!-- 在操作按钮列中添加删除按钮 -->
-
 
       <div class="filters">
         <!-- 搜索框 -->
@@ -68,7 +65,7 @@
         <tbody>
         <tr v-for="device in paginatedDevices" :key="device.deviceId">
           <td>{{ device.deviceId }}</td>
-          <td>{{ device.deviceType === 'WATER_MAKER' ? '制水机' : device.deviceType }}</td>
+          <td>{{ device.deviceType === 'water_maker' ? '制水机' : device.deviceType }}</td>
           <td>{{ device.areaId }}</td>
           <td>{{ device.installLocation }}</td>
           <td>
@@ -79,12 +76,11 @@
           <td>{{ formatDate(device.lastHeartbeatTime) }}</td>
           <td class="operation-buttons">
             <button class="btn-view" @click="viewDevice(device.deviceId)">查看详情</button>
+            <button class="btn-edit" @click="openEditModal(device)">编辑</button>
             <button
-                class="btn-online"
-                @click="updateDeviceStatus(device.deviceId, 'online')"
-                :disabled="device.status === 'online'"
+                class="btn-delete"
+                @click="deleteDevice(device.deviceId)"
             >
-
               删除
             </button>
           </td>
@@ -185,6 +181,74 @@
       </div>
     </div>
 
+    <!-- 编辑设备模态框 -->
+    <div v-if="showEditModal" class="modal-overlay" @click="showEditModal = false">
+      <div class="modal-content" @click.stop>
+        <h3>编辑制水机</h3>
+        <form @submit.prevent="updateDevice">
+          <div class="form-group">
+            <label>设备ID:</label>
+            <input v-model="editingDevice.deviceId" type="text" disabled>
+          </div>
+          <div class="form-group">
+            <label>设备名称:</label>
+            <input v-model="editingDevice.deviceName" type="text" required>
+          </div>
+
+          <!-- 市区选择 -->
+          <div class="form-group">
+            <label>选择市区:</label>
+            <select
+              v-model="selectedEditCityId"
+              @change="onEditCityChange"
+              class="select-input"
+            >
+              <option value="">请选择市区</option>
+              <option
+                v-for="city in cityList"
+                :key="city.areaId"
+                :value="city.areaId"
+              >
+                {{ city.areaName }}
+              </option>
+            </select>
+          </div>
+
+          <!-- 校区选择 -->
+          <div class="form-group" v-if="selectedEditCityId">
+            <label>选择校区:</label>
+            <select
+              v-model="selectedEditCampusId"
+              @change="onEditCampusChange"
+              class="select-input"
+              :disabled="!editCampusList.length"
+            >
+              <option value="">请选择校区</option>
+              <option
+                v-for="campus in editCampusList"
+                :key="campus.areaId"
+                :value="campus.areaId"
+              >
+                {{ campus.areaName }}
+              </option>
+            </select>
+            <p v-if="selectedEditCityId && !editCampusList.length" class="no-data-message">
+              该市区暂无校区
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label>安装位置:</label>
+            <input v-model="editingDevice.installLocation" type="text" required>
+          </div>
+          <div class="form-actions">
+            <button type="button" @click="showEditModal = false">取消</button>
+            <button type="submit">更新</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- 离线原因模态框 -->
     <div v-if="showOfflineReasonModal" class="modal-overlay" @click="showOfflineReasonModal = false">
       <div class="modal-content" @click.stop>
@@ -270,6 +334,7 @@ const authStore = useAuthStore() // 初始化auth store
 
 // 模态框相关
 const showAddModal = ref(false)
+const showEditModal = ref(false)
 const showOfflineReasonModal = ref(false)
 const showFaultModal = ref(false)
 
@@ -285,11 +350,26 @@ const newDevice = ref({
   deviceType: 'water_maker'
 })
 
+// 编辑表单数据
+const editingDevice = ref<WaterMakerDevice>({
+  deviceId: '',
+  deviceName: '',
+  deviceType: '',
+  areaId: '',
+  installLocation: '',
+  status: 'online'
+})
+
 // 片区相关数据
 const cityList = ref<Area[]>([]) // 市区列表
 const campusList = ref<Area[]>([]) // 校区列表
 const selectedCityId = ref('') // 选择的市区ID
 const selectedCampusId = ref('') // 选择的校区ID
+
+// 编辑模式下的片区数据
+const editCampusList = ref<Area[]>([]) // 编辑模式下的校区列表
+const selectedEditCityId = ref('') // 编辑模式下选择的市区ID
+const selectedEditCampusId = ref('') // 编辑模式下选择的校区ID
 
 const offlineReason = ref('')
 const faultInfo = ref({
@@ -304,7 +384,7 @@ const loadDevices = async (): Promise<void> => {
     const token = authStore.token
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -338,7 +418,7 @@ const loadDevices = async (): Promise<void> => {
     console.error('加载设备数据失败:', error)
     if ((error as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
@@ -349,7 +429,7 @@ const loadCityList = async (): Promise<void> => {
     const token = authStore.token
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -376,7 +456,7 @@ const loadCityList = async (): Promise<void> => {
     cityList.value = []
     if ((error as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
@@ -387,7 +467,7 @@ const loadCampusListByCity = async (cityId: string): Promise<void> => {
     const token = authStore.token
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -414,7 +494,45 @@ const loadCampusListByCity = async (cityId: string): Promise<void> => {
     campusList.value = []
     if ((error as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
+    }
+  }
+}
+
+// 根据市区ID加载编辑模式下的校区列表
+const loadEditCampusListByCity = async (cityId: string): Promise<void> => {
+  try {
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      await router.push('/login')
+      return
+    }
+
+    console.log(`开始加载市区 ${cityId} 的校区列表...`)
+
+    const result = await request<any>(`/api/web/area/campuses/${cityId}`, { method: 'GET' })
+
+    if (result && typeof result === 'object' && 'code' in result) {
+      if (result.code === 200 && result.data && Array.isArray(result.data)) {
+        editCampusList.value = result.data
+        console.log(`获取到${editCampusList.value.length}个校区`)
+      } else {
+        console.warn('API响应非成功状态或数据格式错误:', result)
+        editCampusList.value = []
+      }
+    } else if (Array.isArray(result)) {
+      editCampusList.value = result
+    } else {
+      console.warn('API响应数据格式错误:', result)
+      editCampusList.value = []
+    }
+  } catch (error) {
+    console.error('加载校区列表失败:', error)
+    editCampusList.value = []
+    if ((error as Error).message.includes('401')) {
+      authStore.logout()
+      await router.push('/login')
     }
   }
 }
@@ -438,6 +556,35 @@ const onCampusChange = () => {
     newDevice.value.areaId = selectedCampus.areaName // 使用areaName作为areaId
   } else {
     newDevice.value.areaId = ''
+  }
+}
+
+// 编辑模式下市区选择变化时的处理
+const onEditCityChange = async () => {
+  // 清空校区选择
+  selectedEditCampusId.value = ''
+  editCampusList.value = []
+
+  if (selectedEditCityId.value) {
+    await loadEditCampusListByCity(selectedEditCityId.value)
+    // 尝试匹配当前设备的片区
+    const matchingCampus = editCampusList.value.find(campus =>
+      campus.areaName === editingDevice.value.areaId
+    )
+    if (matchingCampus) {
+      selectedEditCampusId.value = matchingCampus.areaId
+    }
+  }
+}
+
+// 编辑模式下校区选择变化时的处理
+const onEditCampusChange = () => {
+  // 设置areaId为选中校区的areaName（不是areaId）
+  const selectedCampus = editCampusList.value.find(campus => campus.areaId === selectedEditCampusId.value)
+  if (selectedCampus) {
+    editingDevice.value.areaId = selectedCampus.areaName // 使用areaName作为areaId
+  } else {
+    editingDevice.value.areaId = ''
   }
 }
 
@@ -494,17 +641,7 @@ const viewDevice = (id: string) => {
 }
 
 // 显示离线模态框
-const showOfflineModal = (deviceId: string) => {
-  currentDeviceId.value = deviceId
-  showOfflineReasonModal.value = true
-}
-
 // 显示故障模态框
-const showFaultModalFunc = (deviceId: string) => {
-  currentDeviceId.value = deviceId
-  showFaultModal.value = true
-}
-
 // 确认设置为离线
 const confirmOffline = async () => {
   try {
@@ -512,7 +649,7 @@ const confirmOffline = async () => {
     const token = authStore.token
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -537,7 +674,7 @@ const confirmOffline = async () => {
     alert('设置设备离线失败')
     if ((error as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
@@ -549,7 +686,7 @@ const confirmFault = async () => {
     const token = authStore.token
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -574,66 +711,12 @@ const confirmFault = async () => {
     alert('设置设备故障失败')
     if ((error as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
 
 // 更新设备状态为在线
-const updateDeviceStatus = async (deviceId: string, status: string) => {
-  try {
-    // 显式检查token
-    const token = authStore.token
-    if (!token) {
-      console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
-      return
-    }
-
-    let url = ''
-    let body = {}
-
-    switch (status) {
-      case 'online':
-        url = `/api/web/device-status/${deviceId}/online`
-        break
-      case 'offline':
-        url = `/api/web/device-status/${deviceId}/offline`
-        body = { reason: '手动设置为离线' }
-        break
-      case 'fault':
-        url = `/api/web/device-status/${deviceId}/fault`
-        body = { faultType: 'MANUAL', description: '手动设置为故障' }
-        break
-      default:
-        throw new Error('不支持的状态类型')
-    }
-
-    const result = await request<ResultVO<boolean>>(url, {
-      method: 'POST',
-      body: JSON.stringify(body)
-    })
-
-    if (result.code === 200) {
-      // 更新本地数据
-      const device = devices.value.find(d => d.deviceId === deviceId)
-      if (device) {
-        device.status = status as DeviceStatus
-      }
-      alert(`设备已标记为${formatStatus(status as DeviceStatus)}`)
-    } else {
-      alert(`更新设备状态失败: ${result.message}`)
-    }
-  } catch (error) {
-    console.error('更新设备状态失败:', error)
-    alert('更新设备状态失败')
-    if ((error as Error).message.includes('401')) {
-      authStore.logout()
-      router.push('/login')
-    }
-  }
-}
-
 // 删除设备
 const deleteDevice = async (deviceId: string) => {
   if (!confirm(`确定要删除设备 ${deviceId} 吗？此操作不可恢复。`)) {
@@ -643,7 +726,7 @@ const deleteDevice = async (deviceId: string) => {
   try {
     const token = authStore.token
     if (!token) {
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -663,11 +746,110 @@ const deleteDevice = async (deviceId: string) => {
     alert('删除设备失败')
     if ((error as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
 
+// 打开编辑模态框
+const openEditModal = (device: WaterMakerDevice) => {
+  // 复制设备信息到编辑对象
+  editingDevice.value = { ...device }
+
+  // 初始化编辑模式下的校区选择
+  selectedEditCityId.value = ''
+  selectedEditCampusId.value = ''
+  editCampusList.value = []
+
+  // 查找当前设备的片区对应的市区和校区
+  findCurrentAreaInCityList(device.areaId)
+
+  showEditModal.value = true
+}
+
+// 查找当前设备的片区在市区列表中的对应关系
+const findCurrentAreaInCityList = (areaId: string) => {
+  for (const city of cityList.value) {
+    loadEditCampusListByCity(city.areaId).then(() => {
+      const matchingCampus = editCampusList.value.find(campus => campus.areaName === areaId)
+      if (matchingCampus) {
+        selectedEditCityId.value = city.areaId
+        selectedEditCampusId.value = matchingCampus.areaId
+        return
+      }
+    })
+  }
+}
+
+// 更新设备
+const updateDevice = async () => {
+  try {
+    const token = authStore.token
+    if (!token) {
+      await router.push('/login')
+      return
+    }
+
+    // 验证是否选择了校区
+    if (!selectedEditCampusId.value) {
+      alert('请选择校区')
+      return
+    }
+
+    // 验证areaId是否已设置
+    if (!editingDevice.value.areaId) {
+      alert('请先选择校区以确定所属片区')
+      return
+    }
+
+    // 构造设备对象
+    const deviceToUpdate = {
+      deviceId: editingDevice.value.deviceId,
+      deviceName: editingDevice.value.deviceName,
+      areaId: editingDevice.value.areaId,
+      installLocation: editingDevice.value.installLocation,
+      deviceType: editingDevice.value.deviceType
+    }
+
+    const result = await request<ResultVO>('/api/web/device/edit', {
+      method: 'PUT',
+      body: JSON.stringify(deviceToUpdate)
+    })
+
+    if (result.code === 200) {
+      // 更新本地列表中的设备信息
+      const index = devices.value.findIndex(d => d.deviceId === editingDevice.value.deviceId)
+      if (index !== -1) {
+        devices.value[index] = { ...editingDevice.value }
+      }
+
+      // 重置表单并关闭模态框
+      showEditModal.value = false
+      editingDevice.value = {
+        deviceId: '',
+        deviceName: '',
+        deviceType: '',
+        areaId: '',
+        installLocation: '',
+        status: 'online'
+      }
+      selectedEditCityId.value = ''
+      selectedEditCampusId.value = ''
+      editCampusList.value = []
+
+      alert('设备更新成功')
+    } else {
+      alert(`设备更新失败: ${result.message}`)
+    }
+  } catch (error) {
+    console.error('更新设备失败:', error)
+    alert('更新设备失败')
+    if ((error as Error).message.includes('401')) {
+      authStore.logout()
+      await router.push('/login')
+    }
+  }
+}
 
 // 添加设备
 const addDevice = async () => {
@@ -676,7 +858,7 @@ const addDevice = async () => {
     const token = authStore.token
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -702,7 +884,7 @@ const addDevice = async () => {
     }
 
     // 使用统一请求工具，自动携带token
-    const result = await request<ResultVO<any>>('/api/web/device/add', {
+    const result = await request<ResultVO>('/api/web/device/add', {
       method: 'POST',
       body: JSON.stringify(deviceToAdd)
     })
@@ -733,7 +915,7 @@ const addDevice = async () => {
     alert('添加设备失败')
     if ((error as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
@@ -850,34 +1032,6 @@ onMounted(async () => {
   background-color: #f8f9fa;
 }
 
-.status-tag {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.status-tag.online {
-  background-color: #e6f7ee;
-  color: #00875a;
-}
-
-.status-tag.offline {
-  background-color: #f5f5f5;
-  color: #8c8c8c;
-}
-
-.status-tag.warning {
-  background-color: #fff7e6;
-  color: #d48806;
-}
-
-.status-tag.fault {
-  background-color: #ffebe6;
-  color: #cf1322;
-}
-
 .operation-buttons {
   display: flex;
   gap: 8px;
@@ -907,19 +1061,14 @@ onMounted(async () => {
   color: #1890ff;
 }
 
-.btn-online {
-  background-color: #e6f7ee;
-  color: #00875a;
+.btn-edit {
+  background-color: #e6f7ff;
+  color: #1890ff;
 }
 
-.btn-offline {
-  background-color: #f5f5f5;
-  color: #8c8c8c;
-}
-
-.btn-fault {
+.btn-delete {
   background-color: #ffebe6;
-  color: #cf1322;
+  color: #ff4d4f;
 }
 
 .no-data {
@@ -1066,9 +1215,8 @@ onMounted(async () => {
     min-width: auto;
   }
 
-  .btn-delete {
-    background-color: #ff4d4f;
-    color: white;
+  .operation-buttons {
+    flex-direction: column;
   }
 }
 </style>

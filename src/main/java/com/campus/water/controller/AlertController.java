@@ -81,4 +81,33 @@ public class AlertController {
 
         return ResultVO.success(pendingAlerts);
     }
+
+    // 添加分页查询接口
+@GetMapping("/all")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN','AREA_ADMIN', 'REPAIRMAN')")
+@Operation(summary = "查询所有告警（支持多条件筛选）")
+public ResultVO<List<Alert>> getAllAlerts(
+        @Parameter(description = "设备ID（可选）") @RequestParam(required = false) String deviceId,
+        @Parameter(description = "告警级别（可选，如error、critical）") @RequestParam(required = false) String level,
+        @Parameter(description = "告警状态（可选，如pending、resolved）") @RequestParam(required = false) String status,
+        @Parameter(description = "所属区域（维修人员仅能查询自己的区域）") @RequestParam(required = false) String areaId
+) {
+    List<Alert> alerts;
+
+    if (deviceId != null) {
+        alerts = alertRepository.findByDeviceId(deviceId);
+    } else if (level != null) {
+        alerts = alertRepository.findByAlertLevel(Alert.AlertLevel.valueOf(level));
+    } else if (status != null) {
+        alerts = alertRepository.findByStatus(Alert.AlertStatus.valueOf(status));
+    } else if (areaId != null) {
+        alerts = alertRepository.findByAreaId(areaId);
+    } else {
+        alerts = alertRepository.findAll();
+    }
+
+    return ResultVO.success(alerts);
+}
+
+
 }

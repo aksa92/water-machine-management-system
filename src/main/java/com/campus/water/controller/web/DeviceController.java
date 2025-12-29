@@ -238,7 +238,7 @@ public class DeviceController {
 
     // ========== 新增：管理员编辑设备基本信息接口 ==========
     @PutMapping("/edit")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')") // 限制仅管理员/超级管理员可访问
+    @PreAuthorize("hasAnyRole( 'SUPER_ADMIN','AREA_ADMIN')") // 限制仅管理员/超级管理员可访问
     @Operation(summary = "编辑设备基本信息", description = "管理员更新设备名称、类型、安装位置等基本信息（不含设备状态、创建时间）")
     public ResponseEntity<ResultVO<Device>> editDevice(@Valid @RequestBody Device device) {
         try {

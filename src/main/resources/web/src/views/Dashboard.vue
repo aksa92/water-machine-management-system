@@ -47,9 +47,34 @@
 
     <!-- 主要内容区域 - 修改为单列布局 -->
     <div class="content-single-column">
-      <!-- 最新告警 - 居中显示 -->
+      <!-- 告警表格 - 居中显示 -->
       <div class="content-card">
-        <h3 class="card-title">最新告警</h3>
+        <div class="card-header">
+          <h3 class="card-title">告警信息表格</h3>
+          <div class="table-controls">
+            <!-- 搜索框 -->
+            <input
+              v-model="searchQuery"
+              placeholder="搜索设备ID或告警信息..."
+              class="search-input"
+            />
+            <!-- 筛选下拉框 -->
+            <select v-model="filterStatus" class="filter-select">
+              <option value="">全部状态</option>
+              <option value="pending">待处理</option>
+              <option value="processing">处理中</option>
+              <option value="resolved">已解决</option>
+              <option value="closed">已关闭</option>
+            </select>
+            <select v-model="filterLevel" class="filter-select">
+              <option value="">全部级别</option>
+              <option value="critical">紧急</option>
+              <option value="error">错误</option>
+              <option value="warning">警告</option>
+              <option value="info">信息</option>
+            </select>
+          </div>
+        </div>
 
         <!-- 加载状态 -->
         <div v-if="loadingAlerts" class="loading-state">
@@ -67,22 +92,96 @@
         </div>
 
         <!-- 空状态 -->
-        <div v-else-if="recentAlerts.length === 0" class="empty-state">
+        <div v-else-if="filteredAlerts.length === 0" class="empty-state">
           <div class="empty-icon">✅</div>
           <div class="empty-text">暂无告警信息</div>
         </div>
 
-        <!-- 告警列表 -->
-        <div v-else class="alert-list">
-          <!-- 只显示前10条告警，按时间倒序排列 -->
-          <div v-for="(alert, index) in recentAlerts.slice(0, 10)" :key="alert.alertId" class="alert-item">
-            <div class="alert-text">{{ alert.deviceId }}：{{ alert.alertMessage }}</div>
-            <div class="alert-time">{{ formatDateTime(alert.timestamp) }}</div>
-            <div class="alert-meta">
-              <div :class="['alert-level', alert.alertLevel?.toLowerCase()]">
-                {{ formatAlertLevel(alert.alertLevel) }}
-              </div>
-              <div v-if="alert.areaId" class="alert-area">{{ alert.areaId }}</div>
+        <!-- 告警表格 -->
+        <div v-else class="table-container">
+          <table class="alert-table">
+            <thead>
+              <tr>
+                <th>告警ID</th>
+                <th>设备ID</th>
+                <th>告警类型</th>
+                <th>告警级别</th>
+                <th>告警信息</th>
+                <th>区域ID</th>
+                <th>状态</th>
+                <th>时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="alert in filteredAlerts" :key="alert.alertId">
+                <td>{{ alert.alertId }}</td>
+                <td>{{ alert.deviceId }}</td>
+                <td>{{ alert.alertType }}</td>
+                <td>
+                  <span :class="['alert-level-badge', alert.alertLevel?.toLowerCase()]">
+                    {{ formatAlertLevel(alert.alertLevel) }}
+                  </span>
+                </td>
+                <td class="alert-message">{{ alert.alertMessage }}</td>
+                <td>{{ alert.areaId }}</td>
+                <td>
+                  <span :class="['status-badge', alert.status?.toLowerCase()]">
+                    {{ formatAlertStatus(alert.status) }}
+                  </span>
+                </td>
+                <td>{{ formatDateTime(alert.timestamp) }}</td>
+                <td>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- 分页组件 -->
+          <div class="pagination-controls">
+            <div class="page-size-selector">
+              <label>每页显示：</label>
+              <select v-model="pageSize" @change="handlePageSizeChange">
+                <option :value="5">5条</option>
+                <option :value="10">10条</option>
+                <option :value="20">20条</option>
+                <option :value="50">50条</option>
+              </select>
+            </div>
+
+            <div class="pagination">
+              <button
+                @click="changePage(1)"
+                :disabled="currentPage === 1 || totalPages === 0"
+                class="pagination-btn"
+              >
+                首页
+              </button>
+              <button
+                @click="changePage(currentPage - 1)"
+                :disabled="currentPage === 1 || totalPages === 0"
+                class="pagination-btn"
+              >
+                上一页
+              </button>
+
+              <span class="pagination-info">
+                {{ currentPage }} / {{ totalPages }} (共 {{ totalAlerts }} 条)
+              </span>
+
+              <button
+                @click="changePage(currentPage + 1)"
+                :disabled="currentPage === totalPages || totalPages === 0"
+                class="pagination-btn"
+              >
+                下一页
+              </button>
+              <button
+                @click="changePage(totalPages)"
+                :disabled="currentPage === totalPages || totalPages === 0"
+                class="pagination-btn"
+              >
+                末页
+              </button>
             </div>
           </div>
         </div>
@@ -92,7 +191,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { request } from '@/api/request'
 import { useAuthStore } from '@/stores/auth'
@@ -130,15 +229,58 @@ const stats = ref<StatsData>({
   pendingWorkOrders: 0
 })
 
-const recentAlerts = ref<Alert[]>([])
-const latestAlert = ref<Alert | null>(null)
+const allAlerts = ref<Alert[]>([])
+const latestAlert = ref<Alert | null | undefined>(null)
 const loadingAlerts = ref(false)
 const showAlertNotification = ref(true)
 const alertPermissionError = ref(false)
 
+// 表格筛选和搜索相关
+const searchQuery = ref('')
+const filterStatus = ref('')
+const filterLevel = ref('')
+
+// 分页相关变量
+const currentPage = ref(1)
+const pageSize = ref(10)
+
 // 获取路由和认证store实例
 const router = useRouter()
 const authStore = useAuthStore()
+
+// 计算筛选后的总告警数
+const totalFilteredAlerts = computed(() => {
+  return allAlerts.value.filter(alert => {
+    // 搜索条件：设备ID或告警信息
+    const matchesSearch = !searchQuery.value ||
+      alert.deviceId.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+      alert.alertMessage.toLowerCase().includes(searchQuery.value.toLowerCase())
+
+    // 状态筛选
+    const matchesStatus = !filterStatus.value || alert.status === filterStatus.value
+
+    // 级别筛选 - 修改为直接比较原始值
+    const matchesLevel = !filterLevel.value ||
+      (alert.alertLevel && alert.alertLevel.toLowerCase() === filterLevel.value.toLowerCase())
+
+    return matchesSearch && matchesStatus && matchesLevel
+  })
+})
+
+// 计算总页数
+const totalPages = computed(() => {
+  return Math.ceil(totalFilteredAlerts.value.length / pageSize.value)
+})
+
+// 计算当前页数据
+const filteredAlerts = computed(() => {
+  const startIndex = (currentPage.value - 1) * pageSize.value
+  const endIndex = startIndex + pageSize.value
+  return totalFilteredAlerts.value.slice(startIndex, endIndex)
+})
+
+// 添加总告警数计算
+const totalAlerts = computed(() => totalFilteredAlerts.value.length)
 
 // 格式化告警级别
 const formatAlertLevel = (level: string): string => {
@@ -149,6 +291,17 @@ const formatAlertLevel = (level: string): string => {
     'info': '信息'
   }
   return levelMap[level?.toLowerCase()] || level
+}
+
+// 格式化告警状态
+const formatAlertStatus = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    'pending': '待处理',
+    'processing': '处理中',
+    'resolved': '已解决',
+    'closed': '已关闭'
+  }
+  return statusMap[status?.toLowerCase()] || status
 }
 
 // 格式化时间
@@ -165,7 +318,7 @@ const fetchStatsData = async () => {
     // 检查token是否存在
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -230,21 +383,19 @@ const fetchStatsData = async () => {
 
   } catch (error: any) {
     console.error('获取统计数据失败:', error)
-    const errorMsg = error.message?.includes('401')
+    error.message?.includes('401')
         ? '登录已过期，请重新登录'
         : error.message?.includes('Network')
             ? '网络连接失败，请检查网络'
-            : error.message || '获取数据失败，请稍后重试'
-
-    // 如果是认证错误，登出并跳转到登录页
+            : error.message || '获取数据失败，请稍后重试';
+// 如果是认证错误，登出并跳转到登录页
     if (error.message?.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
 
-// 获取告警数据
 // 获取告警数据
 const fetchAlertData = async () => {
   loadingAlerts.value = true
@@ -256,11 +407,11 @@ const fetchAlertData = async () => {
     // 检查token是否存在
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
-    // 获取最新告警 - 使用正确的接口
+    // 获取所有告警 - 使用现有的pending接口，或需要后端提供全量接口
     const alertResult = await request<ResultVO<Alert[]>>(
         '/api/alerts/pending',
         { method: 'GET' }
@@ -280,17 +431,16 @@ const fetchAlertData = async () => {
         return timeB - timeA // 降序排列（最新的在前）
       })
 
-      // 只取前10条
-      recentAlerts.value = sortedAlerts.slice(0, 10)
+      allAlerts.value = sortedAlerts
 
-      // 如果有告警，设置最新告警（时间最新的）
-      // 修改第222行附近的代码
-      if (recentAlerts.value.length > 0 && recentAlerts.value[0]) {
-        latestAlert.value = recentAlerts.value[0] // 第一个是最新时间的告警
+      // 设置最新告警（如果存在告警数据）
+      if (sortedAlerts.length > 0) {
+        latestAlert.value = sortedAlerts[0] // 最新的告警
       } else {
         latestAlert.value = null
       }
-
+    } else {
+      latestAlert.value = null
     }
   } catch (error: any) {
     console.error('获取告警数据失败:', error)
@@ -299,24 +449,46 @@ const fetchAlertData = async () => {
     if (error.message?.includes('403')) {
       console.warn('当前用户无权限访问告警数据')
       alertPermissionError.value = true
-      recentAlerts.value = []
+      allAlerts.value = []
       latestAlert.value = null
       return
     }
-
-    const errorMsg = error.message?.includes('401')
+    error.message?.includes('401')
         ? '登录已过期，请重新登录'
         : error.message?.includes('Network')
             ? '网络连接失败，请检查网络'
-            : error.message || '获取数据失败，请稍后重试'
-
-    // 如果是认证错误，登出并跳转到登录页
+            : error.message || '获取数据失败，请稍后重试';
+// 如果是认证错误，登出并跳转到登录页
     if (error.message?.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
+    latestAlert.value = null
   } finally {
     loadingAlerts.value = false
+  }
+}
+
+// 查看告警详情
+// 处理告警
+// 分页控制方法
+const changePage = (page: number) => {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page
+  }
+}
+
+const changePageSize = (size: number) => {
+  pageSize.value = size
+  currentPage.value = 1 // 重置到第一页
+}
+
+// 添加类型安全的页面大小变更处理方法
+const handlePageSizeChange = (event: Event) => {
+  const target = event.target as HTMLSelectElement
+  if (target) {
+    const size = Number(target.value)
+    changePageSize(size)
   }
 }
 
@@ -439,12 +611,149 @@ onMounted(() => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .card-title {
   font-size: 18px;
   font-weight: 600;
   color: #1a1a1a;
-  margin-bottom: 20px;
+  margin: 0;
+}
+
+.table-controls {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.search-input {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  min-width: 200px;
+}
+
+.filter-select {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  background: white;
+}
+
+/* 表格样式 */
+.table-container {
+  overflow-x: auto;
+}
+
+.alert-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  margin-top: 16px;
+}
+
+.alert-table th,
+.alert-table td {
+  padding: 12px 8px;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.alert-table th {
+  background-color: #f5f5f5;
+  font-weight: 600;
+  color: #333;
+  position: sticky;
+  top: 0;
+}
+
+.alert-table tbody tr:hover {
+  background-color: #f9f9f9;
+}
+
+.alert-message {
+  max-width: 200px;
+  word-wrap: break-word;
+}
+
+.alert-level-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
   text-align: center;
+  min-width: 50px;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  min-width: 60px;
+}
+
+/* 分页样式 */
+.pagination-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+}
+
+.page-size-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-size-selector select {
+  padding: 4px 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+.pagination-btn {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  background: white;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: #f0f0f0;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  margin: 0 15px;
+  font-size: 14px;
+  color: #666;
 }
 
 /* 加载状态 */
@@ -527,100 +836,28 @@ onMounted(() => {
   color: #666;
 }
 
-/* 告警列表样式 */
-.alert-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.alert-item {
-  padding: 16px 0;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.alert-item:last-child {
-  border-bottom: none;
-}
-
-.alert-text {
-  font-size: 14px;
-  color: #333;
-  margin-bottom: 4px;
-  line-height: 1.4;
-}
-
-.alert-time {
-  font-size: 12px;
-  color: #666;
-  margin: 4px 0;
-}
-
-.alert-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.alert-level {
-  font-size: 12px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-weight: 500;
-  min-width: 50px;
-  text-align: center;
-}
-
-.alert-level.critical {
-  background: #ffebee;
-  color: #c62828;
-}
-
-.alert-level.error {
-  background: #ffebee;
-  color: #c62828;
-}
-
-.alert-level.warning {
-  background: #fff8e1;
-  color: #ff8f00;
-}
-
-.alert-level.info {
-  background: #e8f5e9;
-  color: #2e7d32;
-}
-
-.alert-area {
-  font-size: 12px;
-  color: #666;
-  background: #f5f5f5;
-  padding: 4px 8px;
-  border-radius: 4px;
-}
-
-.chart-placeholder {
-  height: 200px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f8f9fa;
-  border-radius: 4px;
-}
-
-.placeholder-text {
-  text-align: center;
-  color: #666;
-}
-
 @media (max-width: 768px) {
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .alert-meta {
+  .card-header {
     flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
+    align-items: stretch;
+  }
+
+  .table-controls {
+    width: 100%;
+  }
+
+  .search-input {
+    min-width: unset;
+    width: 100%;
+  }
+
+  .pagination-controls {
+    flex-direction: column;
+    gap: 15px;
   }
 }
 </style>
