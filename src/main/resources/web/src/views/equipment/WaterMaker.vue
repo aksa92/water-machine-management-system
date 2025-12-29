@@ -150,13 +150,49 @@
             <label>设备名称:</label>
             <input v-model="newDevice.deviceName" type="text" required>
           </div>
+
+          <!-- 市区选择 -->
           <div class="form-group">
-            <label>所属片区:</label>
-            <select v-model="newDevice.areaId" required>
-              <option value="A区">A</option>
-              <option value="B区">B</option>
+            <label>选择市区:</label>
+            <select
+              v-model="selectedCityId"
+              @change="onCityChange"
+              class="select-input"
+            >
+              <option value="">请选择市区</option>
+              <option
+                v-for="city in cityList"
+                :key="city.areaId"
+                :value="city.areaId"
+              >
+                {{ city.areaName }}
+              </option>
             </select>
           </div>
+
+          <!-- 校区选择 -->
+          <div class="form-group" v-if="selectedCityId">
+            <label>选择校区:</label>
+            <select
+              v-model="selectedCampusId"
+              @change="onCampusChange"
+              class="select-input"
+              :disabled="!campusList.length"
+            >
+              <option value="">请选择校区</option>
+              <option
+                v-for="campus in campusList"
+                :key="campus.areaId"
+                :value="campus.areaId"
+              >
+                {{ campus.areaName }}
+              </option>
+            </select>
+            <p v-if="selectedCityId && !campusList.length" class="no-data-message">
+              该市区暂无校区
+            </p>
+          </div>
+
           <div class="form-group">
             <label>安装位置:</label>
             <input v-model="newDevice.installLocation" type="text" required>
@@ -231,6 +267,17 @@ interface WaterMakerDevice {
   createTime?: string
 }
 
+// 区域类型定义
+interface Area {
+  areaId: string
+  areaName: string
+  areaType: string
+  parentAreaId: string | null
+  address: string
+  manager: string
+  managerPhone: string
+}
+
 // 响应式数据
 const devices = ref<WaterMakerDevice[]>([])
 const searchKeyword = ref('')
@@ -253,10 +300,16 @@ const currentDeviceId = ref('')
 const newDevice = ref({
   deviceId: '',
   deviceName: '',
-  areaId: '市区',
+  areaId: '',
   installLocation: '',
   deviceType: 'water_maker'
 })
+
+// 片区相关数据
+const cityList = ref<Area[]>([]) // 市区列表
+const campusList = ref<Area[]>([]) // 校区列表
+const selectedCityId = ref('') // 选择的市区ID
+const selectedCampusId = ref('') // 选择的校区ID
 
 const offlineReason = ref('')
 const faultInfo = ref({
@@ -307,6 +360,104 @@ const loadDevices = async (): Promise<void> => {
       authStore.logout()
       router.push('/login')
     }
+  }
+}
+
+// 加载市区列表
+const loadCityList = async (): Promise<void> => {
+  try {
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
+    }
+
+    console.log('开始加载市区列表...')
+
+    const result = await request<any>('/api/web/area/cities', { method: 'GET' })
+
+    if (result && typeof result === 'object' && 'code' in result) {
+      if (result.code === 200 && result.data && Array.isArray(result.data)) {
+        cityList.value = result.data
+        console.log(`获取到${cityList.value.length}个市区`)
+      } else {
+        console.warn('API响应非成功状态或数据格式错误:', result)
+        cityList.value = []
+      }
+    } else if (Array.isArray(result)) {
+      cityList.value = result
+    } else {
+      console.warn('API响应数据格式错误:', result)
+      cityList.value = []
+    }
+  } catch (error) {
+    console.error('加载市区列表失败:', error)
+    cityList.value = []
+    if ((error as Error).message.includes('401')) {
+      authStore.logout()
+      router.push('/login')
+    }
+  }
+}
+
+// 根据市区ID加载校区列表
+const loadCampusListByCity = async (cityId: string): Promise<void> => {
+  try {
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
+    }
+
+    console.log(`开始加载市区 ${cityId} 的校区列表...`)
+
+    const result = await request<any>(`/api/web/area/campuses/${cityId}`, { method: 'GET' })
+
+    if (result && typeof result === 'object' && 'code' in result) {
+      if (result.code === 200 && result.data && Array.isArray(result.data)) {
+        campusList.value = result.data
+        console.log(`获取到${campusList.value.length}个校区`)
+      } else {
+        console.warn('API响应非成功状态或数据格式错误:', result)
+        campusList.value = []
+      }
+    } else if (Array.isArray(result)) {
+      campusList.value = result
+    } else {
+      console.warn('API响应数据格式错误:', result)
+      campusList.value = []
+    }
+  } catch (error) {
+    console.error('加载校区列表失败:', error)
+    campusList.value = []
+    if ((error as Error).message.includes('401')) {
+      authStore.logout()
+      router.push('/login')
+    }
+  }
+}
+
+// 市区选择变化时的处理
+const onCityChange = async () => {
+  // 清空校区选择和设备ID
+  selectedCampusId.value = ''
+  campusList.value = []
+
+  if (selectedCityId.value) {
+    await loadCampusListByCity(selectedCityId.value)
+  }
+}
+
+// 校区选择变化时的处理
+const onCampusChange = () => {
+  // 设置areaId为选中校区的areaName（不是areaId）
+  const selectedCampus = campusList.value.find(campus => campus.areaId === selectedCampusId.value)
+  if (selectedCampus) {
+    newDevice.value.areaId = selectedCampus.areaName // 使用areaName作为areaId
+  } else {
+    newDevice.value.areaId = ''
   }
 }
 
@@ -549,6 +700,18 @@ const addDevice = async () => {
       return
     }
 
+    // 验证是否选择了校区
+    if (!selectedCampusId.value) {
+      alert('请选择校区')
+      return
+    }
+
+    // 验证areaId是否已设置
+    if (!newDevice.value.areaId) {
+      alert('请先选择校区以确定所属片区')
+      return
+    }
+
     // 构造设备对象
     const deviceToAdd = {
       deviceId: newDevice.value.deviceId,
@@ -573,10 +736,13 @@ const addDevice = async () => {
       newDevice.value = {
         deviceId: '',
         deviceName: '',
-        areaId: '市区',
+        areaId: '',
         installLocation: '',
         deviceType: 'water_maker'
       }
+      selectedCityId.value = ''
+      selectedCampusId.value = ''
+      campusList.value = []
 
       alert('设备添加成功')
     } else {
@@ -596,6 +762,7 @@ const addDevice = async () => {
 onMounted(async () => {
   console.log('🚀 开始加载设备数据...')
   await loadDevices()
+  await loadCityList()
 })
 </script>
 
@@ -878,6 +1045,29 @@ onMounted(async () => {
   background: #42b983;
   color: white;
   border: none;
+}
+
+/* 新增：下拉框样式 */
+.select-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-sizing: border-box;
+  background: white;
+  cursor: pointer;
+}
+
+.select-input:focus {
+  outline: none;
+  border-color: #42b983;
+}
+
+/* 新增：无数据提示样式 */
+.no-data-message {
+  margin-top: 8px;
+  color: #8c8c8c;
+  font-size: 12px;
 }
 
 /* 响应式调整 */

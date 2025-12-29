@@ -247,6 +247,7 @@ interface TerminalManageVO {
   terminalStatus: TerminalStatus
   installDate?: string
   deviceId?: string
+  areaId?: string
 }
 
 // 设备类型定义
@@ -547,7 +548,16 @@ const onCityChange = async () => {
 const onCampusChange = () => {
   // 当选择校区时，清空当前选择的设备ID
   currentTerminal.value.deviceId = undefined
+
+  // 设置areaId为选中校区的areaName（不是areaId）
+  const selectedCampus = campusList.value.find(campus => campus.areaId === selectedCampusId.value)
+  if (selectedCampus) {
+    currentTerminal.value.areaId = selectedCampus.areaName // 使用areaName作为areaId
+  } else {
+    currentTerminal.value.areaId = undefined
+  }
 }
+
 
 // 多条件过滤终端数据
 const filteredTerminals = computed(() => {
@@ -670,6 +680,24 @@ const saveTerminal = async () => {
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
       router.push('/login')
+      return
+    }
+
+    // 验证是否选择了校区（新增终端时）
+    if (!isEditing.value && !selectedCampusId.value) {
+      alert('请选择校区')
+      return
+    }
+
+    // 验证areaId是否已设置
+    if (!currentTerminal.value.areaId) {
+      alert('请先选择校区以确定所属片区')
+      return
+    }
+
+    // 验证是否选择了关联设备
+    if (!currentTerminal.value.deviceId) {
+      alert('请选择关联的供水机')
       return
     }
 
