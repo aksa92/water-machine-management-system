@@ -61,10 +61,10 @@ public class DeviceService {
         Device existingDevice = getDeviceById(device.getDeviceId());
         // 保留创建时间，更新其他可编辑字段
         existingDevice.setDeviceName(device.getDeviceName());
-        existingDevice.setDeviceType(device.getDeviceType());
         existingDevice.setAreaId(device.getAreaId());
         existingDevice.setInstallLocation(device.getInstallLocation());
         existingDevice.setInstallDate(device.getInstallDate());
+        existingDevice.setParentMakerId(device.getParentMakerId());
         return deviceRepository.save(existingDevice);
     }
 

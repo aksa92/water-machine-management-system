@@ -236,4 +236,21 @@ public class DeviceController {
         }
     }
 
+    // ========== 新增：管理员编辑设备基本信息接口 ==========
+    @PutMapping("/edit")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')") // 限制仅管理员/超级管理员可访问
+    @Operation(summary = "编辑设备基本信息", description = "管理员更新设备名称、类型、安装位置等基本信息（不含设备状态、创建时间）")
+    public ResponseEntity<ResultVO<Device>> editDevice(@Valid @RequestBody Device device) {
+        try {
+            // 校验设备ID不能为空（编辑必须指定设备ID）
+            if (device.getDeviceId() == null || device.getDeviceId().trim().isEmpty()) {
+                return ResponseEntity.ok(ResultVO.error(400, "设备ID不能为空"));
+            }
+            Device updatedDevice = deviceService.updateDeviceInfo(device);
+            return ResponseEntity.ok(ResultVO.success(updatedDevice, "设备信息编辑成功"));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ResultVO.error(500, "设备信息编辑失败: " + e.getMessage()));
+        }
+    }
+
 }
