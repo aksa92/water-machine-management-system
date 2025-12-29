@@ -78,6 +78,7 @@
             <td>{{ device.lastUploadTime }}</td>
             <td class="operation-buttons">
               <button class="btn-view" @click="viewDevice(device.id)">查看详情</button>
+              <button class="btn-edit" @click="openEditModal(device)">编辑</button>
               <button class="btn-delete" @click="currentDeviceId = device.id; showDeleteModal = true">删除</button>
             </td>
           </tr>
@@ -154,6 +155,51 @@
       </div>
     </div>
 
+    <!-- 编辑设备模态框 -->
+    <div v-if="showEditModal" class="modal-overlay" @click="showEditModal = false">
+      <div class="modal-content" @click.stop>
+        <h3>编辑供水机</h3>
+        <form @submit.prevent="updateDevice">
+          <div class="form-group">
+            <label>设备ID:</label>
+            <input v-model="editingDevice.deviceId" type="text" disabled>
+          </div>
+          <div class="form-group">
+            <label>设备名称:</label>
+            <input v-model="editingDevice.deviceName" type="text" required>
+          </div>
+          <div class="form-group">
+            <label>所属片区:</label>
+            <select v-model="editingDevice.areaId" @change="loadAvailableMakersForEdit" required>
+              <option value="">请选择片区</option>
+              <option value="A">A区</option>
+              <option value="B">B区</option>
+              <option value="C">C区</option>
+              <option value="D">D区</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>关联制水机:</label>
+            <select v-model="editingDevice.parentMakerId" :disabled="!editingDevice.areaId">
+              <option value="">请选择关联制水机</option>
+              <option v-for="maker in availableMakersForEdit" :key="maker.id" :value="maker.id">
+                {{ maker.name }}
+              </option>
+            </select>
+            <p v-if="!editingDevice.areaId" class="help-text">请先选择片区以加载可关联的制水机</p>
+          </div>
+          <div class="form-group">
+            <label>安装位置:</label>
+            <input v-model="editingDevice.installLocation" type="text" required>
+          </div>
+          <div class="form-actions">
+            <button type="button" @click="showEditModal = false">取消</button>
+            <button type="submit">更新</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- 删除确认模态框 -->
     <div v-if="showDeleteModal" class="modal-overlay" @click="showDeleteModal = false">
       <div class="modal-content" @click.stop>
@@ -187,6 +233,16 @@ interface WaterSupplierDevice {
   lastUploadTime: string
 }
 
+// 设备详情接口
+interface DeviceDetail {
+  deviceId: string
+  deviceName: string
+  areaId: string
+  installLocation: string
+  deviceType: string
+  parentMakerId?: string
+}
+
 // 响应式数据
 const devices = ref<WaterSupplierDevice[]>([])
 const searchKeyword = ref('')
@@ -208,8 +264,20 @@ const newDevice = ref({
   deviceType: 'water_supply'
 })
 
+// 编辑：编辑设备相关状态
+const showEditModal = ref(false)
+const editingDevice = ref<DeviceDetail>({
+  deviceId: '',
+  deviceName: '',
+  areaId: '',
+  installLocation: '',
+  deviceType: 'water_supply',
+  parentMakerId: ''
+})
+
 // 新增：可关联的制水机列表
 const availableMakers = ref<{id: string, name: string}[]>([])
+const availableMakersForEdit = ref<{id: string, name: string}[]>([])
 
 // 新增：删除设备相关状态
 const showDeleteModal = ref(false)
@@ -301,6 +369,50 @@ const loadAvailableMakers = async () => {
   } catch (error) {
     console.error('加载制水机列表失败:', error);
     availableMakers.value = []
+    if ((error as Error).message.includes('401')) {
+      authStore.logout()
+      router.push('/login')
+    }
+  }
+}
+
+// 编辑模式下加载指定片区内可用的制水机设备
+const loadAvailableMakersForEdit = async () => {
+  if (!editingDevice.value.areaId) {
+    availableMakersForEdit.value = []
+    return
+  }
+
+  try {
+    const token = authStore.token
+    if (!token) {
+      router.push('/login')
+      return
+    }
+
+    // 请求该片区内的所有制水机
+    const params = new URLSearchParams();
+    params.append('areaId', editingDevice.value.areaId);
+    params.append('deviceType', 'water_maker');
+
+    const queryString = params.toString();
+    const url = `/api/web/device-status/by-type${queryString ? `?${queryString}` : ''}`;
+
+    const response = await request<ResultVO<any[]>>(url, { method: 'GET' });
+
+    if (response.code === 200 && response.data && Array.isArray(response.data)) {
+      // 转换为选项格式，包含ID和位置信息
+      availableMakersForEdit.value = response.data.map((maker: any) => ({
+        id: maker.deviceId,
+        name: `${maker.deviceId} - ${maker.installLocation}`
+      }))
+    } else {
+      console.error('获取制水机列表失败:', response.message);
+      availableMakersForEdit.value = []
+    }
+  } catch (error) {
+    console.error('加载制水机列表失败:', error);
+    availableMakersForEdit.value = []
     if ((error as Error).message.includes('401')) {
       authStore.logout()
       router.push('/login')
@@ -409,6 +521,100 @@ const resetAddForm = () => {
   availableMakers.value = []
 }
 
+// 打开编辑模态框
+const openEditModal = async (device: WaterSupplierDevice) => {
+  try {
+    const token = authStore.token
+    if (!token) {
+      router.push('/login')
+      return
+    }
+
+    const response = await request<ResultVO<{ deviceInfo: DeviceDetail }>>(`/api/web/device/${device.id}`, { method: 'GET' })
+
+    if (response.code === 200 && response.data?.deviceInfo) {
+      const deviceDetail = response.data.deviceInfo // 👈 关键修改：从 deviceInfo 提取
+      editingDevice.value = {
+        deviceId: deviceDetail.deviceId,
+        deviceName: deviceDetail.deviceName,
+        areaId: deviceDetail.areaId,
+        installLocation: deviceDetail.installLocation,
+        deviceType: deviceDetail.deviceType,
+        parentMakerId: deviceDetail.parentMakerId || ''
+      }
+
+      // 加载可关联的制水机
+      await loadAvailableMakersForEdit()
+
+      showEditModal.value = true
+    } else {
+      alert(`获取设备详情失败: ${response.message}`)
+    }
+  } catch (error) {
+    console.error('获取设备详情失败:', error)
+    alert('获取设备详情失败')
+    if ((error as Error).message.includes('401')) {
+      authStore.logout()
+      router.push('/login')
+    }
+  }
+}
+
+
+// 更新设备
+const updateDevice = async () => {
+  try {
+    const token = authStore.token
+    if (!token) {
+      router.push('/login')
+      return
+    }
+
+    const deviceToUpdate = {
+      deviceId: editingDevice.value.deviceId,
+      deviceName: editingDevice.value.deviceName,
+      areaId: editingDevice.value.areaId,
+      installLocation: editingDevice.value.installLocation,
+      deviceType: editingDevice.value.deviceType,
+      parentMakerId: editingDevice.value.parentMakerId || null
+    }
+
+    const result = await request<ResultVO<any>>('/api/web/device/edit', {
+      method: 'PUT',
+      body: JSON.stringify(deviceToUpdate)
+    })
+
+    if (result.code === 200) {
+      await loadWaterSuppliers()
+      showEditModal.value = false
+      resetEditForm()
+      alert('设备更新成功')
+    } else {
+      alert(`设备更新失败: ${result.message}`)
+    }
+  } catch (error) {
+    console.error('更新设备失败:', error)
+    alert('更新设备失败')
+    if ((error as Error).message.includes('401')) {
+      authStore.logout()
+      router.push('/login')
+    }
+  }
+}
+
+// 重置编辑表单
+const resetEditForm = () => {
+  editingDevice.value = {
+    deviceId: '',
+    deviceName: '',
+    areaId: '',
+    installLocation: '',
+    deviceType: 'water_supply',
+    parentMakerId: ''
+  }
+  availableMakersForEdit.value = []
+}
+
 // 删除设备
 const deleteDevice = async () => {
   try {
@@ -489,6 +695,21 @@ onMounted(() => {
 
 .btn-add:hover {
   background: #359e75;
+}
+
+.btn-edit {
+  background: #e6f7ff;
+  color: #1890ff;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.3s;
+}
+
+.btn-edit:hover {
+  background: #bae7ff;
 }
 
 .btn-delete {
