@@ -160,8 +160,8 @@
               <label class="form-label required">维修片区：</label>
               <select v-model="form.areaId" required>
                 <option value="">请选择片区</option>
-                <option value="市区">市区</option>
-                <option value="校区">校区</option>
+                <option value="A">A</option>
+                <option value="B">B</option>
               </select>
             </div>
             <div class="form-group">

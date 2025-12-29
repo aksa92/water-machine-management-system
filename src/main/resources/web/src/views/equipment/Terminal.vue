@@ -143,10 +143,70 @@
             <label>安装日期:</label>
             <input v-model="currentTerminal.installDate" type="date">
           </div>
+
+          <!-- 市区选择 -->
+          <div class="form-group" v-if="!isEditing">
+            <label>选择市区:</label>
+            <select
+              v-model="selectedCityId"
+              @change="onCityChange"
+              class="select-input"
+            >
+              <option value="">请选择市区</option>
+              <option
+                v-for="city in cityList"
+                :key="city.areaId"
+                :value="city.areaId"
+              >
+                {{ city.areaName }}
+              </option>
+            </select>
+          </div>
+
+          <!-- 校区选择 -->
+          <div class="form-group" v-if="!isEditing && selectedCityId">
+            <label>选择校区:</label>
+            <select
+              v-model="selectedCampusId"
+              @change="onCampusChange"
+              class="select-input"
+              :disabled="!campusList.length"
+            >
+              <option value="">请选择校区</option>
+              <option
+                v-for="campus in campusList"
+                :key="campus.areaId"
+                :value="campus.areaId"
+              >
+                {{ campus.areaName }}
+              </option>
+            </select>
+            <p v-if="selectedCityId && !campusList.length" class="no-data-message">
+              该市区暂无校区
+            </p>
+          </div>
+
           <div class="form-group">
             <label>关联设备ID:</label>
-            <input v-model="currentTerminal.deviceId" type="text">
+            <select
+              v-model="currentTerminal.deviceId"
+              class="select-input"
+              :disabled="!filteredSupplyDevices.length"
+            >
+              <option value="">请选择供水机</option>
+              <option
+                  v-for="device in filteredSupplyDevices"
+                  :key="device.deviceId"
+                  :value="device.deviceId"
+              >
+                {{ device.deviceId }} - {{ device.installLocation }} ({{ device.deviceName }})
+              </option>
+            </select>
+            <p v-if="selectedCampusId && !filteredSupplyDevices.length" class="no-data-message">
+              该校区暂无可用的供水机
+            </p>
           </div>
+
           <div class="form-actions">
             <button type="button" @click="showAddModal = false">取消</button>
             <button type="submit">{{ isEditing ? '更新' : '添加' }}</button>
@@ -175,7 +235,6 @@ const isTerminalManageVO = (obj: any): obj is TerminalManageVO => {
          ['active', 'inactive', 'warning', 'fault'].includes(obj.terminalStatus)
 }
 
-
 // 终端状态类型定义
 type TerminalStatus = 'active' | 'inactive' | 'fault' | 'warning'
 
@@ -188,6 +247,28 @@ interface TerminalManageVO {
   terminalStatus: TerminalStatus
   installDate?: string
   deviceId?: string
+  areaId?: string
+}
+
+// 设备类型定义
+interface Device {
+  deviceId: string
+  deviceName: string
+  installLocation: string
+  deviceType: string
+  status: string
+  areaId: string // 设备所属片区ID
+}
+
+// 区域类型定义
+interface Area {
+  areaId: string
+  areaName: string
+  areaType: string
+  parentAreaId: string | null
+  address: string
+  manager: string
+  managerPhone: string
 }
 
 // 响应式数据
@@ -209,10 +290,19 @@ const currentTerminal = ref<TerminalManageVO>({
   terminalName: '',
   longitude: 0,
   latitude: 0,
-  terminalStatus: 'active'
+  terminalStatus: 'active',
+  deviceId: undefined
 })
 
-// 加载终端数据
+// 可用供水机设备列表
+const availableSupplyDevices = ref<Device[]>([])
+
+// 片区相关数据
+const cityList = ref<Area[]>([]) // 市区列表
+const campusList = ref<Area[]>([]) // 校区列表
+const selectedCityId = ref('') // 选择的市区ID
+const selectedCampusId = ref('') // 选择的校区ID
+
 // 加载终端数据
 const loadTerminals = async (): Promise<void> => {
   try {
@@ -227,10 +317,7 @@ const loadTerminals = async (): Promise<void> => {
     console.log('开始加载终端机数据...')
 
     // 获取所有终端
-    const result = await request<ResultVO<TerminalManageVO[]>>(
-      `/api/web/terminal/list`,
-      { method: 'GET' }
-    )
+    const result = await request<ResultVO<TerminalManageVO[]>>(`/api/web/terminal/list`, { method: 'GET' })
 
     console.log('终端机请求结果:', result)
 
@@ -285,7 +372,191 @@ const loadTerminals = async (): Promise<void> => {
   }
 }
 
+// 加载市区列表
+const loadCityList = async (): Promise<void> => {
+  try {
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
+    }
 
+    console.log('开始加载市区列表...')
+
+    const result = await request<any>('/api/web/area/cities', { method: 'GET' })
+
+    if (result && typeof result === 'object' && 'code' in result) {
+      if (result.code === 200 && result.data && Array.isArray(result.data)) {
+        cityList.value = result.data
+        console.log(`获取到${cityList.value.length}个市区`)
+      } else {
+        console.warn('API响应非成功状态或数据格式错误:', result)
+        cityList.value = []
+      }
+    } else if (Array.isArray(result)) {
+      cityList.value = result
+    } else {
+      console.warn('API响应数据格式错误:', result)
+      cityList.value = []
+    }
+  } catch (error) {
+    console.error('加载市区列表失败:', error)
+    cityList.value = []
+    if ((error as Error).message.includes('401')) {
+      authStore.logout()
+      router.push('/login')
+    }
+  }
+}
+
+// 根据市区ID加载校区列表
+const loadCampusListByCity = async (cityId: string): Promise<void> => {
+  try {
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
+    }
+
+    console.log(`开始加载市区 ${cityId} 的校区列表...`)
+
+    const result = await request<any>(`/api/web/area/campuses/${cityId}`, { method: 'GET' })
+
+    if (result && typeof result === 'object' && 'code' in result) {
+      if (result.code === 200 && result.data && Array.isArray(result.data)) {
+        campusList.value = result.data
+        console.log(`获取到${campusList.value.length}个校区`)
+      } else {
+        console.warn('API响应非成功状态或数据格式错误:', result)
+        campusList.value = []
+      }
+    } else if (Array.isArray(result)) {
+      campusList.value = result
+    } else {
+      console.warn('API响应数据格式错误:', result)
+      campusList.value = []
+    }
+  } catch (error) {
+    console.error('加载校区列表失败:', error)
+    campusList.value = []
+    if ((error as Error).message.includes('401')) {
+      authStore.logout()
+      router.push('/login')
+    }
+  }
+}
+
+// 加载可用供水机设备列表
+const loadAvailableSupplyDevices = async (): Promise<void> => {
+  try {
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
+    }
+
+    console.log('开始加载设备列表...')
+
+    // 使用与供水机页面相同的接口获取供水机
+    const params = new URLSearchParams();
+    params.append('deviceType', 'water_supply'); // 只获取供水机
+    params.append('status', 'online'); // 只获取在线设备
+
+    const queryString = params.toString();
+    const url = `/api/web/device-status/by-type${queryString ? `?${queryString}` : ''}`;
+
+    const result = await request<any>(url, { method: 'GET' })
+
+    if (result && typeof result === 'object' && 'code' in result) {
+      if (result.code === 200 && result.data && Array.isArray(result.data)) {
+        // 直接使用返回的供水机设备数据
+        // 在 loadAvailableSupplyDevices 方法中添加数据转换
+availableSupplyDevices.value = result.data.map((device: any) => ({
+  deviceId: device.deviceId,
+  deviceName: device.deviceName,
+  installLocation: device.installLocation,
+  deviceType: device.deviceType,
+  status: device.status,
+  areaId: device.areaId ? device.areaId.split('-')[0] : '' // 提取简单的片区标识符
+}))
+
+        console.log(`获取到${availableSupplyDevices.value.length}个可用供水机`)
+      } else {
+        console.warn('API响应非成功状态或数据格式错误:', result)
+        availableSupplyDevices.value = []
+      }
+    } else if (Array.isArray(result)) {
+      // 直接返回数组的情况
+      availableSupplyDevices.value = (result as any[]).map((device: any) => ({
+        deviceId: device.deviceId,
+        deviceName: device.deviceName,
+        installLocation: device.installLocation,
+        deviceType: device.deviceType,
+        status: device.status,
+        areaId: device.areaId // 设备所属片区ID
+      }))
+    } else {
+      console.warn('API响应数据格式错误:', result)
+      availableSupplyDevices.value = []
+    }
+  } catch (error) {
+    console.error('加载可用供水机列表失败:', error)
+    availableSupplyDevices.value = []
+    if ((error as Error).message.includes('401')) {
+      authStore.logout()
+      router.push('/login')
+    }
+  }
+}
+
+// 根据选择的校区过滤供水机
+const filteredSupplyDevices = computed(() => {
+  if (!selectedCampusId.value) {
+    return availableSupplyDevices.value
+  }
+
+  // 获取选中校区的 area_name
+  const selectedCampus = campusList.value.find(campus => campus.areaId === selectedCampusId.value)
+  if (!selectedCampus) {
+    return availableSupplyDevices.value
+  }
+
+  // 使用校区的 area_name 来匹配设备的 areaId
+  return availableSupplyDevices.value.filter(device => {
+    // 假设设备的 areaId 字段实际上存储的是区域的 area_name
+    return device.areaId === selectedCampus.areaName
+  })
+})
+
+
+// 市区选择变化时的处理
+const onCityChange = async () => {
+  // 清空校区选择和设备ID
+  selectedCampusId.value = ''
+  currentTerminal.value.deviceId = undefined
+  campusList.value = []
+
+  if (selectedCityId.value) {
+    await loadCampusListByCity(selectedCityId.value)
+  }
+}
+
+// 校区选择变化时的处理
+const onCampusChange = () => {
+  // 当选择校区时，清空当前选择的设备ID
+  currentTerminal.value.deviceId = undefined
+
+  // 设置areaId为选中校区的areaName（不是areaId）
+  const selectedCampus = campusList.value.find(campus => campus.areaId === selectedCampusId.value)
+  if (selectedCampus) {
+    currentTerminal.value.areaId = selectedCampus.areaName // 使用areaName作为areaId
+  } else {
+    currentTerminal.value.areaId = undefined
+  }
+}
 
 
 // 多条件过滤终端数据
@@ -345,9 +616,18 @@ const editTerminal = (terminal: TerminalManageVO) => {
   currentTerminal.value = { ...terminal }
   isEditing.value = true
   showAddModal.value = true
+
+  // 确保设备列表已加载
+  if (availableSupplyDevices.value.length === 0) {
+    loadAvailableSupplyDevices()
+  }
+
+  // 确保市区列表已加载
+  if (cityList.value.length === 0) {
+    loadCityList()
+  }
 }
 
-// 删除终端
 // 删除终端
 const deleteTerminal = async (terminalId: string) => {
   if (!confirm(`确定要删除终端 ${terminalId} 吗？`)) {
@@ -392,7 +672,6 @@ const deleteTerminal = async (terminalId: string) => {
   }
 }
 
-
 // 保存终端（新增或更新）
 const saveTerminal = async () => {
   try {
@@ -401,6 +680,24 @@ const saveTerminal = async () => {
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
       router.push('/login')
+      return
+    }
+
+    // 验证是否选择了校区（新增终端时）
+    if (!isEditing.value && !selectedCampusId.value) {
+      alert('请选择校区')
+      return
+    }
+
+    // 验证areaId是否已设置
+    if (!currentTerminal.value.areaId) {
+      alert('请先选择校区以确定所属片区')
+      return
+    }
+
+    // 验证是否选择了关联设备
+    if (!currentTerminal.value.deviceId) {
+      alert('请选择关联的供水机')
       return
     }
 
@@ -413,6 +710,18 @@ const saveTerminal = async () => {
       })
     } else {
       // 添加终端
+      // 验证是否选择了校区（新增终端时）
+      if (!selectedCampusId.value) {
+        alert('请选择校区')
+        return
+      }
+
+      // 验证是否选择了关联设备
+      if (!currentTerminal.value.deviceId) {
+        alert('请选择关联的供水机')
+        return
+      }
+
       result = await request<ResultVO<TerminalManageVO> | TerminalManageVO>('/api/web/terminal/add', {
         method: 'POST',
         body: JSON.stringify(currentTerminal.value)
@@ -434,8 +743,12 @@ const saveTerminal = async () => {
           terminalName: '',
           longitude: 0,
           latitude: 0,
-          terminalStatus: 'active'
+          terminalStatus: 'active',
+          deviceId: undefined
         }
+        selectedCityId.value = ''
+        selectedCampusId.value = ''
+        campusList.value = []
 
         alert(isEditing.value ? '终端更新成功' : '终端添加成功')
       } else if (result.code === 200) {
@@ -451,8 +764,12 @@ const saveTerminal = async () => {
           terminalName: '',
           longitude: 0,
           latitude: 0,
-          terminalStatus: 'active'
+          terminalStatus: 'active',
+          deviceId: undefined
         }
+        selectedCityId.value = ''
+        selectedCampusId.value = ''
+        campusList.value = []
 
         alert(isEditing.value ? '终端更新成功' : '终端添加成功')
       } else {
@@ -472,8 +789,12 @@ const saveTerminal = async () => {
         terminalName: '',
         longitude: 0,
         latitude: 0,
-        terminalStatus: 'active'
+        terminalStatus: 'active',
+        deviceId: undefined
       }
+      selectedCityId.value = ''
+      selectedCampusId.value = ''
+      campusList.value = []
 
       alert(isEditing.value ? '终端更新成功' : '终端添加成功')
     }
@@ -490,8 +811,12 @@ const saveTerminal = async () => {
         terminalName: '',
         longitude: 0,
         latitude: 0,
-        terminalStatus: 'active'
+        terminalStatus: 'active',
+        deviceId: undefined
       }
+      selectedCityId.value = ''
+      selectedCampusId.value = ''
+      campusList.value = []
 
       alert(isEditing.value ? '终端更新成功' : '终端添加成功')
     }
@@ -509,6 +834,8 @@ const saveTerminal = async () => {
 onMounted(async () => {
   console.log('🚀 开始加载终端数据...')
   await loadTerminals()
+  await loadAvailableSupplyDevices()
+  await loadCityList()
 })
 </script>
 
@@ -786,6 +1113,29 @@ onMounted(async () => {
   background: #42b983;
   color: white;
   border: none;
+}
+
+/* 新增：下拉框样式 */
+.select-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-sizing: border-box;
+  background: white;
+  cursor: pointer;
+}
+
+.select-input:focus {
+  outline: none;
+  border-color: #42b983;
+}
+
+/* 新增：无数据提示样式 */
+.no-data-message {
+  margin-top: 8px;
+  color: #8c8c8c;
+  font-size: 12px;
 }
 
 /* 响应式调整 */
