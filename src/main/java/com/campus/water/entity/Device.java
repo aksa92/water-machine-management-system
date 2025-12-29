@@ -41,7 +41,7 @@ public class Device {
     private LocalDateTime createTime = LocalDateTime.now();
 
     // 新增：关联的制水机ID（仅供水机有值）
-    @Column(name = "parent_maker_id", length = 20)
+    @Column(name = "parent_maker_id", length = 36)
     private String parentMakerId;
 
     // 保留原有的remark方法（若表中有该字段可直接映射，无则忽略）
