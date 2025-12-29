@@ -1,6 +1,5 @@
 package com.campus.water.controller.web;
 
-import com.campus.water.entity.*;
 import com.campus.water.mapper.RepairerAuthRepository;
 import com.campus.water.mapper.WaterMakerRealtimeDataRepository;
 import com.campus.water.mapper.WaterSupplyRealtimeDataRepository;
@@ -17,7 +16,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.access.prepost.PreAuthorize;
-
+import com.campus.water.entity.Device;
+import com.campus.water.entity.RepairerAuth;
+import com.campus.water.entity.Repairman;
+import com.campus.water.entity.WaterMakerRealtimeData;
+import com.campus.water.entity.WaterSupplyRealtimeData;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
