@@ -1,21 +1,16 @@
 <template>
   <div class="home-page">
     <!-- 顶部标题栏 -->
-    <div class="header">
-      <div class="header-left">
-        <div class="user-info">
-          <div class="user-name">{{ userInfo?.username || '未登录' }}</div>
-          <div class="user-type">{{ userInfo?.userType === 'repairer' ? '维修人员' : userInfo?.userType }}</div>
-        </div>
-      </div>
-      <div class="header-title">运维工作台</div>
-      <div class="header-right">
-        <div class="notification-icon" @click="goToNotifications">
-          <span>🔔</span>
-          <span v-if="unreadCount > 0" class="notification-badge">{{ unreadCount }}</span>
-        </div>
-      </div>
+<div class="header">
+  <div class="header-title">运维工作台</div>
+  <div class="header-right">
+    <div class="notification-icon" @click="goToNotifications">
+      <span>🔔</span>
+      <span v-if="unreadCount > 0" class="notification-badge">{{ unreadCount }}</span>
     </div>
+  </div>
+</div>
+
     <!-- 主要内容区域 -->
     <div class="main-content">
       <!-- 统计卡片 -->
@@ -487,4 +482,26 @@ onMounted(() => {
   justify-content: center;
   min-width: 18px;
 }
+
+.header {
+  background: white;
+  padding: 12px 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  text-align: center;
+  flex: 1;
+}
+
+.header-right {
+  margin-left: auto;
+}
+
 </style>

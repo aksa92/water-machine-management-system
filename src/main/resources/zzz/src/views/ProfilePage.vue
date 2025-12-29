@@ -45,53 +45,6 @@
         </div>
       </div>
 
-      <!-- 功能菜单 -->
-      <div class="menu-section">
-        <div class="section-title">功能菜单</div>
-        <div class="menu-list">
-          <div class="menu-item" @click="goToSettings">
-            <div class="menu-left">
-              <div class="menu-icon">⚙️</div>
-              <div class="menu-text">系统设置</div>
-            </div>
-            <div class="menu-right">></div>
-          </div>
-
-          <div class="menu-item" @click="goToNotifications">
-            <div class="menu-left">
-              <div class="menu-icon">🔔</div>
-              <div class="menu-text">消息通知</div>
-              <div class="badge" v-if="unreadCount > 0">{{ unreadCount }}</div>
-            </div>
-            <div class="menu-right">></div>
-          </div>
-
-          <div class="menu-item" @click="goToFeedback">
-            <div class="menu-left">
-              <div class="menu-icon">📝</div>
-              <div class="menu-text">问题反馈</div>
-            </div>
-            <div class="menu-right">></div>
-          </div>
-
-          <div class="menu-item" @click="goToHelp">
-            <div class="menu-left">
-              <div class="menu-icon">❓</div>
-              <div class="menu-text">使用帮助</div>
-            </div>
-            <div class="menu-right">></div>
-          </div>
-
-          <div class="menu-item" @click="goToAbout">
-            <div class="menu-left">
-              <div class="menu-icon">ℹ️</div>
-              <div class="menu-text">关于我们</div>
-            </div>
-            <div class="menu-right">></div>
-          </div>
-        </div>
-      </div>
-
       <!-- 退出登录按钮 -->
       <div class="logout-section">
         <button class="logout-btn" @click="logout">
@@ -377,73 +330,6 @@ onMounted(() => {
   color: #666;
 }
 
-/* 菜单区域 */
-.menu-section {
-  background: white;
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.menu-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.menu-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 0;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.menu-item:not(:last-child) {
-  border-bottom: 1px solid #f5f5f5;
-}
-
-.menu-item:hover {
-  background: #fafafa;
-  padding-left: 8px;
-  padding-right: 8px;
-  margin: 0 -8px;
-  border-radius: 4px;
-}
-
-.menu-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.menu-icon {
-  font-size: 20px;
-}
-
-.menu-text {
-  font-size: 15px;
-  color: #333;
-  font-weight: 500;
-}
-
-.badge {
-  background: #ff4d4f;
-  color: white;
-  font-size: 12px;
-  font-weight: 500;
-  padding: 2px 8px;
-  border-radius: 10px;
-  min-width: 20px;
-  text-align: center;
-}
-
-.menu-right {
-  font-size: 16px;
-  color: #999;
-  transition: transform 0.3s;
-}
 
 .menu-item:hover .menu-right {
   transform: translateX(2px);

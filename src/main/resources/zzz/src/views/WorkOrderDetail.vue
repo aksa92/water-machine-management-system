@@ -15,7 +15,10 @@
       <div class="detail-container" v-if="currentOrder">
         <!-- 工单信息 -->
         <div class="detail-section">
-          <div class="section-title">工单信息</div>
+          <div class="section-header">
+            <div class="section-color-bar"></div>
+            <div class="section-title">工单信息</div>
+          </div>
           <div class="detail-grid">
             <div class="detail-item">
               <div class="item-label">工单ID</div>
@@ -46,7 +49,10 @@
 
         <!-- 告警信息 -->
         <div class="detail-section">
-          <div class="section-title">告警信息</div>
+          <div class="section-header">
+            <div class="section-color-bar"></div>
+            <div class="section-title">告警信息</div>
+          </div>
           <div class="alert-content">
             <div class="alert-item">
               <div class="alert-label">告警内容</div>
@@ -61,7 +67,10 @@
 
         <!-- 维修项目 -->
         <div class="detail-section">
-          <div class="section-title">维修项目</div>
+          <div class="section-header">
+            <div class="section-color-bar"></div>
+            <div class="section-title">维修项目</div>
+          </div>
           <div class="repair-content">
             <div class="repair-item">
               <div class="repair-label">报修项目</div>
@@ -1123,4 +1132,28 @@ onMounted(() => {
   color: #333;
   cursor: pointer;
 }
+
+/* 小标题头部 */
+.section-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.section-color-bar {
+  width: 40px;
+  height: 3px;
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+
 </style>
