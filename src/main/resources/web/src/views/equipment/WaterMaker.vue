@@ -84,27 +84,7 @@
                 @click="updateDeviceStatus(device.deviceId, 'online')"
                 :disabled="device.status === 'online'"
             >
-              设为在线
-            </button>
-            <button
-                class="btn-offline"
-                @click="showOfflineModal(device.deviceId)"
-                :disabled="device.status === 'offline'"
-            >
-              设为离线
-            </button>
-            <button
-                class="btn-fault"
-                @click="showFaultModalFunc(device.deviceId)"
-                :disabled="device.status === 'fault'"
-            >
-              设为故障
-            </button>
 
-            <button
-                class="btn-delete"
-                @click="deleteDevice(device.deviceId)"
-            >
               删除
             </button>
           </td>

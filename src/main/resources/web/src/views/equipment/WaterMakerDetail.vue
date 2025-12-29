@@ -47,10 +47,7 @@
           <span class="label">创建时间:</span>
           <span class="value">{{ formatDate(deviceDetail.deviceInfo?.createTime) }}</span>
         </div>
-        <div class="detail-item">
-          <span class="label">最后心跳时间:</span>
-          <span class="value">{{ formatDate(deviceDetail.deviceInfo?.lastHeartbeatTime) }}</span>
-        </div>
+
       </div>
     </div>
 
@@ -111,6 +108,26 @@
           <span class="value">{{ formatDate(deviceDetail.realtimeData?.recordTime) }}</span>
         </div>
       </div>
+
+      <!-- TDS值柱状图 -->
+      <div class="chart-container">
+        <h4>TDS值对比</h4>
+        <div id="tds-chart" class="chart"></div>
+      </div>
+
+      <!-- 滤芯寿命百分比条码 -->
+      <div class="chart-container">
+        <h4>滤芯寿命</h4>
+        <div class="progress-bar-container">
+          <div class="progress-bar">
+            <div
+              class="progress-bar-fill"
+              :style="{ width: `${deviceDetail.realtimeData?.filterLife || 0}%` }"
+            ></div>
+          </div>
+          <div class="progress-text">{{ deviceDetail.realtimeData?.filterLife || 0 }}%</div>
+        </div>
+      </div>
     </div>
 
     <!-- 关联的供水机列表卡片 -->
@@ -169,11 +186,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { request } from '@/api/request'
 import type { ResultVO } from '@/api/types/auth'
+import * as echarts from 'echarts'
 
 // 类型定义 - 根据后端实体类调整
 interface DeviceInfo {
@@ -229,6 +247,9 @@ const supplierDevices = ref<SupplierDevice[]>([]) // 新增：关联的供水机
 const loading = ref(true)
 const loadingSuppliers = ref(false) // 新增：供水机加载状态
 const error = ref('')
+
+// 图表实例
+const tdsChart = ref<echarts.ECharts | null>(null)
 
 // 获取设备ID
 const deviceId = route.params.id as string
@@ -319,6 +340,72 @@ const loadSupplierDevices = async (makerId: string) => {
   }
 }
 
+// 初始化TDS柱状图
+const initTDSChart = () => {
+  const chartDom = document.getElementById('tds-chart')
+  if (!chartDom) return
+
+  tdsChart.value = echarts.init(chartDom)
+
+  const option: echarts.EChartsOption = {
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow'
+      }
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '3%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      data: ['原水TDS', '纯水TDS', '矿化水TDS']
+    },
+    yAxis: {
+      type: 'value',
+      name: 'ppm'
+    },
+    series: [{
+      data: [
+        deviceDetail.value?.realtimeData?.tdsValue1 || 0,
+        deviceDetail.value?.realtimeData?.tdsValue2 || 0,
+        deviceDetail.value?.realtimeData?.tdsValue3 || 0
+      ],
+      type: 'bar',
+      itemStyle: {
+        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: '#83bff6' },
+          { offset: 0.5, color: '#188df0' },
+          { offset: 1, color: '#188df0' }
+        ])
+      },
+      emphasis: {
+        itemStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: '#2378f7' },
+            { offset: 0.7, color: '#2378f7' },
+            { offset: 1, color: '#83bff6' }
+          ])
+        }
+      },
+      // 添加标签配置
+      label: {
+        show: true,
+        position: 'top',
+        formatter: '{c} ppm', // 显示数值和单位
+        color: '#333',
+        fontSize: 12
+      }
+    }]
+  }
+
+  tdsChart.value.setOption(option)
+}
+
+
 // 加载设备详情
 const loadDeviceDetail = async () => {
   try {
@@ -346,6 +433,11 @@ const loadDeviceDetail = async () => {
       if (result.data.deviceInfo?.deviceType === 'water_maker') {
         await loadSupplierDevices(deviceId)
       }
+
+      // 初始化图表
+      nextTick(() => {
+        initTDSChart()
+      })
     } else {
       error.value = result.message || '获取设备详情失败'
     }
@@ -361,6 +453,21 @@ const loadDeviceDetail = async () => {
   }
 }
 
+// 监听数据变化并更新图表
+watch(() => deviceDetail.value?.realtimeData, (newData) => {
+  if (newData && tdsChart.value) {
+    tdsChart.value.setOption({
+      series: [{
+        data: [
+          newData.tdsValue1 || 0,
+          newData.tdsValue2 || 0,
+          newData.tdsValue3 || 0
+        ]
+      }]
+    })
+  }
+}, { deep: true })
+
 // 组件挂载时加载数据
 onMounted(() => {
   if (deviceId) {
@@ -370,7 +477,15 @@ onMounted(() => {
     loading.value = false
   }
 })
+
+// 页面销毁时销毁图表
+onUnmounted(() => {
+  if (tdsChart.value) {
+    tdsChart.value.dispose()
+  }
+})
 </script>
+
 
 <style scoped>
 .water-maker-detail-page {
@@ -554,5 +669,59 @@ onMounted(() => {
   color: #666;
   font-weight: normal;
   margin-left: 8px;
+}
+
+/* 图表相关样式 */
+.chart-container {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+}
+
+.chart-container h4 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.chart {
+  height: 300px;
+  width: 100%;
+}
+
+.progress-bar-container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 24px;
+  background-color: #f0f0f0;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #42b983, #359e75);
+  transition: width 0.3s ease;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.progress-text {
+  min-width: 40px;
+  text-align: center;
+  font-weight: bold;
+  color: #333;
 }
 </style>

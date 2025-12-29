@@ -115,6 +115,25 @@
           <span class="value">{{ formatDate(deviceDetail.realtimeData?.timestamp) }}</span>
         </div>
       </div>
+
+      <!-- 实时监控数据 - 并列显示三个仪表盘 -->
+      <div class="chart-container">
+        <h4>实时监控数据</h4>
+        <div class="charts-row">
+          <div class="chart-item">
+            <h5>水压监控</h5>
+            <div id="pressure-chart" class="chart"></div>
+          </div>
+          <div class="chart-item">
+            <h5>流量监控</h5>
+            <div id="flow-chart" class="chart"></div>
+          </div>
+          <div class="chart-item">
+            <h5>温度监控</h5>
+            <div id="temperature-chart" class="chart"></div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 加载中提示 -->
@@ -130,11 +149,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { request } from '@/api/request'
 import type { ResultVO } from '@/api/types/auth'
+import * as echarts from 'echarts'
 
 // 类型定义 - 根据后端实体类调整
 interface DeviceInfo {
@@ -173,6 +193,11 @@ const deviceDetail = ref<DeviceDetail | null>(null)
 const associatedMaker = ref<DeviceInfo | null>(null) // 关联的制水机信息
 const loading = ref(true)
 const error = ref('')
+
+// 图表实例
+const pressureChart = ref<echarts.ECharts | null>(null)
+const flowChart = ref<echarts.ECharts | null>(null)
+const temperatureChart = ref<echarts.ECharts | null>(null)
 
 // 获取设备ID
 const deviceId = route.params.id as string
@@ -226,6 +251,99 @@ const goBack = () => {
   router.go(-1)
 }
 
+// 初始化水压图表
+const initPressureChart = () => {
+  const chartDom = document.getElementById('pressure-chart')
+  if (!chartDom) return
+
+  pressureChart.value = echarts.init(chartDom)
+
+  const option: echarts.EChartsOption = {
+    tooltip: {
+      trigger: 'item',
+      formatter: '{a} <br/>{b}: {c} MPa'
+    },
+    series: [{
+      name: '水压',
+      type: 'gauge',
+      min: 0,
+      max: 2,
+      detail: {
+        formatter: '{value} MPa',
+        fontSize: 18
+      },
+      data: [{
+        value: deviceDetail.value?.realtimeData?.waterPress || 0,
+        name: '当前水压'
+      }]
+    }]
+  }
+
+  pressureChart.value.setOption(option)
+}
+
+// 初始化流量图表
+const initFlowChart = () => {
+  const chartDom = document.getElementById('flow-chart')
+  if (!chartDom) return
+
+  flowChart.value = echarts.init(chartDom)
+
+  const option: echarts.EChartsOption = {
+    tooltip: {
+      trigger: 'item',
+      formatter: '{a} <br/>{b}: {c} m³/h'
+    },
+    series: [{
+      name: '流量',
+      type: 'gauge',
+      min: 0,
+      max: 100,
+      detail: {
+        formatter: '{value} m³/h',
+        fontSize: 18
+      },
+      data: [{
+        value: deviceDetail.value?.realtimeData?.waterFlow || 0,
+        name: '当前流量'
+      }]
+    }]
+  }
+
+  flowChart.value.setOption(option)
+}
+
+// 初始化温度图表
+const initTemperatureChart = () => {
+  const chartDom = document.getElementById('temperature-chart')
+  if (!chartDom) return
+
+  temperatureChart.value = echarts.init(chartDom)
+
+  const option: echarts.EChartsOption = {
+    tooltip: {
+      trigger: 'item',
+      formatter: '{a} <br/>{b}: {c} °C'
+    },
+    series: [{
+      name: '温度',
+      type: 'gauge',
+      min: 0,
+      max: 50,
+      detail: {
+        formatter: '{value} °C',
+        fontSize: 18
+      },
+      data: [{
+        value: deviceDetail.value?.realtimeData?.temperature || 0,
+        name: '当前温度'
+      }]
+    }]
+  }
+
+  temperatureChart.value.setOption(option)
+}
+
 // 加载设备详情
 const loadDeviceDetail = async () => {
   try {
@@ -253,6 +371,13 @@ const loadDeviceDetail = async () => {
       if (result.data.deviceInfo.parentMakerId) {
         await loadAssociatedMaker(result.data.deviceInfo.parentMakerId)
       }
+
+      // 初始化图表
+      nextTick(() => {
+        initPressureChart()
+        initFlowChart()
+        initTemperatureChart()
+      })
     } else {
       error.value = result.message || '获取设备详情失败'
     }
@@ -267,51 +392,6 @@ const loadDeviceDetail = async () => {
     loading.value = false
   }
 }
-
-// 加载指定片区内可用的制水机设备
-const loadAvailableMakers = async () => {
-  if (!newDevice.value.areaId) {
-    availableMakers.value = []
-    return
-  }
-
-  try {
-    const token = authStore.token
-    if (!token) {
-      router.push('/login')
-      return
-    }
-
-    // 请求该片区内的所有制水机
-    const params = new URLSearchParams();
-    params.append('areaId', newDevice.value.areaId);
-    params.append('deviceType', 'water_maker');
-
-    const queryString = params.toString();
-    const url = `/api/web/device-status/by-type${queryString ? `?${queryString}` : ''}`;
-
-    const response = await request<ResultVO<any[]>>(url, { method: 'GET' });
-
-    if (response.code === 200 && response.data && Array.isArray(response.data)) {
-      // 转换为选项格式，包含ID和位置信息
-      availableMakers.value = response.data.map((maker: any) => ({
-        id: maker.deviceId,
-        name: `${maker.deviceId} - ${maker.installLocation}`
-      }))
-    } else {
-      console.error('获取制水机列表失败:', response.message);
-      availableMakers.value = []
-    }
-  } catch (error) {
-    console.error('加载制水机列表失败:', error);
-    availableMakers.value = []
-    if ((error as Error).message.includes('401')) {
-      authStore.logout()
-      router.push('/login')
-    }
-  }
-}
-
 
 // 加载关联的制水机信息
 const loadAssociatedMaker = async (makerId: string) => {
@@ -349,6 +429,19 @@ onMounted(() => {
   } else {
     error.value = '无效的设备ID'
     loading.value = false
+  }
+})
+
+// 页面销毁时销毁图表
+onUnmounted(() => {
+  if (pressureChart.value) {
+    pressureChart.value.dispose()
+  }
+  if (flowChart.value) {
+    flowChart.value.dispose()
+  }
+  if (temperatureChart.value) {
+    temperatureChart.value.dispose()
   }
 })
 </script>
@@ -486,6 +579,54 @@ onMounted(() => {
 
   .water-supplier-detail-page {
     padding: 16px;
+  }
+}
+
+/* 图表相关样式 */
+.chart-container {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+}
+
+.chart-container h4 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.chart-item {
+  flex: 1;
+  min-width: 0; /* 防止flex项目溢出 */
+}
+
+.chart-item h5 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: #333;
+  text-align: center;
+}
+
+.chart {
+  height: 250px;
+  width: 100%;
+}
+
+/* 并列布局 */
+.charts-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* 响应式：在小屏幕上单列显示 */
+@media (max-width: 1024px) {
+  .charts-row {
+    flex-direction: column;
+  }
+
+  .chart {
+    height: 300px;
   }
 }
 </style>
