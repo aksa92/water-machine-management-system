@@ -384,7 +384,7 @@ const loadDevices = async (): Promise<void> => {
     const token = authStore.token
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -418,7 +418,7 @@ const loadDevices = async (): Promise<void> => {
     console.error('加载设备数据失败:', error)
     if ((error as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
@@ -429,7 +429,7 @@ const loadCityList = async (): Promise<void> => {
     const token = authStore.token
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -456,7 +456,7 @@ const loadCityList = async (): Promise<void> => {
     cityList.value = []
     if ((error as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
@@ -467,7 +467,7 @@ const loadCampusListByCity = async (cityId: string): Promise<void> => {
     const token = authStore.token
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -494,7 +494,7 @@ const loadCampusListByCity = async (cityId: string): Promise<void> => {
     campusList.value = []
     if ((error as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
@@ -505,7 +505,7 @@ const loadEditCampusListByCity = async (cityId: string): Promise<void> => {
     const token = authStore.token
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -532,7 +532,7 @@ const loadEditCampusListByCity = async (cityId: string): Promise<void> => {
     editCampusList.value = []
     if ((error as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
@@ -641,17 +641,7 @@ const viewDevice = (id: string) => {
 }
 
 // 显示离线模态框
-const showOfflineModal = (deviceId: string) => {
-  currentDeviceId.value = deviceId
-  showOfflineReasonModal.value = true
-}
-
 // 显示故障模态框
-const showFaultModalFunc = (deviceId: string) => {
-  currentDeviceId.value = deviceId
-  showFaultModal.value = true
-}
-
 // 确认设置为离线
 const confirmOffline = async () => {
   try {
@@ -659,7 +649,7 @@ const confirmOffline = async () => {
     const token = authStore.token
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -684,7 +674,7 @@ const confirmOffline = async () => {
     alert('设置设备离线失败')
     if ((error as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
@@ -696,7 +686,7 @@ const confirmFault = async () => {
     const token = authStore.token
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -721,66 +711,12 @@ const confirmFault = async () => {
     alert('设置设备故障失败')
     if ((error as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
 
 // 更新设备状态为在线
-const updateDeviceStatus = async (deviceId: string, status: string) => {
-  try {
-    // 显式检查token
-    const token = authStore.token
-    if (!token) {
-      console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
-      return
-    }
-
-    let url = ''
-    let body = {}
-
-    switch (status) {
-      case 'online':
-        url = `/api/web/device-status/${deviceId}/online`
-        break
-      case 'offline':
-        url = `/api/web/device-status/${deviceId}/offline`
-        body = { reason: '手动设置为离线' }
-        break
-      case 'fault':
-        url = `/api/web/device-status/${deviceId}/fault`
-        body = { faultType: 'MANUAL', description: '手动设置为故障' }
-        break
-      default:
-        throw new Error('不支持的状态类型')
-    }
-
-    const result = await request<ResultVO<boolean>>(url, {
-      method: 'POST',
-      body: JSON.stringify(body)
-    })
-
-    if (result.code === 200) {
-      // 更新本地数据
-      const device = devices.value.find(d => d.deviceId === deviceId)
-      if (device) {
-        device.status = status as DeviceStatus
-      }
-      alert(`设备已标记为${formatStatus(status as DeviceStatus)}`)
-    } else {
-      alert(`更新设备状态失败: ${result.message}`)
-    }
-  } catch (error) {
-    console.error('更新设备状态失败:', error)
-    alert('更新设备状态失败')
-    if ((error as Error).message.includes('401')) {
-      authStore.logout()
-      router.push('/login')
-    }
-  }
-}
-
 // 删除设备
 const deleteDevice = async (deviceId: string) => {
   if (!confirm(`确定要删除设备 ${deviceId} 吗？此操作不可恢复。`)) {
@@ -790,7 +726,7 @@ const deleteDevice = async (deviceId: string) => {
   try {
     const token = authStore.token
     if (!token) {
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -810,7 +746,7 @@ const deleteDevice = async (deviceId: string) => {
     alert('删除设备失败')
     if ((error as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
@@ -850,7 +786,7 @@ const updateDevice = async () => {
   try {
     const token = authStore.token
     if (!token) {
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -875,7 +811,7 @@ const updateDevice = async () => {
       deviceType: editingDevice.value.deviceType
     }
 
-    const result = await request<ResultVO<any>>('/api/web/device/edit', {
+    const result = await request<ResultVO>('/api/web/device/edit', {
       method: 'PUT',
       body: JSON.stringify(deviceToUpdate)
     })
@@ -910,7 +846,7 @@ const updateDevice = async () => {
     alert('更新设备失败')
     if ((error as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
@@ -922,7 +858,7 @@ const addDevice = async () => {
     const token = authStore.token
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -948,7 +884,7 @@ const addDevice = async () => {
     }
 
     // 使用统一请求工具，自动携带token
-    const result = await request<ResultVO<any>>('/api/web/device/add', {
+    const result = await request<ResultVO>('/api/web/device/add', {
       method: 'POST',
       body: JSON.stringify(deviceToAdd)
     })
@@ -979,7 +915,7 @@ const addDevice = async () => {
     alert('添加设备失败')
     if ((error as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
@@ -1094,34 +1030,6 @@ onMounted(async () => {
 
 .equipment-table tbody tr:hover {
   background-color: #f8f9fa;
-}
-
-.status-tag {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.status-tag.online {
-  background-color: #e6f7ee;
-  color: #00875a;
-}
-
-.status-tag.offline {
-  background-color: #f5f5f5;
-  color: #8c8c8c;
-}
-
-.status-tag.warning {
-  background-color: #fff7e6;
-  color: #d48806;
-}
-
-.status-tag.fault {
-  background-color: #ffebe6;
-  color: #cf1322;
 }
 
 .operation-buttons {

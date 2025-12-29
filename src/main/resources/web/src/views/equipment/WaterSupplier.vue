@@ -290,7 +290,7 @@ const loadWaterSuppliers = async () => {
     const token = authStore.token
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -327,7 +327,7 @@ const loadWaterSuppliers = async () => {
     alert('获取供水机列表失败，请检查网络连接');
     if (error instanceof Error && error.message.includes('401')) {
       authStore.logout();
-      router.push('/login');
+      await router.push('/login');
     }
   }
 }
@@ -342,7 +342,7 @@ const loadAvailableMakers = async () => {
   try {
     const token = authStore.token
     if (!token) {
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -371,7 +371,7 @@ const loadAvailableMakers = async () => {
     availableMakers.value = []
     if ((error as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
@@ -386,7 +386,7 @@ const loadAvailableMakersForEdit = async () => {
   try {
     const token = authStore.token
     if (!token) {
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -783,34 +783,6 @@ onMounted(() => {
 
 .equipment-table tbody tr:hover {
   background-color: #f8f9fa;
-}
-
-.status-tag {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.status-tag.online {
-  background-color: #e6f7ee;
-  color: #00875a;
-}
-
-.status-tag.offline {
-  background-color: #f5f5f5;
-  color: #8c8c8c;
-}
-
-.status-tag.warning {
-  background-color: #fff7e6;
-  color: #d48806;
-}
-
-.status-tag.error {
-  background-color: #ffebe6;
-  color: #cf1322;
 }
 
 .operation-buttons {

@@ -318,7 +318,7 @@ const fetchStatsData = async () => {
     // 检查token是否存在
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -383,16 +383,15 @@ const fetchStatsData = async () => {
 
   } catch (error: any) {
     console.error('获取统计数据失败:', error)
-    const errorMsg = error.message?.includes('401')
+    error.message?.includes('401')
         ? '登录已过期，请重新登录'
         : error.message?.includes('Network')
             ? '网络连接失败，请检查网络'
-            : error.message || '获取数据失败，请稍后重试'
-
-    // 如果是认证错误，登出并跳转到登录页
+            : error.message || '获取数据失败，请稍后重试';
+// 如果是认证错误，登出并跳转到登录页
     if (error.message?.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
@@ -408,7 +407,7 @@ const fetchAlertData = async () => {
     // 检查token是否存在
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -454,17 +453,15 @@ const fetchAlertData = async () => {
       latestAlert.value = null
       return
     }
-
-    const errorMsg = error.message?.includes('401')
+    error.message?.includes('401')
         ? '登录已过期，请重新登录'
         : error.message?.includes('Network')
             ? '网络连接失败，请检查网络'
-            : error.message || '获取数据失败，请稍后重试'
-
-    // 如果是认证错误，登出并跳转到登录页
+            : error.message || '获取数据失败，请稍后重试';
+// 如果是认证错误，登出并跳转到登录页
     if (error.message?.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
     latestAlert.value = null
   } finally {
@@ -473,46 +470,7 @@ const fetchAlertData = async () => {
 }
 
 // 查看告警详情
-const viewAlertDetail = (alert: Alert) => {
-  // 这里可以弹出详情对话框或跳转到详情页
-  console.log('查看告警详情:', alert)
-  alert.alertMessage // 示例：显示告警详情
-}
-
 // 处理告警
-const resolveAlert = async (alert: Alert) => {
-  console.log('处理告警:', alert)
-  // 这里可以调用后端接口处理告警
-  // 示例：调用处理告警的API
-  try {
-    const result = await request<ResultVO<any>>(
-      `/api/alerts/${alert.alertId}/resolve`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          resolvedBy: authStore.userInfo?.username || 'current_user'
-        })
-      }
-    )
-
-    if (result.code === 200) {
-      // 更新本地状态 - 添加安全检查
-      const index = allAlerts.value.findIndex(a => a.alertId === alert.alertId)
-      if (index !== -1 && allAlerts.value[index]) {
-        allAlerts.value[index].status = 'processing'
-        console.log('告警状态已更新')
-      } else {
-        console.warn(`未找到告警ID为 ${alert.alertId} 的记录`)
-      }
-    }
-  } catch (error) {
-    console.error('处理告警失败:', error)
-  }
-}
-
 // 分页控制方法
 const changePage = (page: number) => {
   if (page >= 1 && page <= totalPages.value) {
@@ -737,26 +695,6 @@ onMounted(() => {
   min-width: 50px;
 }
 
-.alert-level-badge.critical {
-  background: #ffebee;
-  color: #c62828;
-}
-
-.alert-level-badge.error {
-  background: #ffebee;
-  color: #c62828;
-}
-
-.alert-level-badge.warning {
-  background: #fff8e1;
-  color: #ff8f00;
-}
-
-.alert-level-badge.info {
-  background: #e8f5e9;
-  color: #2e7d32;
-}
-
 .status-badge {
   display: inline-block;
   padding: 4px 8px;
@@ -765,53 +703,6 @@ onMounted(() => {
   font-weight: 500;
   text-align: center;
   min-width: 60px;
-}
-
-.status-badge.pending {
-  background: #fff3e0;
-  color: #ef6c00;
-}
-
-.status-badge.processing {
-  background: #e3f2fd;
-  color: #1976d2;
-}
-
-.status-badge.resolved {
-  background: #e8f5e9;
-  color: #2e7d32;
-}
-
-.status-badge.closed {
-  background: #f5f5f5;
-  color: #666;
-}
-
-.action-btn {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  margin-right: 4px;
-}
-
-.view-btn {
-  background: #2196f3;
-  color: white;
-}
-
-.view-btn:hover {
-  background: #1976d2;
-}
-
-.resolve-btn {
-  background: #4caf50;
-  color: white;
-}
-
-.resolve-btn:hover {
-  background: #388e3c;
 }
 
 /* 分页样式 */
@@ -942,20 +833,6 @@ onMounted(() => {
 
 .empty-text {
   font-size: 14px;
-  color: #666;
-}
-
-.chart-placeholder {
-  height: 200px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f8f9fa;
-  border-radius: 4px;
-}
-
-.placeholder-text {
-  text-align: center;
   color: #666;
 }
 
