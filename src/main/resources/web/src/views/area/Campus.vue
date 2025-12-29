@@ -498,6 +498,7 @@ const confirmDelete = async () => {
 }
 
 // 保存校区信息
+// 保存校区信息
 const handleSave = async () => {
   saving.value = true
   try {
@@ -505,12 +506,6 @@ const handleSave = async () => {
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
       router.push('/login')
-      return
-    }
-
-    // 校园类型必须有父级区域ID
-    if (!isEdit.value && (!formData.value.parentAreaId || formData.value.parentAreaId.trim() === '')) {
-      alert('新增校区时必须选择所属市区')
       return
     }
 
@@ -530,7 +525,19 @@ const handleSave = async () => {
         data: Area
       }>('/api/web/area/update', {
         method: 'PUT',
-        body: JSON.stringify(formData.value)
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authStore.token}`
+        },
+        body: JSON.stringify({
+          areaId: formData.value.areaId,
+          areaName: formData.value.areaName,
+          areaType: 'campus',
+          parentAreaId: formData.value.parentAreaId,
+          address: formData.value.address,
+          manager: formData.value.manager,
+          managerPhone: formData.value.managerPhone
+        })
       })
 
       if (response?.code === 200 && response?.data) {
@@ -539,18 +546,36 @@ const handleSave = async () => {
       } else {
         const errorMsg = response?.msg || `更新失败（错误码：${response?.code || '未知'}）`
         console.error('更新校区失败:', errorMsg)
-        alert(`更新校区失败：${errorMsg}`)
+        alert(`更新校区失败：${ errorMsg}`)
       }
     } else {
+      // 新增模式 - 添加更严格的验证
+      if (!formData.value.parentAreaId || formData.value.parentAreaId.trim() === '') {
+        alert('新增校区时必须选择所属市区')
+        return
+      }
+
+      // 验证选择的市区是否真实存在且类型为市区
+      const selectedCity = cityList.value.find(city =>
+          city.areaId === formData.value.parentAreaId && city.areaType === 'zone'
+      )
+
+      if (!selectedCity) {
+        alert('选择的市区不存在或类型错误，请重新选择')
+        return
+      }
+
       // 新增模式
       const newCampus = {
         areaName: formData.value.areaName,
-        areaType: 'campus' as const,
-        parentAreaId: formData.value.parentAreaId, // 必须包含父级区域ID
+        areaType: 'campus',
+        parentAreaId: formData.value.parentAreaId,
         address: formData.value.address,
         manager: formData.value.manager,
         managerPhone: formData.value.managerPhone
       }
+
+      console.log('发送的校区数据:', newCampus) // 调试日志
 
       response = await request<{
         code: number
@@ -558,6 +583,10 @@ const handleSave = async () => {
         data: Area
       }>('/api/web/area/add', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authStore.token}`
+        },
         body: JSON.stringify(newCampus)
       })
 
@@ -567,7 +596,7 @@ const handleSave = async () => {
       } else {
         const errorMsg = response?.msg || `新增失败（错误码：${response?.code || '未知'}）`
         console.error('新增校区失败:', errorMsg)
-        alert(`新增校区失败：${errorMsg}`)
+        alert(`新增校区失败：${ errorMsg}`)
       }
     }
   } catch (error: any) {
@@ -577,7 +606,7 @@ const handleSave = async () => {
         : error.message.includes('Network')
             ? '网络连接失败，请检查网络'
             : error.message || '保存失败，请稍后重试'
-    alert(`保存校区失败：${errorMsg}`)
+    alert(`保存校区失败：${ errorMsg}`)
   } finally {
     saving.value = false
   }
