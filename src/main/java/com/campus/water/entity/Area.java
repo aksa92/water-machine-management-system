@@ -27,7 +27,7 @@ public class Area {
     @Column(name = "area_type", length = 50)
     private AreaType areaType;
 
-    @Column(name = "parent_area_id", length = 20)
+    @Column(name = "parent_area_id", length = 36)
     private String parentAreaId;
 
     @Column(length = 200)
