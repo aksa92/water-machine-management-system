@@ -72,12 +72,11 @@ public class AdminService {
         // 区域管理员必须关联区域
         if (admin.getRole() == Admin.AdminRole.ROLE_AREA_ADMIN) {
             if (admin.getAreaId() == null || admin.getAreaId().trim().isEmpty()) {
-                throw new RuntimeException("区域管理员必须关联具体区域");
+                if (!areaRepository.existsById(admin.getAreaId().trim())) {
+                    throw new RuntimeException("关联的区域不存在：" + admin.getAreaId().trim());
+                }
             }
-            // 校验关联的区域是否存在
-            if (!areaRepository.existsById(admin.getAreaId())) {
-                throw new RuntimeException("关联的区域不存在：" + admin.getAreaId());
-            }
+
         } else {
             // 非区域管理员清空区域ID
             admin.setAreaId(null);

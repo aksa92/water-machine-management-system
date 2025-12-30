@@ -5,10 +5,7 @@ import com.campus.water.entity.RepairerAuth;
 import com.campus.water.entity.Repairman;
 import com.campus.water.entity.User;
 import com.campus.water.entity.dto.request.RegisterRequest;
-import com.campus.water.mapper.AdminRepository;
-import com.campus.water.mapper.RepairerAuthRepository;
-import com.campus.water.mapper.RepairmanRepository;
-import com.campus.water.mapper.UserRepository;
+import com.campus.water.mapper.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -20,6 +17,9 @@ public class RegisterService {
 
     @Autowired
     private AdminRepository adminRepository;
+
+    @Autowired
+    private AreaRepository areaRepository;
 
     @Autowired
     private UserRepository userRepository;
@@ -75,6 +75,18 @@ public class RegisterService {
         admin.setRole(Admin.AdminRole.valueOf("ROLE_" + request.getRole().toUpperCase()));
         admin.setCreatedTime(LocalDateTime.now());
         admin.setUpdatedTime(LocalDateTime.now());
+
+        // 核心修改1：添加区域ID赋值（从请求中获取，允许为null/空，实现选填）
+        admin.setAreaId(request.getAreaId());
+
+        // 核心修改2：区域管理员若填写了areaId，则校验区域是否存在；不填则不强制（实现选填）
+        Admin.AdminRole adminRole = admin.getRole();
+        if (adminRole == Admin.AdminRole.ROLE_AREA_ADMIN && request.getAreaId() != null && !request.getAreaId().trim().isEmpty()) {
+            // 此处需要注入AreaRepository（与AdminService保持一致），先补充注入
+            if (!areaRepository.existsById(request.getAreaId().trim())) {
+                throw new RuntimeException("关联的区域不存在：" + request.getAreaId().trim());
+            }
+        }
 
         adminRepository.save(admin);
     }

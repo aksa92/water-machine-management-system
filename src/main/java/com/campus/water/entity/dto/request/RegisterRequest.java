@@ -40,4 +40,6 @@ public class RegisterRequest {
     // 用户（学生）特有字段
     private String studentId;
     private String studentName;
+
+
 }
