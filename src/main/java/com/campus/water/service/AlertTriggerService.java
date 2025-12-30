@@ -184,6 +184,7 @@ public class AlertTriggerService {
         // 2. 创建对应类型的工单（inspection类型不通过告警触发）
         WorkOrder workOrder = new WorkOrder();
         workOrder.setOrderId(generateOrderId());
+        workOrder.setAlertId(alert.getAlertId());
         workOrder.setDeviceId(deviceId);
         workOrder.setAreaId(areaId);
         workOrder.setOrderType(orderType); // 动态设置工单类型
