@@ -141,12 +141,14 @@ public class AreaService {
     }
 
     /**
-     * 获取所有未设置负责人的片区（manager为空或null）
-     * @return 无负责人片区列表
+     * 修改：仅查询无负责人的校区，排除市区
      */
-    @Transactional(readOnly = true) // 只读事务，提升查询性能
     public List<Area> getAreasWithoutManager() {
-        return areaRepository.findAreasWithoutManager();
+        // 调用仓库新增方法，限定：区域类型=campus，负责人=null 或 空字符串
+        return areaRepository.findByAreaTypeAndManagerIsNullOrManagerEquals(
+                Area.AreaType.campus,  // 仅筛选校区
+                ""                      // 匹配空字符串的负责人
+        );
     }
 
     /**
@@ -234,6 +236,10 @@ public class AreaService {
     private void bindAdminToArea(String adminId, String areaId) {
         if (adminId != null && !adminId.trim().isEmpty() && areaId != null) {
             Admin admin = adminRepository.findById(adminId).get(); // 已在前序校验，无需再次处理空值
+            // 新增：校验该管理员是否已绑定其他校区
+            if (admin.getAreaId() != null) {
+                throw new RuntimeException("该区域管理员已绑定校区【" + admin.getAreaId() + "】，无法重复绑定");
+            }
             admin.setAreaId(areaId); // 给管理员设置关联的区域ID（Admin实体需有areaId字段）
             adminRepository.save(admin);
         }

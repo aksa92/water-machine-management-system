@@ -193,7 +193,7 @@ public class AreaController {
      * 响应：返回该市区下每个校区的设备统计，不进行汇总
      */
     @GetMapping("/device-stats/city/{cityId}/campuses")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN')")
     public ResponseEntity<Map<String, Object>> getCampusDeviceStatsUnderCity(@PathVariable String cityId) {
         try {
             List<AreaDeviceStatsVO> statsVOList = areaService.getCampusDeviceStatsUnderCity(cityId);
