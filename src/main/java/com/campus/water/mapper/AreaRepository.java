@@ -49,4 +49,12 @@ public interface AreaRepository extends JpaRepository<Area, String> {
     long countByParentAreaId(String areaId);
     List<Area> findByAreaTypeAndParentAreaIdIsNull(Area.AreaType areaType);
     boolean existsByAreaId(String cityId);
+
+    /**
+     * 查询没有负责人的片区（manager为null或空字符串）
+     * 覆盖未设置负责人的所有场景
+     */
+    @Query("SELECT a FROM Area a WHERE a.manager IS NULL OR a.manager = ''")
+    List<Area> findAreasWithoutManager();
+
 }
