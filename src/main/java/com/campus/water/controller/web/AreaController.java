@@ -115,6 +115,22 @@ public class AreaController {
     }
 
     /**
+     * 查询所有未设置负责人的片区
+     * 权限：超级管理员/区域管理员可查看（与区域管理相关权限一致）
+     */
+    @GetMapping("/without-manager")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN')")
+    public ResponseEntity<Map<String, Object>> getAreasWithoutManager() {
+        try {
+            List<Area> areas = areaService.getAreasWithoutManager();
+            return ResponseEntity.ok(buildResponse(200, "查询无负责人片区成功", areas));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(buildResponse(500, "查询无负责人片区失败：" + e.getMessage(), null));
+        }
+    }
+
+    /**
      * 根据市区ID查询下属校园
      * 权限：超级管理员/区域管理员/维修人员均可查看
      */

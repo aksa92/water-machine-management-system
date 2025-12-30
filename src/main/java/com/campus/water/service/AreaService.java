@@ -141,6 +141,15 @@ public class AreaService {
     }
 
     /**
+     * 获取所有未设置负责人的片区（manager为空或null）
+     * @return 无负责人片区列表
+     */
+    @Transactional(readOnly = true) // 只读事务，提升查询性能
+    public List<Area> getAreasWithoutManager() {
+        return areaRepository.findAreasWithoutManager();
+    }
+
+    /**
      * 根据市区ID查询下属校园
      * @param cityId 市区ID（areaId）
      * @return 该市区下的校园列表
