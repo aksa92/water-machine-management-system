@@ -23,7 +23,7 @@ public class WorkOrder {
     @Column(name = "device_id", length = 20)
     private String deviceId;
 
-    @Column(name = "area_id", length = 20)
+    @Column(name = "area_id", length = 36)
     private String areaId;
 
     @Enumerated(EnumType.STRING)
