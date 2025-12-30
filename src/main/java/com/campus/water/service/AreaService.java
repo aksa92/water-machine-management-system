@@ -2,6 +2,11 @@ package com.campus.water.service;
 
 import com.campus.water.entity.Area;
 import com.campus.water.mapper.AreaRepository;
+import com.campus.water.entity.Admin;
+import com.campus.water.mapper.AdminRepository;
+import com.campus.water.security.RoleConstants;
+import org.springframework.beans.factory.annotation.Autowired;
+import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,10 +23,13 @@ import java.util.Optional;
 public class AreaService {
 
     private final AreaRepository areaRepository;
+    // 新增：管理员仓库注入
+    private final AdminRepository adminRepository;
 
-    // 构造器注入（推荐的注入方式）
-    public AreaService(AreaRepository areaRepository) {
+    // 改造构造器，添加AdminRepository参数
+    public AreaService(AreaRepository areaRepository, AdminRepository adminRepository) {
         this.areaRepository = areaRepository;
+        this.adminRepository = adminRepository;
     }
 
     /**
@@ -37,12 +45,21 @@ public class AreaService {
         // 2. 层级规则校验（核心）
         validateAreaHierarchy(area);
 
-        // 3. 补充基础字段（createdTime/updatedTime 已默认赋值，可手动刷新）
+        // 3. 新增：管理员关联校验（若传入manager（管理员ID），则校验并预绑定）
+        validateAndPrepareAdmin(area);
+
+        // 4. 补充基础字段（createdTime/updatedTime 已默认赋值，可手动刷新）
         area.setCreatedTime(LocalDateTime.now());
         area.setUpdatedTime(LocalDateTime.now());
 
-        // 4. 保存数据
-        return areaRepository.save(area);
+        // 5. 保存数据
+        Area savedArea = areaRepository.save(area);
+
+        // 6. 新增：完成区域与管理员的最终绑定（需使用保存后的区域ID）
+        bindAdminToArea(area.getManager(), savedArea.getAreaId());
+
+        // 7. 返回保存后的区域对象
+        return savedArea;
     }
 
     /**
@@ -169,4 +186,36 @@ public class AreaService {
         return areaRepository.findByAreaId(areaId)
                 .orElseThrow(() -> new RuntimeException("区域不存在，ID：" + areaId));
     }
+
+    /**
+     * 辅助方法：校验管理员合法性（存在+角色正确）
+     * @param area 区域对象（提取manager字段：管理员ID）
+     */
+    private void validateAndPrepareAdmin(Area area) {
+        String adminId = area.getManager();
+        if (adminId != null && !adminId.trim().isEmpty()) {
+            // 校验管理员是否存在
+            Admin admin = adminRepository.findById(adminId)
+                    .orElseThrow(() -> new RuntimeException("区域管理员不存在，ID：" + adminId));
+
+            // 校验管理员角色是否为区域管理员
+            if (!RoleConstants.ROLE_AREA_ADMIN.equals(admin.getRole().name())) {
+                throw new RuntimeException("指定用户不是区域管理员角色，无法绑定区域");
+            }
+        }
+    }
+
+    /**
+     * 辅助方法：将管理员绑定到指定区域
+     * @param adminId 管理员ID
+     * @param areaId  区域ID（已保存的有效区域ID）
+     */
+    private void bindAdminToArea(String adminId, String areaId) {
+        if (adminId != null && !adminId.trim().isEmpty() && areaId != null) {
+            Admin admin = adminRepository.findById(adminId).get(); // 已在前序校验，无需再次处理空值
+            admin.setAreaId(areaId); // 给管理员设置关联的区域ID（Admin实体需有areaId字段）
+            adminRepository.save(admin);
+        }
+    }
+
 }
