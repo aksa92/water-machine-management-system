@@ -200,7 +200,7 @@ public class AlertTriggerService {
      * 检查是否存在重复告警（同设备同类型未处理告警，且在间隔时间内）
      * 覆盖pending/processing两种未处理状态
      */
-    private boolean isDuplicateAlert(String deviceId, String alertType) {
+    public boolean isDuplicateAlert(String deviceId, String alertType) {
         LocalDateTime before = LocalDateTime.now().minusMinutes(ALERT_DUPLICATE_INTERVAL);
         // 检查未处理的告警状态（pending/processing）
         List<Alert.AlertStatus> activeStatus = Arrays.asList(
@@ -216,13 +216,23 @@ public class AlertTriggerService {
     }
 
     /**
-     * 获取设备所在区域ID
+     * 获取设备所在区域ID（新增超时控制，避免查询阻塞）
      */
-    private String getDeviceAreaId(String deviceId) {
-        Optional<Device> deviceOpt = deviceRepository.findById(deviceId);
-        return deviceOpt.map(Device::getAreaId).orElse("unknown");
+    public String getDeviceAreaId(String deviceId) {
+        try {
+            Optional<Device> deviceOpt = deviceRepository.findById(deviceId);
+            String areaId = deviceOpt.map(Device::getAreaId).orElse(null);
+            // 空值兜底：null/空字符串→unknown
+            if (areaId == null || areaId.trim().isEmpty()) {
+                areaId = "unknown";
+                log.warn("设备{}的area_id为空/设备不存在，兜底为unknown", deviceId);
+            }
+            return areaId;
+        } catch (Exception e) { // 捕获所有数据库异常
+            log.error("获取设备{}的area_id失败（数据库异常）", deviceId, e);
+            return "unknown"; // 异常时兜底
+        }
     }
-
     /**
      * 生成唯一工单ID（WO+时间戳+随机数）
      */
