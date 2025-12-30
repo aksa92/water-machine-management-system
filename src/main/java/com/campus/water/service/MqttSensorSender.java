@@ -116,6 +116,32 @@ public class MqttSensorSender {
     }
 
     /**
+     * 新增：模拟供水机发送「告警数据」
+     * @param deviceId 设备ID（如WS001）
+     */
+    public void sendWaterSupplyWarning(String deviceId) {
+        try {
+            // 1. 构建供水机异常数据（超出正常范围）
+            WaterSupplySensorData data = new WaterSupplySensorData();
+            data.setDeviceId(deviceId);
+            data.setWaterFlow(0.1 + random.nextDouble() * 0.2); // 流量极低（0.1-0.3 L/min）
+            data.setWaterPress(0.01 + random.nextDouble() * 0.09); // 水压过低（0.01-0.1 MPa）
+            data.setWaterLevel(5 + random.nextDouble() * 15); // 水位过低（5-20%）
+            data.setTemperature(25 + random.nextDouble() * 5); // 水温过高（25-30℃）
+            data.setStatus("error");
+            data.setTimestamp(LocalDateTime.now());
+
+            // 2. 序列化+发送
+            String payload = objectMapper.writeValueAsString(data);
+            String topic = MqttConfig.TOPIC_WATER_SUPPLIER_WARN + deviceId;
+            sendMessage(topic, payload);
+            log.warn("供水机告警消息发送成功 | 设备ID：{} | 主题：{} | 数据：{}", deviceId, topic, payload);
+        } catch (JsonProcessingException e) {
+            log.error("供水机告警消息发送失败 | 设备ID：{} | 异常：{}", deviceId, e.getMessage());
+        }
+    }
+
+    /**
      * 通用发送方法（封装MQTT消息构建逻辑）
      * @param topic 主题
      * @param payload 消息内容（JSON字符串）
