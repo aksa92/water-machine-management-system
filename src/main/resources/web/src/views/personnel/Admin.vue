@@ -31,6 +31,7 @@
           <th>账号</th>
           <th>联系电话</th>
           <th>身份</th>
+          <th>关联区域</th>
           <th>状态</th>
           <th>操作</th>
         </tr>
@@ -41,6 +42,12 @@
           <td>{{ admin.account }}</td>
           <td>{{ admin.phone }}</td>
           <td>{{ formatRole(admin.role) }}</td>
+          <td>
+            <span v-if="admin.role === 'ROLE_AREA_ADMIN'" class="area-list">
+              {{ admin.areas ? admin.areas.join(', ') : '未关联区域' }}
+            </span>
+            <span v-else>-</span>
+          </td>
           <td>
               <span :class="`status-tag ${admin.status}`">
                 {{ admin.status === 'active' ? '启用' : '禁用' }}
@@ -69,7 +76,7 @@
           </td>
         </tr>
         <tr v-if="filteredAdmins.length === 0">
-          <td colspan="6" class="no-data">暂无管理员数据</td>
+          <td colspan="7" class="no-data">暂无管理员数据</td>
         </tr>
         </tbody>
       </table>
@@ -119,12 +126,26 @@
             </div>
             <div class="form-group">
               <label for="role" class="form-label required">身份：</label>
-              <select id="role" v-model="formData.role" required>
+              <select id="role" v-model="formData.role" @change="handleRoleChange" required>
                 <option value="ROLE_SUPER_ADMIN">超级管理员</option>
                 <option value="ROLE_AREA_ADMIN">区域管理员</option>
                 <option value="ROLE_VIEWER">查看者</option>
               </select>
             </div>
+
+            <!-- 区域选择 - 仅当选择区域管理员时显示 -->
+            <div class="form-group" v-if="formData.role === 'ROLE_AREA_ADMIN'">
+              <label class="form-label required">关联区域：</label>
+              <select v-model="selectedAreas" multiple required>
+                <option v-for="area in areaList" :key="area.areaId" :value="area.areaId">
+                  {{ area.areaName }}
+                </option>
+              </select>
+              <p v-if="!selectedAreas.length && formData.role === 'ROLE_AREA_ADMIN'" class="error-message">
+                请选择关联的区域
+              </p>
+            </div>
+
             <div class="form-group">
               <label for="password" class="form-label">初始密码：</label>
               <input
@@ -166,12 +187,16 @@
             </div>
             <div class="form-group">
               <label for="edit-role" class="form-label required">身份：</label>
-              <select id="edit-role" v-model="editFormData.role" required>
+              <select id="edit-role" v-model="editFormData.role" @change="handleEditRoleChange" required>
                 <option value="ROLE_SUPER_ADMIN">超级管理员</option>
                 <option value="ROLE_AREA_ADMIN">区域管理员</option>
                 <option value="ROLE_VIEWER">查看者</option>
               </select>
             </div>
+
+            <!-- 区域选择 - 仅当选择区域管理员时显示 -->
+            <!-- 已移除，不再允许编辑关联区域 -->
+
             <div class="form-group">
               <label for="edit-password" class="form-label">重置密码：</label>
               <input
@@ -193,7 +218,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { request } from '@/api/request'
 import { useAuthStore } from '@/stores/auth'
@@ -201,6 +226,17 @@ import type { ResultVO } from '@/api/types/auth'
 
 // 管理员状态类型
 type AdminStatus = 'active' | 'disabled'
+
+// 区域信息接口
+interface Area {
+  areaId: string
+  areaName: string
+  areaType: string
+  parentAreaId: string | null
+  address: string
+  manager: string
+  managerPhone: string
+}
 
 // 管理员数据接口
 interface Admin {
@@ -210,6 +246,7 @@ interface Admin {
   phone: string
   role: string
   status: AdminStatus
+  areas?: string[] // 关联的区域名称数组
 }
 
 // 表单数据接口
@@ -243,6 +280,15 @@ const loading = ref(false)
 const showAddModal = ref(false)
 const showEditModal = ref(false)
 
+// 区域列表
+const areaList = ref<Area[]>([])
+
+// 选中的区域ID数组（新增）
+const selectedAreas = ref<string[]>([])
+
+// 存储原始管理员数据（用于编辑时保留原有区域关联）
+const originalAdminData = ref<Admin | null>(null)
+
 // 弹窗表单数据
 const formData = ref<FormData>({
   name: '',
@@ -261,6 +307,35 @@ const editFormData = ref<EditFormData>({
   role: 'ROLE_SUPER_ADMIN',
   password: ''
 })
+
+// 加载区域列表
+const loadAreaList = async () => {
+  try {
+    const token = authStore.token
+
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
+    }
+
+    const response = await request<ResultVO<Area[]>>('/api/web/area/list', {
+      method: 'GET',
+    })
+
+    if (response.code === 200) {
+      areaList.value = response.data || []
+    } else {
+      console.error('获取区域列表失败:', response.message)
+    }
+  } catch (error: any) {
+    console.error('请求区域列表异常:', error)
+    if (error.message.includes('401')) {
+      authStore.logout()
+      router.push('/login')
+    }
+  }
+}
 
 // 获取管理员列表
 const fetchAdminList = async () => {
@@ -290,12 +365,13 @@ const fetchAdminList = async () => {
         account: admin.adminId || '',
         phone: admin.phone || '未知电话',
         role: admin.role || '未知角色',
-        status: 'active' as AdminStatus
+        status: 'active' as AdminStatus,
+        areas: admin.areas || [] // 添加关联区域信息
       }))
     } else {
       const errorMsg = response.message || `获取失败（错误码：${response.code}）`
       console.error('获取管理员列表失败:', errorMsg)
-      alert(`获取管理员列表失败：${errorMsg}`)
+      alert(`获取管理员列表失败：${ errorMsg}`)
     }
   } catch (error: any) {
     console.error('请求异常:', error)
@@ -304,7 +380,7 @@ const fetchAdminList = async () => {
         : error.message.includes('Net')
             ? '网络连接失败，请检查网络'
             : error.message || '获取数据失败，请稍后重试'
-    alert(`获取管理员列表失败：${errorMsg}`)
+    alert(`获取管理员列表失败：${ errorMsg}`)
 
     if (error.message.includes('401')) {
       authStore.logout()
@@ -346,8 +422,23 @@ const handleSearch = () => {
   fetchAdminList()
 }
 
+// 角色变化处理 - 清空区域选择
+const handleRoleChange = () => {
+  if (formData.value.role !== 'ROLE_AREA_ADMIN') {
+    selectedAreas.value = []
+  }
+}
+
+// 编辑角色变化处理 - 清空区域选择
+const handleEditRoleChange = () => {
+  if (editFormData.value.role !== 'ROLE_AREA_ADMIN') {
+    // 不再清空区域，因为不再允许编辑
+  }
+}
+
 // 页面加载时获取数据
-onMounted(() => {
+onMounted(async () => {
+  await loadAreaList()
   fetchAdminList()
 })
 
@@ -382,6 +473,9 @@ const handleEdit = async (id: string) => {
     // 查找要编辑的管理员信息
     const adminToEdit = admins.value.find(admin => admin.adminId === id);
     if (adminToEdit) {
+      // 保存原始管理员数据
+      originalAdminData.value = { ...adminToEdit };
+
       // 填充编辑表单数据
       editFormData.value = {
         adminId: adminToEdit.adminId,
@@ -391,6 +485,7 @@ const handleEdit = async (id: string) => {
         role: adminToEdit.role,
         password: ''
       };
+
       showEditModal.value = true;
     }
   } catch (error: any) {
@@ -402,13 +497,15 @@ const handleEdit = async (id: string) => {
 // 提交编辑表单
 const handleEditSubmit = async () => {
   try {
+    // 不再处理区域选择逻辑，直接提交
     const submitData = {
       adminId: editFormData.value.adminId,
       adminName: editFormData.value.name,
       account: editFormData.value.account,
       phone: editFormData.value.phone,
       role: editFormData.value.role,
-      password: editFormData.value.password || undefined // 如果密码为空则不传递
+      password: editFormData.value.password || undefined,
+      // areaIds: undefined // 不传递区域信息
     };
 
     const response = await request<ResultVO>(`/api/web/admin/save`, {
@@ -428,6 +525,7 @@ const handleEditSubmit = async () => {
         role: 'ROLE_SUPER_ADMIN',
         password: ''
       };
+      originalAdminData.value = null;
       // 重新获取列表
       fetchAdminList();
     } else {
@@ -468,7 +566,7 @@ const performDelete = async (id: string) => {
     } else {
       const errorMsg = response.message || `删除失败（错误码：${response.code}）`;
       console.error('删除管理员失败:', errorMsg);
-      alert(`删除管理员失败：${errorMsg}`);
+      alert(`删除管理员失败：${ errorMsg}`);
     }
   } catch (error: any) {
     console.error('请求异常:', error);
@@ -477,7 +575,7 @@ const performDelete = async (id: string) => {
         : error.message.includes('Network')
             ? '网络连接失败，请检查网络'
             : error.message || '删除失败，请稍后重试';
-    alert(`删除管理员失败：${errorMsg}`);
+    alert(`删除管理员失败：${ errorMsg}`);
 
     if (error.message.includes('401')) {
       authStore.logout();
@@ -489,10 +587,17 @@ const performDelete = async (id: string) => {
 // 提交新增管理员表单
 const handleSubmit = async () => {
   try {
+    // 验证区域管理员是否选择了区域
+    if (formData.value.role === 'ROLE_AREA_ADMIN' && (!selectedAreas.value || selectedAreas.value.length === 0)) {
+      alert('区域管理员必须关联至少一个区域')
+      return
+    }
+
     // 补充默认密码
     const submitData = {
       ...formData.value,
-      password: formData.value.password || '123456'
+      password: formData.value.password || '123456',
+      areaIds: formData.value.role === 'ROLE_AREA_ADMIN' ? selectedAreas.value : undefined
     }
 
     const response = await request<ResultVO>(`/api/web/admin/save`, {
@@ -511,6 +616,7 @@ const handleSubmit = async () => {
         role: 'ROLE_SUPER_ADMIN',
         password: ''
       }
+      selectedAreas.value = [] // 重置区域选择
       // 重新获取列表
       fetchAdminList()
     } else {
@@ -628,6 +734,11 @@ const handleSubmit = async () => {
 .status-tag.disabled {
   background-color: #f5f5f5;
   color: #8c8c8c;
+}
+
+.area-list {
+  color: #666;
+  font-size: 12px;
 }
 
 .operation-buttons {
@@ -780,6 +891,17 @@ const handleSubmit = async () => {
   cursor: not-allowed;
 }
 
+.form-group select[multiple] {
+  height: 120px;
+}
+
+.error-message {
+  color: #cf1322;
+  font-size: 12px;
+  margin-top: 4px;
+  margin-bottom: 0;
+}
+
 .form-actions {
   display: flex;
   gap: 16px;
@@ -828,6 +950,12 @@ const handleSubmit = async () => {
 
   .search-box input {
     width: 100%;
+  }
+
+  .admin-table th,
+  .admin-table td {
+    padding: 8px 10px;
+    font-size: 12px;
   }
 }
 </style>

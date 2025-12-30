@@ -11,16 +11,6 @@
       <!-- 新增片区按钮 -->
       <button class="btn-add" @click="handleAddArea">新增片区</button>
 
-      <!-- 片区下拉筛选 -->
-      <div class="filter-box">
-        <label>选择片区：</label>
-        <select v-model="selectedArea" @change="handleAreaChange" class="area-select">
-          <option value="">全部片区</option>
-          <option v-for="area in areaList" :key="area.areaId" :value="area.areaId">
-            {{ area.areaName }}
-          </option>
-        </select>
-      </div>
     </div>
 
     <!-- 片区表格 -->

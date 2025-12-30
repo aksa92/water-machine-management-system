@@ -1,3 +1,4 @@
+// src/main/java/com/campus/water/service/AreaService.java
 package com.campus.water.service;
 
 import com.campus.water.entity.Area;
@@ -95,7 +96,14 @@ public class AreaService {
         existingArea.setUpdatedTime(LocalDateTime.now());
 
         // 5. 保存修改
-        return areaRepository.save(existingArea);
+        Area updatedArea = areaRepository.save(existingArea);
+
+        // 6. 更新关联管理员的areaId
+        if (existingArea.getManager() != null && !existingArea.getManager().trim().isEmpty()) {
+            bindAdminToArea(existingArea.getManager(), updatedArea.getAreaId());
+        }
+
+        return updatedArea;
     }
 
     /**
@@ -195,8 +203,11 @@ public class AreaService {
         String adminId = area.getManager();
         if (adminId != null && !adminId.trim().isEmpty()) {
             // 校验管理员是否存在
-            Admin admin = adminRepository.findById(adminId)
-                    .orElseThrow(() -> new RuntimeException("区域管理员不存在，ID：" + adminId));
+            Optional<Admin> adminOpt = adminRepository.findByAdminId(adminId);
+            if (adminOpt.isEmpty()) {
+                throw new RuntimeException("区域管理员不存在，ID：" + adminId);
+            }
+            Admin admin = adminOpt.get();
 
             // 校验管理员角色是否为区域管理员
             if (!RoleConstants.ROLE_AREA_ADMIN.equals(admin.getRole().name())) {
@@ -212,9 +223,14 @@ public class AreaService {
      */
     private void bindAdminToArea(String adminId, String areaId) {
         if (adminId != null && !adminId.trim().isEmpty() && areaId != null) {
-            Admin admin = adminRepository.findById(adminId).get(); // 已在前序校验，无需再次处理空值
-            admin.setAreaId(areaId); // 给管理员设置关联的区域ID（Admin实体需有areaId字段）
-            adminRepository.save(admin);
+            Optional<Admin> adminOpt = adminRepository.findByAdminId(adminId);
+            if (adminOpt.isPresent()) {
+                Admin admin = adminOpt.get();
+                admin.setAreaId(areaId); // 给管理员设置关联的区域ID
+                adminRepository.save(admin);
+            } else {
+                throw new RuntimeException("管理员不存在，ID：" + adminId);
+            }
         }
     }
 
