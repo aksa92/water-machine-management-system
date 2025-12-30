@@ -1,4 +1,3 @@
-<!-- src/views/personnel/Admin.vue -->
 <template>
   <div class="admin-page">
     <!-- 页面标题和面包屑 -->
@@ -37,14 +36,14 @@
         </tr>
         </thead>
         <tbody>
-        <tr v-for="admin in filteredAdmins" :key="admin.adminId">
+        <tr v-for="admin in paginatedAdmins" :key="admin.adminId">
           <td>{{ admin.name }}</td>
           <td>{{ admin.account }}</td>
           <td>{{ admin.phone }}</td>
           <td>{{ formatRole(admin.role) }}</td>
           <td>
             <span v-if="admin.role === 'ROLE_AREA_ADMIN'" class="area-list">
-              {{ admin.areas ? admin.areas.join(', ') : '未关联区域' }}
+              {{ admin.areaName || (admin.areaId ? getAreaNameById(admin.areaId) : '') || '未关联区域' }}
             </span>
             <span v-else>-</span>
           </td>
@@ -75,7 +74,7 @@
             </button>
           </td>
         </tr>
-        <tr v-if="filteredAdmins.length === 0">
+        <tr v-if="paginatedAdmins.length === 0">
           <td colspan="7" class="no-data">暂无管理员数据</td>
         </tr>
         </tbody>
@@ -92,7 +91,7 @@
         上一页
       </button>
       <span class="page-info">
-        第 {{ currentPage }} 页 / 共 {{ totalPages }} 页
+        第 {{ currentPage }} 页 / 共 {{ totalPages }} 页 (共 {{ filteredAdmins.length }} 条记录)
       </span>
       <button
           class="page-btn"
@@ -133,17 +132,15 @@
               </select>
             </div>
 
-            <!-- 区域选择 - 仅当选择区域管理员时显示 -->
+            <!-- 区域选择 - 仅当选择区域管理员时显示，改为单选下拉菜单，选填 -->
             <div class="form-group" v-if="formData.role === 'ROLE_AREA_ADMIN'">
-              <label class="form-label required">关联区域：</label>
-              <select v-model="selectedAreas" multiple required>
-                <option v-for="area in areaList" :key="area.areaId" :value="area.areaId">
+              <label class="form-label">关联片区（选填）：</label>
+              <select v-model="selectedAreaId">
+                <option value="">请选择片区（可选）</option>
+                <option v-for="area in unassignedAreas" :key="area.areaId" :value="area.areaId">
                   {{ area.areaName }}
                 </option>
               </select>
-              <p v-if="!selectedAreas.length && formData.role === 'ROLE_AREA_ADMIN'" class="error-message">
-                请选择关联的区域
-              </p>
             </div>
 
             <div class="form-group">
@@ -194,8 +191,13 @@
               </select>
             </div>
 
-            <!-- 区域选择 - 仅当选择区域管理员时显示 -->
-            <!-- 已移除，不再允许编辑关联区域 -->
+            <!-- 编辑表单中显示关联区域（只读） -->
+            <div class="form-group" v-if="editFormData.role === 'ROLE_AREA_ADMIN' && originalAdminData?.areaId">
+              <label class="form-label">关联区域：</label>
+              <div class="readonly-area">
+                {{ getAreaNameById(originalAdminData.areaId) }}
+              </div>
+            </div>
 
             <div class="form-group">
               <label for="edit-password" class="form-label">重置密码：</label>
@@ -246,7 +248,8 @@ interface Admin {
   phone: string
   role: string
   status: AdminStatus
-  areas?: string[] // 关联的区域名称数组
+  areaId?: string
+  areaName?: string
 }
 
 // 表单数据接口
@@ -256,6 +259,7 @@ interface FormData {
   phone: string
   role: string
   password?: string
+  areaId?: string
 }
 
 // 编辑表单数据接口
@@ -266,6 +270,7 @@ interface EditFormData {
   phone: string
   role: string
   password?: string
+  areaId?: string
 }
 
 const authStore = useAuthStore()
@@ -280,11 +285,11 @@ const loading = ref(false)
 const showAddModal = ref(false)
 const showEditModal = ref(false)
 
-// 区域列表
-const areaList = ref<Area[]>([])
+// 未分配的区域列表（未设置负责人的片区）
+const unassignedAreas = ref<Area[]>([])
 
-// 选中的区域ID数组（新增）
-const selectedAreas = ref<string[]>([])
+// 选中的区域ID（单选，新增）
+const selectedAreaId = ref<string>('')
 
 // 存储原始管理员数据（用于编辑时保留原有区域关联）
 const originalAdminData = ref<Admin | null>(null)
@@ -295,7 +300,8 @@ const formData = ref<FormData>({
   account: '',
   phone: '',
   role: 'ROLE_SUPER_ADMIN',
-  password: ''
+  password: '',
+  areaId: undefined
 })
 
 // 编辑表单数据
@@ -305,11 +311,12 @@ const editFormData = ref<EditFormData>({
   account: '',
   phone: '',
   role: 'ROLE_SUPER_ADMIN',
-  password: ''
+  password: '',
+  areaId: undefined
 })
 
-// 加载区域列表
-const loadAreaList = async () => {
+// 加载未设置负责人的区域列表
+const loadUnassignedAreas = async () => {
   try {
     const token = authStore.token
 
@@ -319,17 +326,17 @@ const loadAreaList = async () => {
       return
     }
 
-    const response = await request<ResultVO<Area[]>>('/api/web/area/list', {
+    const response = await request<ResultVO<Area[]>>('/api/web/area/without-manager', {
       method: 'GET',
     })
 
     if (response.code === 200) {
-      areaList.value = response.data || []
+      unassignedAreas.value = response.data || []
     } else {
-      console.error('获取区域列表失败:', response.message)
+      console.error('获取未设置负责人片区列表失败:', response.message)
     }
   } catch (error: any) {
-    console.error('请求区域列表异常:', error)
+    console.error('请求未设置负责人片区列表异常:', error)
     if (error.message.includes('401')) {
       authStore.logout()
       router.push('/login')
@@ -366,7 +373,8 @@ const fetchAdminList = async () => {
         phone: admin.phone || '未知电话',
         role: admin.role || '未知角色',
         status: 'active' as AdminStatus,
-        areas: admin.areas || [] // 添加关联区域信息
+        areaId: admin.areaId,
+        areaName: admin.areaName || undefined // 添加区域名称
       }))
     } else {
       const errorMsg = response.message || `获取失败（错误码：${response.code}）`
@@ -401,6 +409,15 @@ const formatRole = (role: string): string => {
   return roleMap[role] || role
 }
 
+// 根据区域ID获取区域名称
+// 在script部分添加类型安全的函数
+const getAreaNameById = (areaId: string | undefined): string => {
+  if (!areaId) return '未知区域'
+  const area = unassignedAreas.value.find(a => a.areaId === areaId)
+  return area ? area.areaName : '未知区域'
+}
+
+
 // 筛选后的管理员列表
 const filteredAdmins = computed(() => {
   return admins.value.filter(admin => {
@@ -411,7 +428,14 @@ const filteredAdmins = computed(() => {
   })
 })
 
-// 分页计算
+// 分页计算 - 计算当前页显示的数据
+const paginatedAdmins = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  const end = start + pageSize
+  return filteredAdmins.value.slice(start, end)
+})
+
+// 总页数计算
 const totalPages = computed(() => {
   return Math.ceil(filteredAdmins.value.length / pageSize)
 })
@@ -425,7 +449,7 @@ const handleSearch = () => {
 // 角色变化处理 - 清空区域选择
 const handleRoleChange = () => {
   if (formData.value.role !== 'ROLE_AREA_ADMIN') {
-    selectedAreas.value = []
+    selectedAreaId.value = ''  // 清空单选区域
   }
 }
 
@@ -438,7 +462,7 @@ const handleEditRoleChange = () => {
 
 // 页面加载时获取数据
 onMounted(async () => {
-  await loadAreaList()
+  await loadUnassignedAreas()
   fetchAdminList()
 })
 
@@ -483,7 +507,8 @@ const handleEdit = async (id: string) => {
         account: adminToEdit.account,
         phone: adminToEdit.phone,
         role: adminToEdit.role,
-        password: ''
+        password: '',
+        areaId: adminToEdit.areaId
       };
 
       showEditModal.value = true;
@@ -505,7 +530,7 @@ const handleEditSubmit = async () => {
       phone: editFormData.value.phone,
       role: editFormData.value.role,
       password: editFormData.value.password || undefined,
-      // areaIds: undefined // 不传递区域信息
+      // areaId: undefined // 不传递区域信息，因为不允许编辑关联区域
     };
 
     const response = await request<ResultVO>(`/api/web/admin/save`, {
@@ -523,7 +548,8 @@ const handleEditSubmit = async () => {
         account: '',
         phone: '',
         role: 'ROLE_SUPER_ADMIN',
-        password: ''
+        password: '',
+        areaId: undefined
       };
       originalAdminData.value = null;
       // 重新获取列表
@@ -584,20 +610,29 @@ const performDelete = async (id: string) => {
   }
 }
 
+// 添加区域过滤方法
+const campusAreas = computed(() => {
+  return unassignedAreas.value.filter(area => area.areaType === '校园')
+})
+
 // 提交新增管理员表单
 const handleSubmit = async () => {
   try {
-    // 验证区域管理员是否选择了区域
-    if (formData.value.role === 'ROLE_AREA_ADMIN' && (!selectedAreas.value || selectedAreas.value.length === 0)) {
-      alert('区域管理员必须关联至少一个区域')
-      return
+    // 补充默认密码和区域ID
+    const submitData = {
+      adminName: formData.value.name,  // 修改这里：从 name 改为 adminName
+      account: formData.value.account,
+      phone: formData.value.phone,
+      role: formData.value.role,
+      password: formData.value.password || '123456',
+      // 只有在选择了区域时才传递areaId
+      areaId: selectedAreaId.value ? selectedAreaId.value : undefined
     }
 
-    // 补充默认密码
-    const submitData = {
-      ...formData.value,
-      password: formData.value.password || '123456',
-      areaIds: formData.value.role === 'ROLE_AREA_ADMIN' ? selectedAreas.value : undefined
+    // 验证账号唯一性等其他验证
+    if (!formData.value.name || !formData.value.account || !formData.value.phone) {
+      alert('请填写必填项：姓名、账号、联系电话')
+      return
     }
 
     const response = await request<ResultVO>(`/api/web/admin/save`, {
@@ -614,9 +649,10 @@ const handleSubmit = async () => {
         account: '',
         phone: '',
         role: 'ROLE_SUPER_ADMIN',
-        password: ''
+        password: '',
+        areaId: undefined
       }
-      selectedAreas.value = [] // 重置区域选择
+      selectedAreaId.value = '' // 重置区域选择
       // 重新获取列表
       fetchAdminList()
     } else {
@@ -627,6 +663,7 @@ const handleSubmit = async () => {
     alert(`添加管理员失败：${error.message}`)
   }
 }
+
 </script>
 
 <style scoped>
@@ -893,6 +930,14 @@ const handleSubmit = async () => {
 
 .form-group select[multiple] {
   height: 120px;
+}
+
+.readonly-area {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #f5f5f5;
+  font-size: 14px;
 }
 
 .error-message {

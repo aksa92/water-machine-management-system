@@ -51,6 +51,12 @@
             <td>{{ formatDate(campus.createdTime) }}</td>
             <td class="operation-buttons">
               <button
+                class="btn-stats"
+                @click="handleViewStats(campus.areaId, campus.areaName)"
+              >
+                统计
+              </button>
+              <button
                 class="btn-edit"
                 @click="handleEdit(campus)"
               >
@@ -65,7 +71,7 @@
             </td>
           </tr>
           <tr v-if="filteredCampus.length === 0">
-            <td colspan="7" class="no-data">
+            <td colspan="8" class="no-data">
               {{ loading ? '正在加载数据...' : '暂无校区数据' }}
             </td>
           </tr>
@@ -184,9 +190,86 @@
         </div>
       </div>
     </div>
+
+    <!-- 设备统计弹窗 -->
+    <div class="modal-mask" v-if="showStatsModal">
+      <div class="modal-container stats-modal">
+        <div class="modal-header">
+          <h3>设备统计信息</h3>
+          <button class="close-btn" @click="showStatsModal = false">×</button>
+        </div>
+        <div class="modal-body">
+          <div v-if="loadingStats" class="loading-stats">
+            正在加载统计信息...
+          </div>
+          <div v-else-if="currentAreaStats" class="stats-content">
+            <div class="stats-header">
+              <h4>{{ currentAreaStats.areaName }}设备统计</h4>
+            </div>
+
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-value">{{ currentAreaStats.totalDeviceCount || 0 }}</div>
+                <div class="stat-label">总设备数</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value online">{{ currentAreaStats.onlineDeviceCount || 0 }}</div>
+                <div class="stat-label">在线设备</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value offline">{{ currentAreaStats.offlineDeviceCount || 0 }}</div>
+                <div class="stat-label">离线设备</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value fault">{{ currentAreaStats.faultDeviceCount || 0 }}</div>
+                <div class="stat-label">故障设备</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value maker">{{ currentAreaStats.waterMakerCount || 0 }}</div>
+                <div class="stat-label">制水机</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value supply">{{ currentAreaStats.waterSupplyCount || 0 }}</div>
+                <div class="stat-label">供水机</div>
+              </div>
+            </div>
+
+            <div class="stats-details">
+              <h5>详细统计</h5>
+              <div class="detail-item">
+                <span>在线率:</span>
+                <span class="detail-value">
+                  {{
+                    currentAreaStats.totalDeviceCount > 0
+                      ? ((currentAreaStats.onlineDeviceCount / currentAreaStats.totalDeviceCount) * 100).toFixed(2) + '%'
+                      : '0%'
+                  }}
+                </span>
+              </div>
+              <div class="detail-item">
+                <span>故障率:</span>
+                <span class="detail-value">
+                  {{
+                    currentAreaStats.totalDeviceCount > 0
+                      ? ((currentAreaStats.faultDeviceCount / currentAreaStats.totalDeviceCount) * 100).toFixed(2) + '%'
+                      : '0%'
+                  }}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div v-else class="no-stats-data">
+            暂无统计信息
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn-cancel" @click="showStatsModal = false">关闭</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
-
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
@@ -223,6 +306,18 @@ interface Area {
   updatedTime?: Date
 }
 
+// 区域设备统计视图对象
+interface AreaDeviceStatsVO {
+  areaId: string
+  areaName: string
+  totalDeviceCount: number
+  onlineDeviceCount: number
+  offlineDeviceCount: number
+  faultDeviceCount: number
+  waterMakerCount: number
+  waterSupplyCount: number
+}
+
 // 响应式数据
 const campusList = ref<Area[]>([]) // 所有校区列表
 const cityList = ref<Area[]>([]) // 所有市区列表
@@ -235,11 +330,14 @@ const pageSize = ref(10)
 const showModal = ref(false)
 const isEdit = ref(false)
 const showDeleteConfirm = ref(false)
+const showStatsModal = ref(false)
+const currentAreaStats = ref<AreaDeviceStatsVO | null>(null)
 const deleteCampusId = ref('')
 const deleteCampusName = ref('')
 const loading = ref(false)  // 添加加载状态
 const saving = ref(false)   // 添加保存状态
 const deleting = ref(false) // 添加删除状态
+const loadingStats = ref(false) // 添加统计加载状态
 
 // 表单数据
 const formData = ref<Area>({
@@ -395,6 +493,7 @@ const fetchCityList = async () => {
 }
 
 // 获取区域管理员列表
+// 获取区域管理员列表 - 修改为获取可分配校区的区域管理员
 const fetchAdminList = async () => {
   try {
     const token = authStore.token
@@ -404,33 +503,36 @@ const fetchAdminList = async () => {
       return
     }
 
+    // 修改接口调用，使用新接口获取可分配校区的区域管理员
     const response = await request<{
       code: number
       msg: string
       data: Admin[]
-    }>('/api/web/admin/list', {
+    }>('/api/web/admin/available-area-admins', {
       method: 'GET',
     })
 
     if (response?.code === 200 && response?.data) {
+      // 过滤出区域管理员（保持原有逻辑以兼容）
       const areaAdmins = response.data.filter(admin =>
         admin.role === 'AREA_ADMIN' || admin.role === 'ROLE_AREA_ADMIN'
       )
       adminList.value = areaAdmins
     } else {
-      console.error('获取管理员列表失败:', response?.msg || '未知错误')
-      alert(`获取管理员列表失败：${response?.msg || '未知错误'}`)
+      console.error('获取可分配校区的区域管理员失败:', response?.msg || '未知错误')
+      alert(`获取可分配校区的区域管理员失败：${response?.msg || '未知错误'}`)
     }
   } catch (error: any) {
-    console.error('获取管理员列表异常:', error)
+    console.error('获取可分配校区的区域管理员异常:', error)
     const errorMsg = error.message.includes('401') || error.message.includes('403')
         ? '权限不足或登录已过期，请重新登录'
         : error.message.includes('Network')
             ? '网络连接失败，请检查网络'
-            : error.message || '获取管理员列表失败，请稍后重试'
-    alert(`获取管理员列表失败：${errorMsg}`)
+            : error.message || '获取可分配校区的区域管理员失败，请稍后重试'
+    alert(`获取可分配校区的区域管理员失败：${errorMsg}`)
   }
 }
+
 
 // 处理负责人选择变化 - 修改为传递管理员ID而不是姓名
 const onManagerChange = () => {
@@ -562,14 +664,13 @@ const handleSave = async () => {
         code: number
         msg: string
         data: Area
-      }>('/api/web/area/update', {
-        method: 'POST', // 改为POST以匹配后端端点
+      }>(`/api/web/area/update/${formData.value.areaId}`, { // 修改URL格式以包含areaId
+        method: 'PUT', // 使用PUT方法
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${authStore.token}` // 添加认证头
         },
         body: JSON.stringify({
-          areaId: formData.value.areaId,
           areaName: formData.value.areaName,
           areaType: 'campus',
           parentAreaId: formData.value.parentAreaId,
@@ -653,6 +754,7 @@ const handleSave = async () => {
   }
 }
 
+
 // 根据管理员ID获取管理员姓名
 const getManagerName = (managerId: string) => {
   if (!managerId) return '未分配'
@@ -660,6 +762,51 @@ const getManagerName = (managerId: string) => {
   return admin ? admin.adminName : '未知负责人'
 }
 
+// 获取区域设备统计信息
+const fetchAreaDeviceStats = async (areaId: string) => {
+  loadingStats.value = true
+  try {
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
+    }
+
+    const response = await request<{
+      code: number
+      msg: string
+      data: AreaDeviceStatsVO
+    }>(`/api/web/area/device-stats/${areaId}`, {
+      method: 'GET',
+    })
+
+    if (response?.code === 200 && response?.data) {
+      currentAreaStats.value = response.data
+      showStatsModal.value = true
+    } else {
+      const errorMsg = response?.msg || `获取统计信息失败（错误码：${response?.code || '未知'}）`
+      console.error('获取统计信息失败:', errorMsg)
+      alert(`获取统计信息失败：${errorMsg}`)
+    }
+  } catch (error: any) {
+    console.error('获取统计信息异常:', error)
+    const errorMsg = error.message.includes('401') || error.message.includes('403')
+        ? '权限不足或登录已过期，请重新登录'
+        : error.message.includes('Network')
+            ? '网络连接失败，请检查网络'
+            : error.message || '获取统计信息失败，请稍后重试'
+    alert(`获取统计信息失败：${errorMsg}`)
+  } finally {
+    loadingStats.value = false
+  }
+}
+
+// 处理查看统计信息
+const handleViewStats = (areaId: string, areaName: string) => {
+  document.title = `查看${areaName}统计信息`
+  fetchAreaDeviceStats(areaId)
+}
 
 // 初始化加载数据
 onMounted(async () => {
@@ -788,6 +935,22 @@ onMounted(async () => {
 }
 
 .btn-delete:hover {
+  opacity: 0.9;
+}
+
+/* 统计按钮样式 */
+.btn-stats {
+  background-color: #e6f7ff;
+  color: #1890ff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.3s;
+}
+
+.btn-stats:hover {
   opacity: 0.9;
 }
 
@@ -971,6 +1134,103 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
+/* 统计弹窗样式 */
+.stats-modal {
+  width: 600px;
+  max-width: 90%;
+}
+
+.stats-content {
+  padding: 16px 0;
+}
+
+.stats-header {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.stats-header h4 {
+  margin: 0;
+  color: #333;
+  font-size: 18px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  text-align: center;
+  padding: 16px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  background-color: #fafafa;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.stat-value.online {
+  color: #52c41a;
+}
+
+.stat-value.offline {
+  color: #faad14;
+}
+
+.stat-value.fault {
+  color: #ff4d4f;
+}
+
+.stat-value.maker {
+  color: #722ed1;
+}
+
+.stat-value.supply {
+  color: #13c2c2;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #666;
+}
+
+.stats-details {
+  border-top: 1px solid #f0f0f0;
+  padding-top: 16px;
+}
+
+.stats-details h5 {
+  margin: 0 0 12px 0;
+  color: #333;
+  font-size: 16px;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid #f8f8f8;
+}
+
+.detail-value {
+  font-weight: 500;
+  color: #1890ff;
+}
+
+.loading-stats,
+.no-stats-data {
+  text-align: center;
+  padding: 40px 0;
+  color: #8c8c8c;
+}
 
 /* 响应式调整 */
 @media (max-width: 768px) {
@@ -985,6 +1245,10 @@ onMounted(async () => {
 
   .campus-select, .area-select {
     width: 100%;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 </style>

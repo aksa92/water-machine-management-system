@@ -344,7 +344,6 @@ const confirmDelete = async () => {
 }
 
 // 保存片区信息
-// 在 handleSave 方法中修改新增逻辑
 const handleSave = async () => {
   saving.value = true
   try {
@@ -358,14 +357,25 @@ const handleSave = async () => {
     let response
 
     if (isEdit.value) {
-      // 编辑模式 - 保持原有逻辑
+      // 编辑模式 - 修改URL格式以包含areaId作为路径参数
       response = await request<{
         code: number
         msg: string
         data: Area
-      }>('/api/web/area/update', {
+      }>(`/api/web/area/update/${formData.value.areaId}`, { // 修改URL格式
         method: 'PUT',
-        body: JSON.stringify(formData.value)
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authStore.token}` // 添加认证头
+        },
+        body: JSON.stringify({
+          areaName: formData.value.areaName,
+          areaType: formData.value.areaType,
+          parentAreaId: formData.value.parentAreaId,
+          address: formData.value.address,
+          manager: formData.value.manager,
+          managerPhone: formData.value.managerPhone
+        })
       })
 
       if (response.code === 200) {
@@ -392,6 +402,10 @@ const handleSave = async () => {
         data: Area
       }>('/api/web/area/add', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authStore.token}` // 添加认证头
+        },
         body: JSON.stringify(newArea)
       })
 
@@ -416,6 +430,8 @@ const handleSave = async () => {
     saving.value = false
   }
 }
+
+
 
 
 // 初始化加载数据
