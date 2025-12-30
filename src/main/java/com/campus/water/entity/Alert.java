@@ -31,7 +31,7 @@ public class Alert {
     @Column(name = "alert_message", columnDefinition = "TEXT")
     private String alertMessage;
 
-    @Column(name = "area_id", length = 20)
+    @Column(name = "area_id", length = 36)
     private String areaId;
 
     @Enumerated(EnumType.STRING)

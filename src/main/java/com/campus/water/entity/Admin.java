@@ -26,7 +26,7 @@ public class Admin {
     private String phone;
 
     // 新增：管理员负责的区域ID（区域管理员专用）
-    @Column(name = "area_id", length = 20)
+    @Column(name = "area_id", length = 36)
     private String areaId;
 
     // 恢复三个角色枚举

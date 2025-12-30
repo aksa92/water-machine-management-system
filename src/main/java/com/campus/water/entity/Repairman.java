@@ -25,7 +25,7 @@ public class Repairman {
     @Column(length = 20)
     private String phone;
 
-    @Column(name = "area_id", length = 20)
+    @Column(name = "area_id", length = 36)
     private String areaId;
 
     @Column(name = "skills", length = 200)
