@@ -22,18 +22,39 @@
           <button class="search-btn">搜索</button>
         </div>
 
-        <!-- 片区筛选 -->
-        <select
-          v-model="selectedArea"
-          class="filter-select"
-          @change="handleSearch"
-        >
-          <option value="">全部片区</option>
-          <option value="A">A区</option>
-          <option value="B">B区</option>
-          <option value="C">C区</option>
-          <option value="D">D区</option>
-        </select>
+        <!-- 两层筛选：市区选择影响校区列表 -->
+        <div class="area-filter">
+          <select
+            v-model="selectedCity"
+            class="filter-select"
+            @change="onCityChange"
+          >
+            <option value="">选择市区</option>
+            <option
+              v-for="city in cityList"
+              :key="city.areaId"
+              :value="city.areaId"
+            >
+              {{ city.areaName }}
+            </option>
+          </select>
+
+          <select
+            v-model="selectedCampus"
+            class="filter-select"
+            :disabled="!selectedCity"
+            @change="onCampusChange"
+          >
+            <option value="">选择校区</option>
+            <option
+              v-for="campus in campusList"
+              :key="campus.areaId"
+              :value="campus.areaId"
+            >
+              {{ campus.areaName }}
+            </option>
+          </select>
+        </div>
 
         <!-- 状态筛选 -->
         <select
@@ -127,10 +148,13 @@
             <label>所属片区:</label>
             <select v-model="newDevice.areaId" @change="loadAvailableMakers" required>
               <option value="">请选择片区</option>
-              <option value="A">A区</option>
-              <option value="B">B区</option>
-              <option value="C">C区</option>
-              <option value="D">D区</option>
+              <option
+                v-for="area in cityList"
+                :key="area.areaId"
+                :value="area.areaId"
+              >
+                {{ area.areaName }}
+              </option>
             </select>
           </div>
           <div class="form-group">
@@ -172,10 +196,13 @@
             <label>所属片区:</label>
             <select v-model="editingDevice.areaId" @change="loadAvailableMakersForEdit" required>
               <option value="">请选择片区</option>
-              <option value="A">A区</option>
-              <option value="B">B区</option>
-              <option value="C">C区</option>
-              <option value="D">D区</option>
+              <option
+                v-for="area in cityList"
+                :key="area.areaId"
+                :value="area.areaId"
+              >
+                {{ area.areaName }}
+              </option>
             </select>
           </div>
           <div class="form-group">
@@ -243,15 +270,31 @@ interface DeviceDetail {
   parentMakerId?: string
 }
 
+// 区域类型定义
+interface Area {
+  areaId: string
+  areaName: string
+  areaType: string
+  parentAreaId: string | null
+  address: string
+  manager: string
+  managerPhone: string
+}
+
 // 响应式数据
 const devices = ref<WaterSupplierDevice[]>([])
 const searchKeyword = ref('')
-const selectedArea = ref('') // 片区筛选值
+const selectedCity = ref('') // 市区筛选值
+const selectedCampus = ref('') // 校区筛选值
 const selectedStatus = ref('') // 状态筛选值
 const currentPage = ref(1)
 const pageSize = 10 // 每页显示数量
 const router = useRouter()
 const authStore = useAuthStore()
+
+// 片区相关数据
+const cityList = ref<Area[]>([]) // 市区列表
+const campusList = ref<Area[]>([]) // 校区列表
 
 // 新增：添加设备相关状态
 const showAddModal = ref(false)
@@ -283,6 +326,103 @@ const availableMakersForEdit = ref<{id: string, name: string}[]>([])
 const showDeleteModal = ref(false)
 const currentDeviceId = ref('')
 
+// 加载市区列表
+const loadCityList = async (): Promise<void> => {
+  try {
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      await router.push('/login')
+      return
+    }
+
+    console.log('开始加载市区列表...')
+
+    const result = await request<any>('/api/web/area/cities', { method: 'GET' })
+
+    if (result && typeof result === 'object' && 'code' in result) {
+      if (result.code === 200 && result.data && Array.isArray(result.data)) {
+        cityList.value = result.data
+        console.log(`获取到${cityList.value.length}个市区`)
+      } else {
+        console.warn('API响应非成功状态或数据格式错误:', result)
+        cityList.value = []
+      }
+    } else if (Array.isArray(result)) {
+      cityList.value = result
+    } else {
+      console.warn('API响应数据格式错误:', result)
+      cityList.value = []
+    }
+  } catch (error) {
+    console.error('加载市区列表失败:', error)
+    cityList.value = []
+    if ((error as Error).message.includes('401')) {
+      authStore.logout()
+      await router.push('/login')
+    }
+  }
+}
+
+// 根据市区ID加载校区列表
+const loadCampusListByCity = async (cityId: string): Promise<void> => {
+  try {
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      await router.push('/login')
+      return
+    }
+
+    console.log(`开始加载市区 ${cityId} 的校区列表...`)
+
+    const result = await request<any>(`/api/web/area/campuses/${cityId}`, { method: 'GET' })
+
+    if (result && typeof result === 'object' && 'code' in result) {
+      if (result.code === 200 && result.data && Array.isArray(result.data)) {
+        campusList.value = result.data
+        console.log(`获取到${campusList.value.length}个校区`)
+      } else {
+        console.warn('API响应非成功状态或数据格式错误:', result)
+        campusList.value = []
+      }
+    } else if (Array.isArray(result)) {
+      campusList.value = result
+    } else {
+      console.warn('API响应数据格式错误:', result)
+      campusList.value = []
+    }
+  } catch (error) {
+    console.error('加载校区列表失败:', error)
+    campusList.value = []
+    if ((error as Error).message.includes('401')) {
+      authStore.logout()
+      await router.push('/login')
+    }
+  }
+}
+
+// 市区选择变化时的处理
+const onCityChange = async () => {
+  // 清空校区选择
+  selectedCampus.value = ''
+  campusList.value = []
+
+  if (selectedCity.value) {
+    await loadCampusListByCity(selectedCity.value)
+  } else {
+    // 如果清空市区选择，也清空校区列表
+    campusList.value = []
+  }
+}
+
+// 校区选择变化时的处理
+const onCampusChange = () => {
+  // 选择校区后直接触发设备加载
+  currentPage.value = 1
+  loadWaterSuppliers()
+}
+
 // 加载供水机列表
 const loadWaterSuppliers = async () => {
   try {
@@ -299,8 +439,9 @@ const loadWaterSuppliers = async () => {
     if (selectedStatus.value && selectedStatus.value !== '') {
       params.append('status', selectedStatus.value);
     }
-    if (selectedArea.value && selectedArea.value !== '') {
-      params.append('areaId', selectedArea.value);
+    // 只有在选择了校区时才按校区筛选，市区选择不作为筛选条件
+    if (selectedCampus.value && selectedCampus.value !== '') {
+      params.append('areaId', selectedCampus.value)
     }
     params.append('deviceType', 'water_supply'); // 供水机类型
 
@@ -421,13 +562,21 @@ const loadAvailableMakersForEdit = async () => {
 }
 
 // 多条件过滤设备数据
+// 修改 filteredDevices 的计算属性，只根据校区进行筛选
 const filteredDevices = computed(() => {
   return devices.value.filter(device => {
     const keywordMatch = searchKeyword.value.trim() === '' ||
       device.id.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
       device.location.toLowerCase().includes(searchKeyword.value.toLowerCase())
 
-    const areaMatch = selectedArea.value === '' || device.area === selectedArea.value
+    // 只根据校区进行筛选，如果校区未选择则不过滤片区
+    let areaMatch = true
+    if (selectedCampus.value && selectedCampus.value !== '') {
+      // 只有在选择了校区时才进行片区匹配
+      areaMatch = device.area === selectedCampus.value
+    }
+    // 如果没有选择校区，则不进行片区过滤
+
     const statusMatch = selectedStatus.value === '' || device.status === selectedStatus.value
 
     return keywordMatch && areaMatch && statusMatch
@@ -646,13 +795,14 @@ const deleteDevice = async () => {
 }
 
 // 页面加载时获取数据
-onMounted(() => {
+onMounted(async () => {
+  await loadCityList() // 加载市区列表
   loadWaterSuppliers()
 })
 </script>
 
 <style scoped>
-/* 样式与制水机页面保持一致 */
+/* 样式与终端机页面保持一致 */
 .water-supplier-page {
   padding: 20px;
 }
@@ -678,7 +828,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
-  flex-wrap:wrap;
+  flex-wrap: wrap;
   gap: 16px;
 }
 
@@ -697,40 +847,11 @@ onMounted(() => {
   background: #359e75;
 }
 
-.btn-edit {
-  background: #e6f7ff;
-  color: #1890ff;
-  border: none;
-  padding: 4px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: background 0.3s;
-}
-
-.btn-edit:hover {
-  background: #bae7ff;
-}
-
-.btn-delete {
-  background: #cf1322;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background 0.3s;
-}
-
-.btn-delete:hover {
-  background: #b80c1a;
-}
-
 .filters {
   display: flex;
   gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .search-box {
@@ -751,7 +872,12 @@ onMounted(() => {
   border: none;
   padding: 8px 16px;
   border-radius: 4px;
-  cursor:pointer;
+  cursor: pointer;
+}
+
+.area-filter {
+  display: flex;
+  gap: 8px;
 }
 
 .filter-select {
@@ -760,11 +886,12 @@ onMounted(() => {
   border-radius: 4px;
   background: white;
   cursor: pointer;
+  min-width: 120px;
 }
 
 .equipment-table {
   width: 100%;
-  border-collapse:collapse;
+  border-collapse: collapse;
 }
 
 .equipment-table th,
@@ -785,22 +912,56 @@ onMounted(() => {
   background-color: #f8f9fa;
 }
 
+.status-tag {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-tag.online {
+  background-color: #e6f7ee;
+  color: #00875a;
+}
+
+.status-tag.offline {
+  background-color: #f5f5f5;
+  color: #8c8c8c;
+}
+
+.status-tag.warning {
+  background-color: #fff7e6;
+  color: #d48806;
+}
+
+.status-tag.error {
+  background-color: #ffebe6;
+  color: #cf1322;
+}
+
 .operation-buttons {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .operation-buttons button {
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 12px;
-  cursor:pointer;
-  border:none;
+  cursor: pointer;
+  border: none;
   transition: opacity 0.3s;
 }
 
-.operation-buttons button:hover {
+.operation-buttons button:hover:not(:disabled) {
   opacity: 0.9;
+}
+
+.operation-buttons button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .btn-view {
@@ -808,9 +969,14 @@ onMounted(() => {
   color: #1890ff;
 }
 
+.btn-edit {
+  background-color: #faad14;
+  color: white;
+}
+
 .btn-delete {
-  background-color: #ffebe6;
-  color: #cf1322;
+  background-color: #ff4d4f;
+  color: white;
 }
 
 .no-data {
@@ -834,7 +1000,7 @@ onMounted(() => {
   border: 1px solid #ddd;
   background: white;
   border-radius: 4px;
-  cursor:pointer;
+  cursor: pointer;
 }
 
 .page-btn:disabled {
@@ -862,13 +1028,11 @@ onMounted(() => {
   border-radius: 8px;
   min-width: 400px;
   max-width: 500px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .modal-content h3 {
   margin-top: 0;
   margin-bottom: 20px;
-  color: #333;
 }
 
 .form-group {
@@ -877,17 +1041,23 @@ onMounted(() => {
 
 .form-group label {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   font-weight: 500;
 }
 
 .form-group input,
-.form-group select {
+.form-group select,
+.form-group textarea {
   width: 100%;
   padding: 8px 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
   box-sizing: border-box;
+}
+
+.form-group textarea {
+  min-height: 80px;
+  resize: vertical;
 }
 
 .form-actions {
@@ -901,37 +1071,60 @@ onMounted(() => {
   padding: 8px 16px;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  border: 1px solid #ddd;
 }
 
 .form-actions button[type="button"] {
   background: #f5f5f5;
-  border: 1px solid #ddd;
-  color: #333;
 }
 
 .form-actions button[type="submit"] {
   background: #42b983;
-  border: none;
   color: white;
+  border: none;
 }
 
-.help-text {
-  font-size: 12px;
+/* 新增：下拉框样式 */
+.select-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-sizing: border-box;
+  background: white;
+  cursor: pointer;
+}
+
+.select-input:focus {
+  outline: none;
+  border-color: #42b983;
+}
+
+/* 新增：无数据提示样式 */
+.no-data-message {
+  margin-top: 8px;
   color: #8c8c8c;
-  margin-top: 4px;
-  margin-bottom: 0;
+  font-size: 12px;
 }
 
 /* 响应式调整 */
-@media (max-width:  768px) {
+@media (max-width: 768px) {
   .filters {
     flex-direction: column;
     width: 100%;
   }
 
-  .search-box, .filter-select {
+  .search-box, .area-filter, .filter-select {
     width: 100%;
+  }
+
+  .area-filter {
+    flex-direction: column;
+  }
+
+  .modal-content {
+    width: 90%;
+    min-width: auto;
   }
 }
 </style>

@@ -1,4 +1,3 @@
-<!-- src/views/area/Campus.vue -->
 <template>
   <div class="campus-page">
     <!-- 页面标题和面包屑 -->
@@ -12,6 +11,20 @@
       <!-- 新增校区按钮 -->
       <button class="btn-add" @click="handleAddCampus">新增校区</button>
 
+      <!-- 父片区筛选 -->
+      <div class="filter-box">
+        <label>所属市区：</label>
+        <select
+          v-model="selectedCityFilter"
+          class="area-select"
+          @change="handleCityFilterChange"
+        >
+          <option value="">全部市区</option>
+          <option v-for="city in cityList" :key="city.areaId" :value="city.areaId">
+            {{ city.areaName }}
+          </option>
+        </select>
+      </div>
     </div>
 
     <!-- 校区表格 -->
@@ -20,6 +33,7 @@
         <thead>
           <tr>
             <th>校区名称</th>
+            <th>所属市区</th> <!-- 新增列显示所属市区 -->
             <th>地址</th>
             <th>负责人</th>
             <th>联系电话</th>
@@ -30,11 +44,18 @@
         <tbody>
           <tr v-for="campus in filteredCampus" :key="campus.areaId">
             <td>{{ campus.areaName }}</td>
+            <td>{{ getCityName(campus.parentAreaId) }}</td> <!-- 显示所属市区名称 -->
             <td>{{ campus.address }}</td>
-            <td>{{ campus.manager }}</td>
+            <td>{{ getManagerName(campus.manager) }}</td>
             <td>{{ campus.managerPhone }}</td>
             <td>{{ formatDate(campus.createdTime) }}</td>
             <td class="operation-buttons">
+              <button
+                class="btn-stats"
+                @click="handleViewStats(campus.areaId, campus.areaName)"
+              >
+                统计
+              </button>
               <button
                 class="btn-edit"
                 @click="handleEdit(campus)"
@@ -50,7 +71,7 @@
             </td>
           </tr>
           <tr v-if="filteredCampus.length === 0">
-            <td colspan="6" class="no-data">
+            <td colspan="8" class="no-data">
               {{ loading ? '正在加载数据...' : '暂无校区数据' }}
             </td>
           </tr>
@@ -169,6 +190,84 @@
         </div>
       </div>
     </div>
+
+    <!-- 设备统计弹窗 -->
+    <div class="modal-mask" v-if="showStatsModal">
+      <div class="modal-container stats-modal">
+        <div class="modal-header">
+          <h3>设备统计信息</h3>
+          <button class="close-btn" @click="showStatsModal = false">×</button>
+        </div>
+        <div class="modal-body">
+          <div v-if="loadingStats" class="loading-stats">
+            正在加载统计信息...
+          </div>
+          <div v-else-if="currentAreaStats" class="stats-content">
+            <div class="stats-header">
+              <h4>{{ currentAreaStats.areaName }}设备统计</h4>
+            </div>
+
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-value">{{ currentAreaStats.totalDeviceCount || 0 }}</div>
+                <div class="stat-label">总设备数</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value online">{{ currentAreaStats.onlineDeviceCount || 0 }}</div>
+                <div class="stat-label">在线设备</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value offline">{{ currentAreaStats.offlineDeviceCount || 0 }}</div>
+                <div class="stat-label">离线设备</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value fault">{{ currentAreaStats.faultDeviceCount || 0 }}</div>
+                <div class="stat-label">故障设备</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value maker">{{ currentAreaStats.waterMakerCount || 0 }}</div>
+                <div class="stat-label">制水机</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value supply">{{ currentAreaStats.waterSupplyCount || 0 }}</div>
+                <div class="stat-label">供水机</div>
+              </div>
+            </div>
+
+            <div class="stats-details">
+              <h5>详细统计</h5>
+              <div class="detail-item">
+                <span>在线率:</span>
+                <span class="detail-value">
+                  {{
+                    currentAreaStats.totalDeviceCount > 0
+                      ? ((currentAreaStats.onlineDeviceCount / currentAreaStats.totalDeviceCount) * 100).toFixed(2) + '%'
+                      : '0%'
+                  }}
+                </span>
+              </div>
+              <div class="detail-item">
+                <span>故障率:</span>
+                <span class="detail-value">
+                  {{
+                    currentAreaStats.totalDeviceCount > 0
+                      ? ((currentAreaStats.faultDeviceCount / currentAreaStats.totalDeviceCount) * 100).toFixed(2) + '%'
+                      : '0%'
+                  }}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div v-else class="no-stats-data">
+            暂无统计信息
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn-cancel" @click="showStatsModal = false">关闭</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -207,22 +306,38 @@ interface Area {
   updatedTime?: Date
 }
 
+// 区域设备统计视图对象
+interface AreaDeviceStatsVO {
+  areaId: string
+  areaName: string
+  totalDeviceCount: number
+  onlineDeviceCount: number
+  offlineDeviceCount: number
+  faultDeviceCount: number
+  waterMakerCount: number
+  waterSupplyCount: number
+}
+
 // 响应式数据
-const campusList = ref<Area[]>([])
-const cityList = ref<Area[]>([])
+const campusList = ref<Area[]>([]) // 所有校区列表
+const cityList = ref<Area[]>([]) // 所有市区列表
 const adminList = ref<Admin[]>([])
 const selectedManager = ref<Admin | null>(null)
+const selectedCityFilter = ref('') // 新增：筛选用的市区ID
 const selectedCampus = ref('')
 const currentPage = ref(1)
 const pageSize = ref(10)
 const showModal = ref(false)
 const isEdit = ref(false)
 const showDeleteConfirm = ref(false)
+const showStatsModal = ref(false)
+const currentAreaStats = ref<AreaDeviceStatsVO | null>(null)
 const deleteCampusId = ref('')
 const deleteCampusName = ref('')
 const loading = ref(false)  // 添加加载状态
 const saving = ref(false)   // 添加保存状态
 const deleting = ref(false) // 添加删除状态
+const loadingStats = ref(false) // 添加统计加载状态
 
 // 表单数据
 const formData = ref<Area>({
@@ -244,13 +359,20 @@ const formatDate = (date: Date | undefined) => {
   return d.toLocaleDateString('zh-CN')
 }
 
-// 筛选后的校区列表
+// 获取市区名称
+const getCityName = (cityId: string | null) => {
+  if (!cityId) return '未知市区'
+  const city = cityList.value.find(c => c.areaId === cityId)
+  return city ? city.areaName : '未知市区'
+}
+
+// 筛选后的校区列表 - 按父级市区筛选
 const filteredCampus = computed(() => {
   let filtered = [...campusList.value]
 
-  // 根据下拉选择筛选校区
-  if (selectedCampus.value) {
-    filtered = filtered.filter(campus => campus.areaId === selectedCampus.value)
+  // 按父级市区筛选
+  if (selectedCityFilter.value) {
+    filtered = filtered.filter(campus => campus.parentAreaId === selectedCityFilter.value)
   }
 
   // 分页处理
@@ -261,13 +383,16 @@ const filteredCampus = computed(() => {
 
 // 总页数计算
 const totalPages = computed(() => {
-  const filteredCount = selectedCampus.value
-    ? campusList.value.filter(campus => campus.areaId === selectedCampus.value).length
-    : campusList.value.length
+  let filteredCount = campusList.value.length
+
+  if (selectedCityFilter.value) {
+    filteredCount = campusList.value.filter(campus => campus.parentAreaId === selectedCityFilter.value).length
+  }
+
   return Math.ceil(filteredCount / pageSize.value)
 })
 
-// 获取校区列表
+// 获取所有校区列表（通过多次调用市区接口获取所有校区）
 const fetchCampusList = async () => {
   loading.value = true
   try {
@@ -278,8 +403,7 @@ const fetchCampusList = async () => {
       return
     }
 
-    // 需要先获取所有市区，然后获取所有校区
-    // 方案1: 获取所有市区，然后获取每个市区下的校区
+    // 先获取所有市区
     const citiesResponse = await request<{
       code: number
       msg: string
@@ -294,11 +418,12 @@ const fetchCampusList = async () => {
       return
     }
 
-    const cities = citiesResponse.data
-    const allCampuses: Area[] = []
+    // 更新市区列表
+    cityList.value = citiesResponse.data
 
     // 获取每个市区下的校区
-    for (const city of cities) {
+    const allCampuses: Area[] = []
+    for (const city of citiesResponse.data) {
       try {
         const campusResponse = await request<{
           code: number
@@ -332,7 +457,7 @@ const fetchCampusList = async () => {
   }
 }
 
-// 获取市区列表
+// 获取市区列表（实际已经在fetchCampusList中获取了）
 const fetchCityList = async () => {
   try {
     const token = authStore.token
@@ -368,7 +493,7 @@ const fetchCityList = async () => {
 }
 
 // 获取区域管理员列表
-// 修改获取管理员列表的函数
+// 获取区域管理员列表 - 修改为获取可分配校区的区域管理员
 const fetchAdminList = async () => {
   try {
     const token = authStore.token
@@ -378,46 +503,51 @@ const fetchAdminList = async () => {
       return
     }
 
-    // 先获取所有管理员，然后在前端过滤
+    // 修改接口调用，使用新接口获取可分配校区的区域管理员
     const response = await request<{
       code: number
       msg: string
       data: Admin[]
-    }>('/api/web/admin/list', {
+    }>('/api/web/admin/available-area-admins', {
       method: 'GET',
     })
 
     if (response?.code === 200 && response?.data) {
-      // 过滤出区域管理员
+      // 过滤出区域管理员（保持原有逻辑以兼容）
       const areaAdmins = response.data.filter(admin =>
         admin.role === 'AREA_ADMIN' || admin.role === 'ROLE_AREA_ADMIN'
       )
       adminList.value = areaAdmins
     } else {
-      console.error('获取管理员列表失败:', response?.msg || '未知错误')
-      alert(`获取管理员列表失败：${response?.msg || '未知错误'}`)
+      console.error('获取可分配校区的区域管理员失败:', response?.msg || '未知错误')
+      alert(`获取可分配校区的区域管理员失败：${response?.msg || '未知错误'}`)
     }
   } catch (error: any) {
-    console.error('获取管理员列表异常:', error)
+    console.error('获取可分配校区的区域管理员异常:', error)
     const errorMsg = error.message.includes('401') || error.message.includes('403')
         ? '权限不足或登录已过期，请重新登录'
         : error.message.includes('Network')
             ? '网络连接失败，请检查网络'
-            : error.message || '获取管理员列表失败，请稍后重试'
-    alert(`获取管理员列表失败：${errorMsg}`)
+            : error.message || '获取可分配校区的区域管理员失败，请稍后重试'
+    alert(`获取可分配校区的区域管理员失败：${errorMsg}`)
   }
 }
 
 
-// 处理负责人选择变化
+// 处理负责人选择变化 - 修改为传递管理员ID而不是姓名
 const onManagerChange = () => {
   if (selectedManager.value) {
-    formData.value.manager = selectedManager.value.adminName
+    formData.value.manager = selectedManager.value.adminId // 传递管理员ID而非姓名
     formData.value.managerPhone = selectedManager.value.phone
   } else {
     formData.value.manager = ''
     formData.value.managerPhone = ''
   }
+}
+
+// 处理市区筛选变化
+const handleCityFilterChange = () => {
+  currentPage.value = 1 // 重置到第一页
 }
 
 // 新增校区
@@ -428,7 +558,7 @@ const handleAddCampus = () => {
     areaId: '',
     areaName: '',
     areaType: 'campus',
-    parentAreaId: null, // 重置为null，让用户选择
+    parentAreaId: null,
     address: '',
     manager: '',
     managerPhone: '',
@@ -445,8 +575,14 @@ const handleEdit = (campus: Area) => {
   formData.value = { ...campus }
 
   // 尝试匹配现有的负责人
-  const matchedAdmin = adminList.value.find(admin => admin.adminName === campus.manager)
+  const matchedAdmin = adminList.value.find(admin => admin.adminId === campus.manager)
   selectedManager.value = matchedAdmin || null
+
+  // 如果没有找到匹配的管理员，尝试通过姓名匹配（兼容性处理）
+  if (!selectedManager.value) {
+    const matchedByName = adminList.value.find(admin => admin.adminName === campus.manager)
+    selectedManager.value = matchedByName || null
+  }
 
   showModal.value = true
 }
@@ -498,7 +634,6 @@ const confirmDelete = async () => {
 }
 
 // 保存校区信息
-// 保存校区信息
 const handleSave = async () => {
   saving.value = true
   try {
@@ -515,6 +650,12 @@ const handleSave = async () => {
       return
     }
 
+    // 验证选择的负责人是否是区域管理员
+    if (selectedManager.value.role !== 'ROLE_AREA_ADMIN' && selectedManager.value.role !== 'AREA_ADMIN') {
+      alert('所选负责人必须是区域管理员角色');
+      return;
+    }
+
     let response
 
     if (isEdit.value) {
@@ -523,20 +664,19 @@ const handleSave = async () => {
         code: number
         msg: string
         data: Area
-      }>('/api/web/area/update', {
-        method: 'PUT',
+      }>(`/api/web/area/update/${formData.value.areaId}`, { // 修改URL格式以包含areaId
+        method: 'PUT', // 使用PUT方法
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authStore.token}`
+          'Authorization': `Bearer ${authStore.token}` // 添加认证头
         },
         body: JSON.stringify({
-          areaId: formData.value.areaId,
           areaName: formData.value.areaName,
           areaType: 'campus',
           parentAreaId: formData.value.parentAreaId,
           address: formData.value.address,
-          manager: formData.value.manager,
-          managerPhone: formData.value.managerPhone
+          manager: selectedManager.value.adminId, // 使用管理员ID而不是姓名
+          managerPhone: selectedManager.value.phone
         })
       })
 
@@ -571,11 +711,11 @@ const handleSave = async () => {
         areaType: 'campus',
         parentAreaId: formData.value.parentAreaId,
         address: formData.value.address,
-        manager: formData.value.manager,
-        managerPhone: formData.value.managerPhone
+        manager: selectedManager.value.adminId, // 使用管理员ID而不是姓名
+        managerPhone: selectedManager.value.phone
       }
 
-      console.log('发送的校区数据:', newCampus) // 调试日志
+      console.log('发送的校区数据:', newCampus)
 
       response = await request<{
         code: number
@@ -585,7 +725,7 @@ const handleSave = async () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authStore.token}`
+          'Authorization': `Bearer ${authStore.token}` // 添加认证头
         },
         body: JSON.stringify(newCampus)
       })
@@ -605,11 +745,67 @@ const handleSave = async () => {
         ? '权限不足或登录已过期，请重新登录'
         : error.message.includes('Network')
             ? '网络连接失败，请检查网络'
-            : error.message || '保存失败，请稍后重试'
+            : error.message.includes('400')
+                ? '请求参数错误，请检查输入数据'
+                : error.message || '保存失败，请稍后重试'
     alert(`保存校区失败：${ errorMsg}`)
   } finally {
     saving.value = false
   }
+}
+
+
+// 根据管理员ID获取管理员姓名
+const getManagerName = (managerId: string) => {
+  if (!managerId) return '未分配'
+  const admin = adminList.value.find(admin => admin.adminId === managerId)
+  return admin ? admin.adminName : '未知负责人'
+}
+
+// 获取区域设备统计信息
+const fetchAreaDeviceStats = async (areaId: string) => {
+  loadingStats.value = true
+  try {
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
+    }
+
+    const response = await request<{
+      code: number
+      msg: string
+      data: AreaDeviceStatsVO
+    }>(`/api/web/area/device-stats/${areaId}`, {
+      method: 'GET',
+    })
+
+    if (response?.code === 200 && response?.data) {
+      currentAreaStats.value = response.data
+      showStatsModal.value = true
+    } else {
+      const errorMsg = response?.msg || `获取统计信息失败（错误码：${response?.code || '未知'}）`
+      console.error('获取统计信息失败:', errorMsg)
+      alert(`获取统计信息失败：${errorMsg}`)
+    }
+  } catch (error: any) {
+    console.error('获取统计信息异常:', error)
+    const errorMsg = error.message.includes('401') || error.message.includes('403')
+        ? '权限不足或登录已过期，请重新登录'
+        : error.message.includes('Network')
+            ? '网络连接失败，请检查网络'
+            : error.message || '获取统计信息失败，请稍后重试'
+    alert(`获取统计信息失败：${errorMsg}`)
+  } finally {
+    loadingStats.value = false
+  }
+}
+
+// 处理查看统计信息
+const handleViewStats = (areaId: string, areaName: string) => {
+  document.title = `查看${areaName}统计信息`
+  fetchAreaDeviceStats(areaId)
 }
 
 // 初始化加载数据
@@ -617,7 +813,7 @@ onMounted(async () => {
   console.log('Token:', authStore.token)
   await fetchCityList() // 先加载市区列表
   await fetchAdminList() // 加载管理员列表
-  fetchCampusList()
+  fetchCampusList() // 获取所有校区数据
 })
 </script>
 
@@ -739,6 +935,22 @@ onMounted(async () => {
 }
 
 .btn-delete:hover {
+  opacity: 0.9;
+}
+
+/* 统计按钮样式 */
+.btn-stats {
+  background-color: #e6f7ff;
+  color: #1890ff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.3s;
+}
+
+.btn-stats:hover {
   opacity: 0.9;
 }
 
@@ -902,6 +1114,124 @@ onMounted(async () => {
   cursor: not-allowed;
 }
 
+/* 在现有样式基础上添加筛选框样式 */
+.filter-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #666;
+}
+
+.area-select {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  min-width: 180px;
+  font-size: 14px;
+}
+
+.filter-box label {
+  white-space: nowrap;
+}
+
+/* 统计弹窗样式 */
+.stats-modal {
+  width: 600px;
+  max-width: 90%;
+}
+
+.stats-content {
+  padding: 16px 0;
+}
+
+.stats-header {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.stats-header h4 {
+  margin: 0;
+  color: #333;
+  font-size: 18px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  text-align: center;
+  padding: 16px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  background-color: #fafafa;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.stat-value.online {
+  color: #52c41a;
+}
+
+.stat-value.offline {
+  color: #faad14;
+}
+
+.stat-value.fault {
+  color: #ff4d4f;
+}
+
+.stat-value.maker {
+  color: #722ed1;
+}
+
+.stat-value.supply {
+  color: #13c2c2;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #666;
+}
+
+.stats-details {
+  border-top: 1px solid #f0f0f0;
+  padding-top: 16px;
+}
+
+.stats-details h5 {
+  margin: 0 0 12px 0;
+  color: #333;
+  font-size: 16px;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid #f8f8f8;
+}
+
+.detail-value {
+  font-weight: 500;
+  color: #1890ff;
+}
+
+.loading-stats,
+.no-stats-data {
+  text-align: center;
+  padding: 40px 0;
+  color: #8c8c8c;
+}
+
 /* 响应式调整 */
 @media (max-width: 768px) {
   .action-bar {
@@ -915,6 +1245,10 @@ onMounted(async () => {
 
   .campus-select, .area-select {
     width: 100%;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 </style>

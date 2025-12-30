@@ -7,6 +7,14 @@
       <div class="breadcrumb">校园矿化水平台 / 人员管理 / 维修人员 / 维修记录</div>
     </div>
 
+    <!-- 返回按钮 -->
+   <div class="back-button">
+   <button @click="goBack" class="btn-back">
+      ← 返回维修人员列表
+    </button>
+   </div>
+
+
     <!-- 维修人员信息 -->
     <div class="repairman-info card">
       <h3>维修人员信息</h3>
@@ -305,6 +313,12 @@ const viewOrderDetail = (orderId: string) => {
   router.push(`/home/work-order/detail/${orderId}`)
 }
 
+// 返回上一页
+const goBack = () => {
+  router.back()
+}
+
+
 // 页面加载时获取数据
 // MaintenanceRecord.vue
 onMounted(() => {
@@ -565,5 +579,23 @@ onMounted(() => {
   .order-tabs {
     flex-direction: column;
   }
+
+  .btn-back {
+  background: #f0f0f0;
+  color: #333;
+  border: 1px solid #ddd;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-back:hover {
+  background: #e0e0e0;
+  border-color: #bbb;
+}
+
+
 }
 </style>

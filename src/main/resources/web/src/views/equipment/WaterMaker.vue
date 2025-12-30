@@ -1,43 +1,61 @@
 <template>
   <div class="water-maker-page">
-    <!-- 页面标题和面包屑 -->
     <div class="page-header">
       <h2>制水机管理</h2>
       <div class="breadcrumb">校园矿化水平台 / 设备监控 / 制水机</div>
     </div>
 
-    <!-- 操作按钮区 -->
     <div class="action-bar">
       <button class="btn-add" @click="showAddModal = true">添加制水机</button>
-
       <div class="filters">
-        <!-- 搜索框 -->
         <div class="search-box">
           <input
-              type="text"
-              placeholder="搜索设备ID或位置..."
-              v-model="searchKeyword"
-              @input="handleSearch"
+            v-model="searchKeyword"
+            type="text"
+            placeholder="搜索设备ID或位置..."
+            @input="handleSearch"
           >
           <button class="search-btn" @click="handleSearch">搜索</button>
         </div>
 
-        <!-- 片区筛选 -->
-        <select
-            v-model="selectedArea"
+        <!-- 两层筛选：市区选择影响校区列表 -->
+        <div class="area-filter">
+          <select
+            v-model="selectedCity"
             class="filter-select"
-            @change="handleSearch"
-        >
-          <option value="">全部片区</option>
-          <option value="A">A</option>
-          <option value="B">B</option>
-        </select>
+            @change="onCityChange"
+          >
+            <option value="">选择市区</option>
+            <option
+              v-for="city in cityList"
+              :key="city.areaId"
+              :value="city.areaId"
+            >
+              {{ city.areaName }}
+            </option>
+          </select>
 
-        <!-- 状态筛选 -->
-        <select
-            v-model="selectedStatus"
+          <select
+            v-model="selectedCampus"
             class="filter-select"
-            @change="handleSearch"
+            :disabled="!selectedCity"
+            @change="onCampusChange"
+          >
+            <option value="">选择校区</option>
+            <option
+              v-for="campus in campusList"
+              :key="campus.areaId"
+              :value="campus.areaId"
+            >
+              {{ campus.areaName }}
+            </option>
+          </select>
+        </div>
+
+        <select
+          v-model="selectedStatus"
+          class="filter-select"
+          @change="currentPage = 1"
         >
           <option value="">全部状态</option>
           <option value="online">在线</option>
@@ -48,56 +66,55 @@
       </div>
     </div>
 
-    <!-- 设备表格 - 新增设备机型列 -->
     <div class="card">
       <table class="equipment-table">
         <thead>
-        <tr>
-          <th>设备ID</th>
-          <th>设备机型</th> <!-- 新增机型列 -->
-          <th>所属片区</th>
-          <th>详细位置</th>
-          <th>状态</th>
-          <th>最后上传时间</th>
-          <th>操作</th>
-        </tr>
+          <tr>
+            <th>设备ID</th>
+            <th>设备名称</th>
+            <th>设备类型</th>
+            <th>所属片区</th>
+            <th>安装位置</th>
+            <th>状态</th>
+            <th>操作</th>
+          </tr>
         </thead>
         <tbody>
-        <tr v-for="device in paginatedDevices" :key="device.deviceId">
-          <td>{{ device.deviceId }}</td>
-          <td>{{ device.deviceType === 'water_maker' ? '制水机' : device.deviceType }}</td>
-          <td>{{ device.areaId }}</td>
-          <td>{{ device.installLocation }}</td>
-          <td>
-              <span :class="`status-tag ${device.status}`">
-                {{ formatStatus(device.status) }}
-              </span>
-          </td>
-          <td>{{ formatDate(device.lastHeartbeatTime) }}</td>
-          <td class="operation-buttons">
-            <button class="btn-view" @click="viewDevice(device.deviceId)">查看详情</button>
-            <button class="btn-edit" @click="openEditModal(device)">编辑</button>
-            <button
+          <tr v-for="device in paginatedDevices" :key="device.deviceId">
+            <td>{{ device.deviceId }}</td>
+            <td>{{ device.deviceName }}</td>
+            <td>{{ device.deviceType }}</td>
+            <td>{{ device.areaId }}</td>
+            <td>{{ device.installLocation }}</td>
+            <td>
+               <span :class="`status-tag ${device.status}`">
+                  {{ formatStatus(device.status) }}
+               </span>
+            </td>
+            <td class="operation-buttons">
+              <button class="btn-view" @click="viewDevice(device.deviceId)">查看详情</button>
+              <button class="btn-edit" @click="openEditModal(device)">编辑</button>
+              <button
                 class="btn-delete"
                 @click="deleteDevice(device.deviceId)"
-            >
-              删除
-            </button>
-          </td>
-        </tr>
-        <tr v-if="paginatedDevices.length === 0">
-          <td colspan="7" class="no-data">暂无设备数据</td>
-        </tr>
+                :disabled="device.status === 'online'"
+              >
+                删除
+              </button>
+            </td>
+          </tr>
+          <tr v-if="paginatedDevices.length === 0">
+            <td colspan="7" class="no-data">暂无设备数据</td>
+          </tr>
         </tbody>
       </table>
     </div>
 
-    <!-- 分页控件 -->
     <div class="pagination">
       <button
-          class="page-btn"
-          :disabled="currentPage === 1"
-          @click="currentPage--"
+        class="page-btn"
+        :disabled="currentPage === 1"
+        @click="currentPage--"
       >
         上一页
       </button>
@@ -105,9 +122,9 @@
         第 {{ currentPage }} 页 / 共 {{ totalPages }} 页 (共 {{ filteredDevices.length }} 条记录)
       </span>
       <button
-          class="page-btn"
-          :disabled="currentPage === totalPages"
-          @click="currentPage++"
+        class="page-btn"
+        :disabled="currentPage === totalPages"
+        @click="currentPage++"
       >
         下一页
       </button>
@@ -273,7 +290,7 @@
         <form @submit.prevent="confirmFault">
           <div class="form-group">
             <label>故障类型:</label>
-            <input v-model="faultInfo.faultType" type="text" placeholder="请输入故障类型" required>
+            <textarea v-model="faultInfo.faultType" placeholder="请输入故障类型" required></textarea>
           </div>
           <div class="form-group">
             <label>故障描述:</label>
@@ -297,7 +314,7 @@ import { request } from '@/api/request'
 import type { ResultVO } from '@/api/types/auth'
 
 // 设备状态类型定义
-type DeviceStatus = 'online' | 'offline' | 'fault'
+type DeviceStatus = 'online' | 'offline' | 'warning' | 'fault'
 
 // 设备类型定义
 interface WaterMakerDevice {
@@ -307,8 +324,7 @@ interface WaterMakerDevice {
   areaId: string
   installLocation: string
   status: DeviceStatus
-  lastHeartbeatTime?: string
-  createTime?: string
+  // 移除了 lastHeartbeatTime 字段
 }
 
 // 区域类型定义
@@ -325,7 +341,8 @@ interface Area {
 // 响应式数据
 const devices = ref<WaterMakerDevice[]>([])
 const searchKeyword = ref('')
-const selectedArea = ref('') // 片区筛选值
+const selectedCity = ref('') // 市区筛选值
+const selectedCampus = ref('') // 校区筛选值
 const selectedStatus = ref('') // 状态筛选值
 const currentPage = ref(1)
 const pageSize = 10 // 每页显示数量
@@ -390,9 +407,25 @@ const loadDevices = async (): Promise<void> => {
 
     console.log('开始加载制水机设备数据...')
 
+    // 构建请求参数
+    const params = new URLSearchParams()
+    if (selectedStatus.value && selectedStatus.value !== '') {
+      params.append('status', selectedStatus.value)
+    }
+    // 如果选择了校区，则按校区筛选；如果只选择了市区，则按市区筛选；否则不筛选
+    if (selectedCampus.value && selectedCampus.value !== '') {
+      params.append('areaId', selectedCampus.value)
+    } else if (selectedCity.value && selectedCity.value !== '') {
+      params.append('areaId', selectedCity.value)
+    }
+    params.append('deviceType', 'water_maker')
+
+    const queryString = params.toString()
+    const url = `/api/web/device-status/by-type${queryString ? `?${queryString}` : ''}`
+
     // 直接按设备类型查询所有制水机
     const result = await request<ResultVO<WaterMakerDevice[]>>(
-      `/api/web/device-status/by-type?deviceType=water_maker`,
+      url,
       { method: 'GET' }
     )
 
@@ -406,8 +439,8 @@ const loadDevices = async (): Promise<void> => {
         deviceType: item.deviceType,
         areaId: item.areaId,
         installLocation: item.installLocation,
-        status: item.status,
-        lastHeartbeatTime: item.lastHeartbeatTime
+        status: item.status
+        // 移除了 lastHeartbeatTime
       }))
     }
 
@@ -499,6 +532,20 @@ const loadCampusListByCity = async (cityId: string): Promise<void> => {
   }
 }
 
+// 市区选择变化时的处理
+const onCityChange = async () => {
+  // 清空校区选择
+  selectedCampus.value = ''
+  campusList.value = []
+
+  if (selectedCity.value) {
+    await loadCampusListByCity(selectedCity.value)
+  } else {
+    // 如果清空市区选择，也清空校区列表
+    campusList.value = []
+  }
+}
+
 // 根据市区ID加载编辑模式下的校区列表
 const loadEditCampusListByCity = async (cityId: string): Promise<void> => {
   try {
@@ -537,18 +584,8 @@ const loadEditCampusListByCity = async (cityId: string): Promise<void> => {
   }
 }
 
-// 市区选择变化时的处理
-const onCityChange = async () => {
-  // 清空校区选择和设备ID
-  selectedCampusId.value = ''
-  campusList.value = []
 
-  if (selectedCityId.value) {
-    await loadCampusListByCity(selectedCityId.value)
-  }
-}
-
-// 校区选择变化时的处理
+// 校区选择变化时的处理（用于添加设备）
 const onCampusChange = () => {
   // 设置areaId为选中校区的areaName（不是areaId）
   const selectedCampus = campusList.value.find(campus => campus.areaId === selectedCampusId.value)
@@ -595,7 +632,18 @@ const filteredDevices = computed(() => {
         device.deviceId.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
         device.installLocation.toLowerCase().includes(searchKeyword.value.toLowerCase())
 
-    const areaMatch = selectedArea.value === '' || device.areaId === selectedArea.value
+    // 如果选择了校区，则匹配校区；如果只选择了市区，则匹配市区；否则不过滤片区
+    let areaMatch = true
+    if (selectedCampus.value && selectedCampus.value !== '') {
+      areaMatch = device.areaId === selectedCampus.value ||
+                 device.areaId === campusList.value.find(c => c.areaId === selectedCampus.value)?.areaName
+    } else if (selectedCity.value && selectedCity.value !== '') {
+      // 检查设备的片区是否属于所选市区的校区
+      areaMatch = campusList.value.some(campus =>
+        device.areaId === campus.areaId || device.areaId === campus.areaName
+      ) || device.areaId === selectedCity.value
+    }
+
     const statusMatch = selectedStatus.value === '' || device.status === selectedStatus.value
 
     return keywordMatch && areaMatch && statusMatch
@@ -618,21 +666,16 @@ const formatStatus = (status: DeviceStatus): string => {
   const statusMap: Record<string, string> = {
     online: '在线',
     offline: '离线',
+    warning: '警告',
     fault: '故障'
   }
   return statusMap[status] || status
 }
 
-// 时间格式化
-const formatDate = (dateString?: string): string => {
-  if (!dateString) return '-'
-  const date = new Date(dateString)
-  return date.toLocaleString('zh-CN')
-}
-
 // 搜索处理
 const handleSearch = () => {
   currentPage.value = 1 // 重置到第一页
+  loadDevices() // 重新加载数据
 }
 
 // 查看详情
@@ -640,8 +683,6 @@ const viewDevice = (id: string) => {
   router.push(`/home/equipment/water-maker/${id}`)
 }
 
-// 显示离线模态框
-// 显示故障模态框
 // 确认设置为离线
 const confirmOffline = async () => {
   try {
@@ -716,7 +757,6 @@ const confirmFault = async () => {
   }
 }
 
-// 更新设备状态为在线
 // 删除设备
 const deleteDevice = async (deviceId: string) => {
   if (!confirm(`确定要删除设备 ${deviceId} 吗？此操作不可恢复。`)) {
@@ -923,13 +963,13 @@ const addDevice = async () => {
 // 组件挂载时加载数据
 onMounted(async () => {
   console.log('🚀 开始加载设备数据...')
-  await loadDevices()
   await loadCityList()
+  await loadDevices() // 加载设备数据
 })
 </script>
 
 <style scoped>
-/* 样式与供水机页面保持一致 */
+/* 样式与终端机页面保持一致 */
 .water-maker-page {
   padding: 20px;
 }
@@ -978,6 +1018,7 @@ onMounted(async () => {
   display: flex;
   gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .search-box {
@@ -1001,12 +1042,18 @@ onMounted(async () => {
   cursor: pointer;
 }
 
+.area-filter {
+  display: flex;
+  gap: 8px;
+}
+
 .filter-select {
   padding: 8px 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
   background: white;
   cursor: pointer;
+  min-width: 120px;
 }
 
 .equipment-table {
@@ -1030,6 +1077,34 @@ onMounted(async () => {
 
 .equipment-table tbody tr:hover {
   background-color: #f8f9fa;
+}
+
+.status-tag {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-tag.online {
+  background-color: #e6f7ee;
+  color: #00875a;
+}
+
+.status-tag.offline {
+  background-color: #f5f5f5;
+  color: #8c8c8c;
+}
+
+.status-tag.warning {
+  background-color: #fff7e6;
+  color: #d48806;
+}
+
+.status-tag.fault {
+  background-color: #ffebe6;
+  color: #cf1322;
 }
 
 .operation-buttons {
@@ -1062,13 +1137,13 @@ onMounted(async () => {
 }
 
 .btn-edit {
-  background-color: #e6f7ff;
-  color: #1890ff;
+  background-color: #faad14;
+  color: white;
 }
 
 .btn-delete {
-  background-color: #ffebe6;
-  color: #ff4d4f;
+  background-color: #ff4d4f;
+  color: white;
 }
 
 .no-data {
@@ -1206,8 +1281,12 @@ onMounted(async () => {
     width: 100%;
   }
 
-  .search-box, .filter-select {
+  .search-box, .area-filter, .filter-select {
     width: 100%;
+  }
+
+  .area-filter {
+    flex-direction: column;
   }
 
   .modal-content {
