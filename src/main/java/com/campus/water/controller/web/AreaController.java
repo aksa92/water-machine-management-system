@@ -2,7 +2,6 @@ package com.campus.water.controller.web;
 
 import com.campus.water.entity.Area;
 import com.campus.water.service.AreaService;
-import com.campus.water.entity.vo.AreaDeviceStatsVO;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -165,47 +164,4 @@ public class AreaController {
                     .body(buildResponse(500, "查询区域详情失败：" + e.getMessage(), null));
         }
     }
-
-    /**
-     * 获取指定片区设备统计
-     * 权限：超级管理员/区域管理员（与新增/修改区域权限一致）
-     * 响应：校区返回自身数据，市区返回下属校区汇总数据
-     */
-    @GetMapping("/device-stats/{areaId}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN')")
-    public ResponseEntity<Map<String, Object>> getAreaDeviceStats(@PathVariable String areaId) {
-        try {
-            AreaDeviceStatsVO statsVO = areaService.getAreaDeviceStats(areaId);
-            return ResponseEntity.ok(buildResponse(200, "统计成功", statsVO));
-        } catch (RuntimeException e) {
-            // 业务异常（片区不存在、参数错误等）返回400
-            return ResponseEntity.badRequest().body(buildResponse(400, e.getMessage(), null));
-        } catch (Exception e) {
-            // 系统异常返回500
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(buildResponse(500, "统计片区设备失败：" + e.getMessage(), null));
-        }
-    }
-
-    /**
-     * 获取市区下所有校区单独统计
-     * 权限：超级管理员/区域管理员（与新增/修改区域权限一致）
-     * 响应：返回该市区下每个校区的设备统计，不进行汇总
-     */
-    @GetMapping("/device-stats/city/{cityId}/campuses")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN')")
-    public ResponseEntity<Map<String, Object>> getCampusDeviceStatsUnderCity(@PathVariable String cityId) {
-        try {
-            List<AreaDeviceStatsVO> statsVOList = areaService.getCampusDeviceStatsUnderCity(cityId);
-            return ResponseEntity.ok(buildResponse(200, "统计成功", statsVOList));
-        } catch (RuntimeException e) {
-            // 业务异常（非市区、市区不存在等）返回400
-            return ResponseEntity.badRequest().body(buildResponse(400, e.getMessage(), null));
-        } catch (Exception e) {
-            // 系统异常返回500
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(buildResponse(500, "统计市区下属校区设备失败：" + e.getMessage(), null));
-        }
-    }
-
 }
