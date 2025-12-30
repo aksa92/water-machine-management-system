@@ -40,6 +40,22 @@ public class AdminController {
         }
     }
 
+
+    /**
+     * 新增：查询可分配校区的区域管理员（未负责任何片区）
+     */
+    @GetMapping("/available-area-admins")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN')")
+    @Operation(summary = "获取可分配校区的区域管理员", description = "返回未负责任何片区的区域管理员，用于片区绑定负责人")
+    public ResponseEntity<ResultVO<List<Admin>>> getAvailableAreaAdmins() {
+        try {
+            List<Admin> availableAdmins = adminService.getAvailableAreaAdmins();
+            return ResponseEntity.ok(ResultVO.success(availableAdmins));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ResultVO.error(500, "查询失败：" + e.getMessage()));
+        }
+    }
+
     /**
      * 新增：获取指定区域的管理员列表
      */
