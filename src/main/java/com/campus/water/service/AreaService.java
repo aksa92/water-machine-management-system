@@ -1,23 +1,19 @@
 package com.campus.water.service;
 
 import com.campus.water.entity.Area;
-import com.campus.water.entity.Device;
 import com.campus.water.mapper.AreaRepository;
 import com.campus.water.entity.Admin;
 import com.campus.water.mapper.AdminRepository;
 import com.campus.water.mapper.DeviceRepository;
 import com.campus.water.mapper.DeviceTerminalMappingRepository;
 import com.campus.water.security.RoleConstants;
-import com.campus.water.entity.vo.AreaDeviceStatsVO;
-import org.springframework.beans.factory.annotation.Autowired;
+
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * 区域管理服务类
@@ -245,106 +241,5 @@ public class AreaService {
         }
     }
 
-
-    /**
-     * 获取指定片区的设备统计（校区：自身数据；市区：自身+下属所有校区汇总数据）
-     * @param areaId 片区ID（市区/校园）
-     * @return 片区设备统计结果（适配现有实体）
-     */
-    @Transactional(readOnly = true) // 只读事务提升查询性能，不修改数据
-    public AreaDeviceStatsVO getAreaDeviceStats(String areaId) {
-        // 1. 校验片区是否存在，获取片区基础信息
-        Area targetArea = getAreaById(areaId);
-        AreaDeviceStatsVO statsVO = new AreaDeviceStatsVO();
-
-        // 2. 填充片区基础信息（复用Area实体字段）
-        statsVO.setAreaId(targetArea.getAreaId());
-        statsVO.setAreaName(targetArea.getAreaName());
-        statsVO.setAreaTypeDesc(targetArea.getAreaType().getDesc());
-
-        // 3. 区分片区类型执行统计（核心逻辑，复用现有Mapper方法）
-        if (Area.AreaType.campus.equals(targetArea.getAreaType())) {
-            // 校区：仅统计自身关联的设备/终端
-            fillSelfDeviceStats(statsVO, areaId);
-        } else if (Area.AreaType.zone.equals(targetArea.getAreaType())) {
-            // 市区：统计自身 + 下属所有校区的汇总数据
-            fillCityTotalDeviceStats(statsVO, areaId);
-        }
-
-        return statsVO;
-    }
-
-    /**
-     * 填充单个片区（校区/市区自身）的设备统计数据（复用现有Mapper的count方法）
-     * @param statsVO 统计结果VO
-     * @param areaId  片区ID
-     */
-    private void fillSelfDeviceStats(AreaDeviceStatsVO statsVO, String areaId) {
-        // 复用DeviceRepository.countByAreaIdAndDeviceType（已存在，无需新增）
-        long waterMakerCount = deviceRepository.countByAreaIdAndDeviceType(
-                areaId, Device.DeviceType.water_maker); // 假设Device枚举包含WATER_MAKER/WATER_SUPPLY
-        long waterSupplyCount = deviceRepository.countByAreaIdAndDeviceType(
-                areaId, Device.DeviceType.water_supply);
-
-        // 复用DeviceTerminalMappingRepository.countByAreaId（已存在，无需新增）
-        long terminalCount = deviceTerminalMappingRepository.countByAreaId(areaId);
-
-        // 赋值到VO（强转int，若数量过大可改为long，兼容现有数据）
-        statsVO.setWaterMakerCount((int) waterMakerCount);
-        statsVO.setWaterSupplyCount((int) waterSupplyCount);
-        statsVO.setTerminalCount((int) terminalCount);
-    }
-
-    /**
-     * 填充市区的总设备统计数据（仅汇总下属所有校区，市区自身无设备/终端）
-     * @param statsVO 统计结果VO
-     * @param cityId  市区ID
-     */
-    private void fillCityTotalDeviceStats(AreaDeviceStatsVO statsVO, String cityId) {
-        // 第一步：获取市区下属所有校区的ID列表（复用现有getCampusesByCityId方法）
-        List<Area> campusList = getCampusesByCityId(cityId);
-        List<String> campusIds = campusList.stream()
-                .map(Area::getAreaId)
-                .collect(Collectors.toList());
-
-        // 第二步：汇总下属所有校区的设备/终端数量（循环复用现有count方法，适配现有Mapper）
-        long campusWaterMaker = 0;
-        long campusWaterSupply = 0;
-        long campusTerminal = 0;
-        if (!campusIds.isEmpty()) {
-            for (String campusId : campusIds) {
-                campusWaterMaker += deviceRepository.countByAreaIdAndDeviceType(campusId, Device.DeviceType.water_maker);
-                campusWaterSupply += deviceRepository.countByAreaIdAndDeviceType(campusId, Device.DeviceType.water_supply);
-                campusTerminal += deviceTerminalMappingRepository.countByAreaId(campusId);
-            }
-        }
-
-        // 第三步：直接赋值校区汇总数据（市区自身无数据）
-        statsVO.setWaterMakerCount((int) campusWaterMaker);
-        statsVO.setWaterSupplyCount((int) campusWaterSupply);
-        statsVO.setTerminalCount((int) campusTerminal);
-    }
-
-    /**
-     * 获取指定市区下所有校区的单独设备统计（每个校区各自的统计结果，不汇总）
-     * @param cityId 市区ID
-     * @return 校区统计列表（复用现有方法，无新增依赖）
-     */
-    @Transactional(readOnly = true)
-    public List<AreaDeviceStatsVO> getCampusDeviceStatsUnderCity(String cityId) {
-        // 1. 校验市区存在且类型正确
-        Area cityArea = getAreaById(cityId);
-        if (!Area.AreaType.zone.equals(cityArea.getAreaType())) {
-            throw new RuntimeException("指定区域不是市区，无法查询下属校区统计");
-        }
-
-        // 2. 获取下属所有校区（复用现有方法）
-        List<Area> campusList = getCampusesByCityId(cityId);
-
-        // 3. 逐个生成校区统计结果（复用getAreaDeviceStats方法）
-        return campusList.stream()
-                .map(campus -> getAreaDeviceStats(campus.getAreaId()))
-                .collect(Collectors.toList());
-    }
 
 }
