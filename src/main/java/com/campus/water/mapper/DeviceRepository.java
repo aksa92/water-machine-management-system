@@ -48,4 +48,6 @@ public interface DeviceRepository extends JpaRepository<Device, String> {
 
     // 按设备类型加载加载设备（支持区域筛选）
     List<Device> findByDeviceTypeAndAreaId(Device.DeviceType deviceType, String areaId);
+
+    long countByAreaIdAndDeviceType(String areaId, Device.DeviceType deviceType);
 }
