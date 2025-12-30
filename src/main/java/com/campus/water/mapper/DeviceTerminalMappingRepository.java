@@ -30,4 +30,6 @@ public interface DeviceTerminalMappingRepository extends JpaRepository<DeviceTer
     // 3. 按终端ID删除所有关联映射（删除终端时级联清理映射数据）
     void deleteByTerminalId(String terminalId);
 
+    long countByAreaId(String areaId);
+
 }
