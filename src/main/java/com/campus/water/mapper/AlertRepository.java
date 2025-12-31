@@ -58,4 +58,6 @@ public interface AlertRepository extends JpaRepository<Alert, Long> {
             List<Alert.AlertStatus> activeStatus,
             LocalDateTime timestamp
     );
+
+    List<Alert> findByResolvedByAndStatus(String repairmanId, Alert.AlertStatus alertStatus);
 }
