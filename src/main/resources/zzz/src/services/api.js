@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/auth'
 
 // 创建最基本的axios实例
 const apiClient = axios.create({
-  baseURL: 'http://localhost:8080',
+  baseURL: 'http://120.46.151.248:8080',
   headers: {
     'Content-Type': 'application/json'
   }
