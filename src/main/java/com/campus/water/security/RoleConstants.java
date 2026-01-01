@@ -1,4 +1,4 @@
-package com.campus.water.security;
+package main.java.com.campus.water.security;
 
 /**
  * 角色常量定义

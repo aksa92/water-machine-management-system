@@ -1,9 +1,9 @@
-package com.campus.water.controller;
+package main.java.com.campus.water.controller;
 
-import com.campus.water.entity.dto.request.StudentDrinkQueryDTO;
-import com.campus.water.entity.vo.StudentDrinkStatsVO;
-import com.campus.water.service.StudentDrinkStatsService;
-import com.campus.water.util.ResultVO;
+import main.java.com.campus.water.entity.dto.request.StudentDrinkQueryDTO;
+import main.java.com.campus.water.entity.vo.StudentDrinkStatsVO;
+import main.java.com.campus.water.service.StudentDrinkStatsService;
+import main.java.com.campus.water.util.ResultVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

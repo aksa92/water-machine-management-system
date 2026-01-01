@@ -1,11 +1,11 @@
-package com.campus.water.service;
+package main.java.com.campus.water.service;
 
-import com.campus.water.entity.Admin;
-import com.campus.water.entity.RepairerAuth;
-import com.campus.water.entity.Repairman;
-import com.campus.water.entity.User;
-import com.campus.water.entity.dto.request.RegisterRequest;
-import com.campus.water.mapper.*;
+import main.java.com.campus.water.entity.Admin;
+import main.java.com.campus.water.entity.RepairerAuth;
+import main.java.com.campus.water.entity.Repairman;
+import main.java.com.campus.water.entity.User;
+import main.java.com.campus.water.entity.dto.request.RegisterRequest;
+import main.java.com.campus.water.mapper.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;

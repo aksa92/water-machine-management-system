@@ -1,6 +1,6 @@
-package com.campus.water.controller;
+package main.java.com.campus.water.controller;
 
-import com.campus.water.util.ResultVO;
+import main.java.com.campus.water.util.ResultVO;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;

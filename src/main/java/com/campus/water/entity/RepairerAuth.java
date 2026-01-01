@@ -3,7 +3,7 @@
  * 对应表：repairer_auth
  * 用于存储维修人员的登录账号、密码、状态等信息
  */
-package com.campus.water.entity;
+package main.java.com.campus.water.entity;
 
 import lombok.Data;
 import jakarta.persistence.*;

@@ -1,8 +1,8 @@
-package com.campus.water.controller.web;
+package main.java.com.campus.water.controller.web;
 
-import com.campus.water.entity.Repairman;
-import com.campus.water.service.RepairmanService;
-import com.campus.water.util.ResultVO;
+import main.java.com.campus.water.entity.Repairman;
+import main.java.com.campus.water.service.RepairmanService;
+import main.java.com.campus.water.util.ResultVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

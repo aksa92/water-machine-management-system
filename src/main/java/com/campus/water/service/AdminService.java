@@ -1,9 +1,9 @@
-package com.campus.water.service;
+package main.java.com.campus.water.service;
 
-import com.campus.water.entity.Admin;
-import com.campus.water.entity.Area;
-import com.campus.water.mapper.AdminRepository;
-import com.campus.water.mapper.AreaRepository;
+import main.java.com.campus.water.entity.Admin;
+import main.java.com.campus.water.entity.Area;
+import main.java.com.campus.water.mapper.AdminRepository;
+import main.java.com.campus.water.mapper.AreaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;

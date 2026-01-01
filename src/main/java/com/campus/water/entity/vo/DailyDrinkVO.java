@@ -1,4 +1,4 @@
-package com.campus.water.entity.vo;
+package main.java.com.campus.water.entity.vo;
 
 import lombok.Data;
 

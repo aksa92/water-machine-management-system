@@ -3,7 +3,7 @@
  * 对应表：alert
  * 用于记录设备告警信息，包括告警级别、状态、处理人等
  */
-package com.campus.water.entity;
+package main.java.com.campus.water.entity;
 
 import lombok.Data;
 import jakarta.persistence.*;

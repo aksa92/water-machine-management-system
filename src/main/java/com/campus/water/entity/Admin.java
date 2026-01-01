@@ -1,4 +1,4 @@
-package com.campus.water.entity;
+package main.java.com.campus.water.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;

@@ -1,7 +1,7 @@
 // java/com/campus/water/vo/TerminalManageVO.java
-package com.campus.water.entity.vo;
+package main.java.com.campus.water.entity.vo;
 
-import com.campus.water.entity.DeviceTerminalMapping;
+import main.java.com.campus.water.entity.DeviceTerminalMapping;
 import lombok.Data;
 
 import java.math.BigDecimal;

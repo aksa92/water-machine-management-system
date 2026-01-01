@@ -3,7 +3,7 @@
  * 对应表：water_maker_realtime_data
  * 用于存储制水设备的实时运行数据，如TDS、流量、压力、滤芯寿命等
  */
-package com.campus.water.entity;
+package main.java.com.campus.water.entity;
 
 import lombok.Data;
 import jakarta.persistence.*;

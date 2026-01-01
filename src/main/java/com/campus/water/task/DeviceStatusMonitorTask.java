@@ -1,9 +1,9 @@
 /**
  * 设备状态监控定时任务
  * 功能：定时 */
-package com.campus.water.task;
+package main.java.com.campus.water.task;
 
-import com.campus.water.service.DeviceStatusService; // 添加这行导入
+import main.java.com.campus.water.service.DeviceStatusService; // 添加这行导入
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;

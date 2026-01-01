@@ -1,8 +1,8 @@
 // 路径：com/campus/water/service/DeviceStatusService.java
-package com.campus.water.service;
+package main.java.com.campus.water.service;
 
-import com.campus.water.entity.Device;
-import com.campus.water.entity.dto.request.DeviceStatusUpdateRequest;
+import main.java.com.campus.water.entity.Device;
+import main.java.com.campus.water.entity.dto.request.DeviceStatusUpdateRequest;
 
 import java.util.List;
 import java.util.Map;

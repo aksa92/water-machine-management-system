@@ -1,7 +1,7 @@
-package com.campus.water.controller.web;
+package main.java.com.campus.water.controller.web;
 
-import com.campus.water.entity.Area;
-import com.campus.water.service.AreaService;
+import main.java.com.campus.water.entity.Area;
+import main.java.com.campus.water.service.AreaService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;

@@ -1,8 +1,8 @@
-package com.campus.water.service;
+package main.java.com.campus.water.service;
 
-import com.campus.water.config.MqttConfig;
-import com.campus.water.model.WaterMakerSensorData;
-import com.campus.water.model.WaterSupplySensorData;
+import main.java.com.campus.water.config.MqttConfig;
+import main.java.com.campus.water.model.WaterMakerSensorData;
+import main.java.com.campus.water.model.WaterSupplySensorData;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
