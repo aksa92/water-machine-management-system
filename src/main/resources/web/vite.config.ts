@@ -15,7 +15,7 @@ export default defineConfig({
         proxy: {
             // 代理所有以 /api 开头的请求到后端
             '/api': {
-                target: 'http://localhost:8080', // Spring Boot 后端地址
+                target: 'https://120.46.151.248:8081', // Spring Boot 后端地址
                 changeOrigin: true, // 改变请求来源
                 secure: false, // 如果是https，可能需要设置为false
                 // 如果需要重写路径，可以取消下面的注释

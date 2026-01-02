@@ -1,25 +1,22 @@
 <template>
-  <div class="water-supplier-page">
+  <div class="supply-machine-page">
     <!-- 页面标题和面包屑 -->
     <div class="page-header">
       <h2>供水机管理</h2>
       <div class="breadcrumb">校园矿化水平台 / 设备监控 / 供水机</div>
     </div>
 
-    <!-- 操作按钮区 -->
     <div class="action-bar">
       <button class="btn-add" @click="showAddModal = true">添加供水机</button>
-
       <div class="filters">
-        <!-- 搜索框 -->
         <div class="search-box">
           <input
+            v-model="searchKeyword"
             type="text"
             placeholder="搜索设备ID或位置..."
-            v-model="searchKeyword"
             @input="handleSearch"
           >
-          <button class="search-btn">搜索</button>
+          <button class="search-btn" @click="handleSearch">搜索</button>
         </div>
 
         <!-- 两层筛选：市区选择影响校区列表 -->
@@ -56,51 +53,54 @@
           </select>
         </div>
 
-        <!-- 状态筛选 -->
         <select
           v-model="selectedStatus"
           class="filter-select"
-          @change="handleSearch"
+          @change="currentPage = 1"
         >
           <option value="">全部状态</option>
           <option value="online">在线</option>
           <option value="offline">离线</option>
           <option value="warning">警告</option>
-          <option value="error">故障</option>
+          <option value="fault">故障</option>
         </select>
       </div>
     </div>
 
-    <!-- 表格 -->
     <div class="card">
       <table class="equipment-table">
         <thead>
           <tr>
             <th>设备ID</th>
-            <th>设备机型</th>
+            <th>设备名称</th>
+            <th>设备类型</th>
             <th>所属片区</th>
-            <th>详细位置</th>
+            <th>安装位置</th>
             <th>状态</th>
-            <th>最后上传时间</th>
             <th>操作</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="device in paginatedDevices" :key="device.id">
-            <td>{{ device.id }}</td>
-            <td>供水机</td>
-            <td>{{ device.area }}</td>
-            <td>{{ device.location }}</td>
+          <tr v-for="device in paginatedDevices" :key="device.deviceId">
+            <td>{{ device.deviceId }}</td>
+            <td>{{ device.deviceName }}</td>
+            <td>{{ device.deviceType }}</td>
+            <td>{{ device.areaId }}</td>
+            <td>{{ device.installLocation }}</td>
             <td>
-              <span :class="`status-tag ${device.status}`">
-                {{ formatStatus(device.status) }}
-              </span>
+               <span :class="`status-tag ${device.status}`">
+                  {{ formatStatus(device.status) }}
+               </span>
             </td>
-            <td>{{ device.lastUploadTime }}</td>
             <td class="operation-buttons">
-              <button class="btn-view" @click="viewDevice(device.id)">查看详情</button>
+              <button class="btn-view" @click="viewDevice(device.deviceId)">查看详情</button>
               <button class="btn-edit" @click="openEditModal(device)">编辑</button>
-              <button class="btn-delete" @click="currentDeviceId = device.id; showDeleteModal = true">删除</button>
+              <button
+                class="btn-delete"
+                @click="deleteDevice(device.deviceId)"
+              >
+                删除
+              </button>
             </td>
           </tr>
           <tr v-if="paginatedDevices.length === 0">
@@ -110,7 +110,6 @@
       </table>
     </div>
 
-    <!-- 分页控件 -->
     <div class="pagination">
       <button
         class="page-btn"
@@ -131,143 +130,132 @@
       </button>
     </div>
 
-    <!-- 添加设备模态框 -->
+    <!-- 添加/编辑设备模态框 -->
     <div v-if="showAddModal" class="modal-overlay" @click="showAddModal = false">
       <div class="modal-content" @click.stop>
-        <h3>添加供水机</h3>
-        <form @submit.prevent="addDevice">
+        <h3>{{ isEditing ? '编辑设备' : '添加供水机' }}</h3>
+        <form @submit.prevent="saveDevice">
           <div class="form-group">
             <label>设备ID:</label>
-            <input v-model="newDevice.deviceId" type="text" required>
+            <input v-model="currentDevice.deviceId" type="text" :disabled="isEditing" required>
           </div>
           <div class="form-group">
             <label>设备名称:</label>
-            <input v-model="newDevice.deviceName" type="text" required>
-          </div>
-          <div class="form-group">
-            <label>所属片区:</label>
-            <select v-model="newDevice.areaId" @change="loadAvailableMakers" required>
-              <option value="">请选择片区</option>
-              <option
-                v-for="area in cityList"
-                :key="area.areaId"
-                :value="area.areaId"
-              >
-                {{ area.areaName }}
-              </option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>关联制水机:</label>
-            <select v-model="newDevice.parentMakerId" :disabled="!newDevice.areaId">
-              <option value="">请选择关联制水机</option>
-              <option v-for="maker in availableMakers" :key="maker.id" :value="maker.id">
-                {{ maker.name }}
-              </option>
-            </select>
-            <p v-if="!newDevice.areaId" class="help-text">请先选择片区以加载可关联的制水机</p>
+            <input v-model="currentDevice.deviceName" type="text" required>
           </div>
           <div class="form-group">
             <label>安装位置:</label>
-            <input v-model="newDevice.installLocation" type="text" required>
+            <input v-model="currentDevice.installLocation" type="text" required>
           </div>
+          <div class="form-group">
+            <label>设备类型:</label>
+            <select v-model="currentDevice.deviceType" required>
+              <option value="water_supply">供水机</option>
+              <option value="other">其他</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>状态:</label>
+            <select v-model="currentDevice.status">
+              <option value="online">在线</option>
+              <option value="offline">离线</option>
+              <option value="warning">警告</option>
+              <option value="fault">故障</option>
+            </select>
+          </div>
+
+          <!-- 市区选择 -->
+          <div class="form-group" v-if="!isEditing">
+            <label>选择市区:</label>
+            <select
+              v-model="selectedCityId"
+              @change="onCityChange"
+              class="select-input"
+            >
+              <option value="">请选择市区</option>
+              <option
+                v-for="city in cityList"
+                :key="city.areaId"
+                :value="city.areaId"
+              >
+                {{ city.areaName }}
+              </option>
+            </select>
+          </div>
+
+          <!-- 校区选择 -->
+          <div class="form-group" v-if="!isEditing && selectedCityId">
+            <label>选择校区:</label>
+            <select
+              v-model="selectedCampusId"
+              @change="onCampusChange"
+              class="select-input"
+              :disabled="!campusList.length"
+            >
+              <option value="">请选择校区</option>
+              <option
+                v-for="campus in campusList"
+                :key="campus.areaId"
+                :value="campus.areaId"
+              >
+                {{ campus.areaName }}
+              </option>
+            </select>
+            <p v-if="selectedCityId && !campusList.length" class="no-data-message">
+              该市区暂无校区
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label>所属片区:</label>
+            <input
+              v-model="currentDevice.areaId"
+              type="text"
+              :disabled="true"
+              placeholder="选择校区后自动填充"
+            >
+          </div>
+
           <div class="form-actions">
             <button type="button" @click="showAddModal = false">取消</button>
-            <button type="submit">添加</button>
+            <button type="submit">{{ isEditing ? '更新' : '添加' }}</button>
           </div>
         </form>
-      </div>
-    </div>
-
-    <!-- 编辑设备模态框 -->
-    <div v-if="showEditModal" class="modal-overlay" @click="showEditModal = false">
-      <div class="modal-content" @click.stop>
-        <h3>编辑供水机</h3>
-        <form @submit.prevent="updateDevice">
-          <div class="form-group">
-            <label>设备ID:</label>
-            <input v-model="editingDevice.deviceId" type="text" disabled>
-          </div>
-          <div class="form-group">
-            <label>设备名称:</label>
-            <input v-model="editingDevice.deviceName" type="text" required>
-          </div>
-          <div class="form-group">
-            <label>所属片区:</label>
-            <select v-model="editingDevice.areaId" @change="loadAvailableMakersForEdit" required>
-              <option value="">请选择片区</option>
-              <option
-                v-for="area in cityList"
-                :key="area.areaId"
-                :value="area.areaId"
-              >
-                {{ area.areaName }}
-              </option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>关联制水机:</label>
-            <select v-model="editingDevice.parentMakerId" :disabled="!editingDevice.areaId">
-              <option value="">请选择关联制水机</option>
-              <option v-for="maker in availableMakersForEdit" :key="maker.id" :value="maker.id">
-                {{ maker.name }}
-              </option>
-            </select>
-            <p v-if="!editingDevice.areaId" class="help-text">请先选择片区以加载可关联的制水机</p>
-          </div>
-          <div class="form-group">
-            <label>安装位置:</label>
-            <input v-model="editingDevice.installLocation" type="text" required>
-          </div>
-          <div class="form-actions">
-            <button type="button" @click="showEditModal = false">取消</button>
-            <button type="submit">更新</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- 删除确认模态框 -->
-    <div v-if="showDeleteModal" class="modal-overlay" @click="showDeleteModal = false">
-      <div class="modal-content" @click.stop>
-        <h3>确认删除设备</h3>
-        <p>确定要删除设备 ID: {{ currentDeviceId }} 吗？此操作不可恢复。</p>
-        <div class="form-actions">
-          <button type="button" @click="showDeleteModal = false">取消</button>
-          <button type="button" @click="deleteDevice()">确认</button>
-        </div>
       </div>
     </div>
   </div>
 </template>
 
+
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import { request } from '@/api/request'
 import type { ResultVO } from '@/api/types/auth'
-import { useAuthStore } from '@/stores/auth'
 
-// 设备状态类型定义
-type DeviceStatus = 'online' | 'offline' | 'warning' | 'error'
-
-// 设备数据接口
-interface WaterSupplierDevice {
-  id: string
-  area: string
-  location: string
-  status: DeviceStatus
-  lastUploadTime: string
+// 检查是否为设备对象的类型守卫
+const isDeviceManageVO = (obj: any): obj is DeviceManageVO => {
+  return obj &&
+         typeof obj === 'object' &&
+         typeof obj.deviceId === 'string' &&
+         typeof obj.deviceName === 'string' &&
+         typeof obj.installLocation === 'string' &&
+         typeof obj.deviceType === 'string' &&
+         ['online', 'offline', 'warning', 'fault'].includes(obj.status)
 }
 
-// 设备详情接口
-interface DeviceDetail {
+// 设备状态类型定义
+type DeviceStatus = 'online' | 'offline' | 'warning' | 'fault'
+
+// 设备类型定义 - 适配后端DeviceManageVO
+interface DeviceManageVO {
   deviceId: string
   deviceName: string
-  areaId: string
   installLocation: string
   deviceType: string
-  parentMakerId?: string
+  status: DeviceStatus
+  areaId?: string
 }
 
 // 区域类型定义
@@ -282,7 +270,7 @@ interface Area {
 }
 
 // 响应式数据
-const devices = ref<WaterSupplierDevice[]>([])
+const devices = ref<DeviceManageVO[]>([])
 const searchKeyword = ref('')
 const selectedCity = ref('') // 市区筛选值
 const selectedCampus = ref('') // 校区筛选值
@@ -290,41 +278,88 @@ const selectedStatus = ref('') // 状态筛选值
 const currentPage = ref(1)
 const pageSize = 10 // 每页显示数量
 const router = useRouter()
-const authStore = useAuthStore()
+const authStore = useAuthStore() // 初始化auth store
+
+// 模态框相关
+const showAddModal = ref(false)
+const isEditing = ref(false)
+
+// 当前操作的设备数据
+const currentDevice = ref<DeviceManageVO>({
+  deviceId: '',
+  deviceName: '',
+  installLocation: '',
+  deviceType: 'water_supply',
+  status: 'online',
+  areaId: undefined
+})
 
 // 片区相关数据
 const cityList = ref<Area[]>([]) // 市区列表
 const campusList = ref<Area[]>([]) // 校区列表
+const selectedCityId = ref('') // 选择的市区ID
+const selectedCampusId = ref('') // 选择的校区ID
 
-// 新增：添加设备相关状态
-const showAddModal = ref(false)
-const newDevice = ref({
-  deviceId: '',
-  deviceName: '',
-  areaId: '',
-  parentMakerId: '', // 关联的制水机ID
-  installLocation: '',
-  deviceType: 'water_supply'
-})
+// 加载设备数据
+const loadDevices = async (): Promise<void> => {
+  try {
+    // 显式检查token而不是仅仅依赖isLoggedIn
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      await router.push('/login')
+      return
+    }
 
-// 编辑：编辑设备相关状态
-const showEditModal = ref(false)
-const editingDevice = ref<DeviceDetail>({
-  deviceId: '',
-  deviceName: '',
-  areaId: '',
-  installLocation: '',
-  deviceType: 'water_supply',
-  parentMakerId: ''
-})
+    console.log('开始加载供水机设备数据...')
 
-// 新增：可关联的制水机列表
-const availableMakers = ref<{id: string, name: string}[]>([])
-const availableMakersForEdit = ref<{id: string, name: string}[]>([])
+    // 构建请求参数
+    const params = new URLSearchParams()
+    if (selectedStatus.value && selectedStatus.value !== '') {
+      params.append('status', selectedStatus.value)
+    }
+    // 如果选择了校区，则按校区筛选；如果只选择了市区，则按市区筛选；否则不筛选
+    if (selectedCampus.value && selectedCampus.value !== '') {
+      params.append('areaId', selectedCampus.value)
+    } else if (selectedCity.value && selectedCity.value !== '') {
+      params.append('areaId', selectedCity.value)
+    }
+    params.append('deviceType', 'water_supply')
 
-// 新增：删除设备相关状态
-const showDeleteModal = ref(false)
-const currentDeviceId = ref('')
+    const queryString = params.toString()
+    const url = `/api/web/device-status/by-type${queryString ? `?${queryString}` : ''}`
+
+    // 直接按设备类型查询所有供水机
+    const result = await request<ResultVO<DeviceManageVO[]>>(
+      url,
+      { method: 'GET' }
+    )
+
+    console.log('供水机设备请求结果:', result)
+
+    if (result.code === 200 && result.data && Array.isArray(result.data)) {
+      console.log(`获取到${result.data.length}个供水机设备`)
+      devices.value = result.data.map((item: any) => ({
+        deviceId: item.deviceId,
+        deviceName: item.deviceName,
+        deviceType: item.deviceType,
+        areaId: item.areaId,
+        installLocation: item.installLocation,
+        status: item.status
+      }))
+    }
+
+    if (devices.value.length === 0) {
+      console.log('提示：未找到任何供水机设备，请确认是否已添加设备')
+    }
+  } catch (error) {
+    console.error('加载设备数据失败:', error)
+    if ((error as Error).message.includes('401')) {
+      authStore.logout()
+      await router.push('/login')
+    }
+  }
+}
 
 // 加载市区列表
 const loadCityList = async (): Promise<void> => {
@@ -404,178 +439,45 @@ const loadCampusListByCity = async (cityId: string): Promise<void> => {
 
 // 市区选择变化时的处理
 const onCityChange = async () => {
-  // 清空校区选择
+  // 清空校区选择和设备片区信息
   selectedCampus.value = ''
+  currentDevice.value.areaId = undefined
   campusList.value = []
 
-  if (selectedCity.value) {
-    await loadCampusListByCity(selectedCity.value)
-  } else {
-    // 如果清空市区选择，也清空校区列表
-    campusList.value = []
+  if (selectedCityId.value) {
+    await loadCampusListByCity(selectedCityId.value)
   }
 }
 
 // 校区选择变化时的处理
 const onCampusChange = () => {
-  // 选择校区后直接触发设备加载
-  currentPage.value = 1
-  loadWaterSuppliers()
-}
-
-// 加载供水机列表
-const loadWaterSuppliers = async () => {
-  try {
-    // 检查token
-    const token = authStore.token
-    if (!token) {
-      console.warn('未获取到 Token，跳转到登录页')
-      await router.push('/login')
-      return
-    }
-
-    // 构建请求参数
-    const params = new URLSearchParams();
-    if (selectedStatus.value && selectedStatus.value !== '') {
-      params.append('status', selectedStatus.value);
-    }
-    // 只有在选择了校区时才按校区筛选，市区选择不作为筛选条件
-    if (selectedCampus.value && selectedCampus.value !== '') {
-      params.append('areaId', selectedCampus.value)
-    }
-    params.append('deviceType', 'water_supply'); // 供水机类型
-
-    const queryString = params.toString();
-    const url = `/api/web/device-status/by-type${queryString ? `?${queryString}` : ''}`;
-
-    // 发起请求
-    const response = await request<ResultVO<any[]>>(url, { method: 'GET' });
-
-    if (response.code === 200 && response.data && Array.isArray(response.data)) {
-      devices.value = response.data.map((device: any) => ({
-        id: device.deviceId,
-        area: device.areaId,
-        location: device.installLocation,
-        status: device.status,
-        lastUploadTime: device.lastHeartbeatTime || device.lastUpdateTime || '-'
-      }));
-    } else {
-      console.error('获取供水机列表失败:', response.message);
-      alert('获取供水机列表失败: ' + response.message);
-    }
-  } catch (error) {
-    console.error('加载供水机列表失败:', error);
-    alert('获取供水机列表失败，请检查网络连接');
-    if (error instanceof Error && error.message.includes('401')) {
-      authStore.logout();
-      await router.push('/login');
-    }
-  }
-}
-
-// 加载指定片区内可用的制水机设备
-const loadAvailableMakers = async () => {
-  if (!newDevice.value.areaId) {
-    availableMakers.value = []
-    return
-  }
-
-  try {
-    const token = authStore.token
-    if (!token) {
-      await router.push('/login')
-      return
-    }
-
-    // 请求该片区内的所有制水机
-    const params = new URLSearchParams();
-    params.append('areaId', newDevice.value.areaId);
-    params.append('deviceType', 'water_maker');
-
-    const queryString = params.toString();
-    const url = `/api/web/device-status/by-type${queryString ? `?${queryString}` : ''}`;
-
-    const response = await request<ResultVO<any[]>>(url, { method: 'GET' });
-
-    if (response.code === 200 && response.data && Array.isArray(response.data)) {
-      // 转换为选项格式，包含ID和位置信息
-      availableMakers.value = response.data.map((maker: any) => ({
-        id: maker.deviceId,
-        name: `${maker.deviceId} - ${maker.installLocation}`
-      }))
-    } else {
-      console.error('获取制水机列表失败:', response.message);
-      availableMakers.value = []
-    }
-  } catch (error) {
-    console.error('加载制水机列表失败:', error);
-    availableMakers.value = []
-    if ((error as Error).message.includes('401')) {
-      authStore.logout()
-      await router.push('/login')
-    }
-  }
-}
-
-// 编辑模式下加载指定片区内可用的制水机设备
-const loadAvailableMakersForEdit = async () => {
-  if (!editingDevice.value.areaId) {
-    availableMakersForEdit.value = []
-    return
-  }
-
-  try {
-    const token = authStore.token
-    if (!token) {
-      await router.push('/login')
-      return
-    }
-
-    // 请求该片区内的所有制水机
-    const params = new URLSearchParams();
-    params.append('areaId', editingDevice.value.areaId);
-    params.append('deviceType', 'water_maker');
-
-    const queryString = params.toString();
-    const url = `/api/web/device-status/by-type${queryString ? `?${queryString}` : ''}`;
-
-    const response = await request<ResultVO<any[]>>(url, { method: 'GET' });
-
-    if (response.code === 200 && response.data && Array.isArray(response.data)) {
-      // 转换为选项格式，包含ID和位置信息
-      availableMakersForEdit.value = response.data.map((maker: any) => ({
-        id: maker.deviceId,
-        name: `${maker.deviceId} - ${maker.installLocation}`
-      }))
-    } else {
-      console.error('获取制水机列表失败:', response.message);
-      availableMakersForEdit.value = []
-    }
-  } catch (error) {
-    console.error('加载制水机列表失败:', error);
-    availableMakersForEdit.value = []
-    if ((error as Error).message.includes('401')) {
-      authStore.logout()
-      router.push('/login')
-    }
+  // 设置areaId为选中校区的areaName
+  const selectedCampus = campusList.value.find(campus => campus.areaId === selectedCampusId.value)
+  if (selectedCampus) {
+    currentDevice.value.areaId = selectedCampus.areaName // 使用areaName作为areaId
+  } else {
+    currentDevice.value.areaId = undefined
   }
 }
 
 // 多条件过滤设备数据
-// 修改 filteredDevices 的计算属性，只根据校区进行筛选
 const filteredDevices = computed(() => {
   return devices.value.filter(device => {
     const keywordMatch = searchKeyword.value.trim() === '' ||
-      device.id.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
-      device.location.toLowerCase().includes(searchKeyword.value.toLowerCase())
+        device.deviceId.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
+        device.installLocation.toLowerCase().includes(searchKeyword.value.toLowerCase())
 
-    // 只根据校区进行筛选，如果校区未选择则不过滤片区
+    // 如果选择了校区，则匹配校区；如果只选择了市区，则匹配市区；否则不过滤片区
     let areaMatch = true
     if (selectedCampus.value && selectedCampus.value !== '') {
-      // 只有在选择了校区时才进行片区匹配
-      areaMatch = device.area === selectedCampus.value
+      areaMatch = device.areaId === selectedCampus.value ||
+                 device.areaId === campusList.value.find(c => c.areaId === selectedCampus.value)?.areaName
+    } else if (selectedCity.value && selectedCity.value !== '') {
+      // 检查设备的片区是否属于所选市区的校区
+      areaMatch = campusList.value.some(campus =>
+        device.areaId === campus.areaId || device.areaId === campus.areaName
+      ) || device.areaId === selectedCity.value
     }
-    // 如果没有选择校区，则不进行片区过滤
 
     const statusMatch = selectedStatus.value === '' || device.status === selectedStatus.value
 
@@ -596,19 +498,19 @@ const totalPages = computed(() => {
 
 // 状态格式化
 const formatStatus = (status: DeviceStatus): string => {
-  const statusMap = {
+  const statusMap: Record<string, string> = {
     online: '在线',
     offline: '离线',
     warning: '警告',
-    error: '故障'
+    fault: '故障'
   }
-  return statusMap[status]
+  return statusMap[status] || status
 }
 
 // 搜索处理
 const handleSearch = () => {
-  currentPage.value = 1 // 搜索后重置到第一页
-  loadWaterSuppliers()
+  currentPage.value = 1 // 重置到第一页
+  loadDevices() // 重新加载数据
 }
 
 // 查看详情
@@ -616,194 +518,216 @@ const viewDevice = (id: string) => {
   router.push(`/home/equipment/water-supplier/${id}`)
 }
 
-// 添加设备
-const addDevice = async () => {
-  try {
-    const token = authStore.token
-    if (!token) {
-      router.push('/login')
-      return
-    }
+// 编辑设备
+const openEditModal = (device: DeviceManageVO) => {
+  currentDevice.value = { ...device }
+  isEditing.value = true
+  showAddModal.value = true
 
-    const deviceToAdd = {
-      deviceId: newDevice.value.deviceId,
-      deviceName: newDevice.value.deviceName,
-      areaId: newDevice.value.areaId,
-      installLocation: newDevice.value.installLocation,
-      deviceType: newDevice.value.deviceType,
-      parentMakerId: newDevice.value.parentMakerId || null // 关联的制水机ID
-    }
-
-    const result = await request<ResultVO<any>>('/api/web/device/add', {
-      method: 'POST',
-      body: JSON.stringify(deviceToAdd)
-    })
-
-    if (result.code === 200) {
-      await loadWaterSuppliers()
-      showAddModal.value = false
-      resetAddForm()
-      alert('设备添加成功')
-    } else {
-      alert(`设备添加失败: ${result.message}`)
-    }
-  } catch (error) {
-    console.error('添加设备失败:', error)
-    alert('添加设备失败')
-    if ((error as Error).message.includes('401')) {
-      authStore.logout()
-      router.push('/login')
-    }
+  // 确保市区列表已加载
+  if (cityList.value.length === 0) {
+    loadCityList()
   }
-}
-
-// 重置添加表单
-const resetAddForm = () => {
-  newDevice.value = {
-    deviceId: '',
-    deviceName: '',
-    areaId: '',
-    parentMakerId: '',
-    installLocation: '',
-    deviceType: 'water_supply'
-  }
-  availableMakers.value = []
-}
-
-// 打开编辑模态框
-const openEditModal = async (device: WaterSupplierDevice) => {
-  try {
-    const token = authStore.token
-    if (!token) {
-      router.push('/login')
-      return
-    }
-
-    const response = await request<ResultVO<{ deviceInfo: DeviceDetail }>>(`/api/web/device/${device.id}`, { method: 'GET' })
-
-    if (response.code === 200 && response.data?.deviceInfo) {
-      const deviceDetail = response.data.deviceInfo // 👈 关键修改：从 deviceInfo 提取
-      editingDevice.value = {
-        deviceId: deviceDetail.deviceId,
-        deviceName: deviceDetail.deviceName,
-        areaId: deviceDetail.areaId,
-        installLocation: deviceDetail.installLocation,
-        deviceType: deviceDetail.deviceType,
-        parentMakerId: deviceDetail.parentMakerId || ''
-      }
-
-      // 加载可关联的制水机
-      await loadAvailableMakersForEdit()
-
-      showEditModal.value = true
-    } else {
-      alert(`获取设备详情失败: ${response.message}`)
-    }
-  } catch (error) {
-    console.error('获取设备详情失败:', error)
-    alert('获取设备详情失败')
-    if ((error as Error).message.includes('401')) {
-      authStore.logout()
-      router.push('/login')
-    }
-  }
-}
-
-
-// 更新设备
-const updateDevice = async () => {
-  try {
-    const token = authStore.token
-    if (!token) {
-      router.push('/login')
-      return
-    }
-
-    const deviceToUpdate = {
-      deviceId: editingDevice.value.deviceId,
-      deviceName: editingDevice.value.deviceName,
-      areaId: editingDevice.value.areaId,
-      installLocation: editingDevice.value.installLocation,
-      deviceType: editingDevice.value.deviceType,
-      parentMakerId: editingDevice.value.parentMakerId || null
-    }
-
-    const result = await request<ResultVO<any>>('/api/web/device/edit', {
-      method: 'PUT',
-      body: JSON.stringify(deviceToUpdate)
-    })
-
-    if (result.code === 200) {
-      await loadWaterSuppliers()
-      showEditModal.value = false
-      resetEditForm()
-      alert('设备更新成功')
-    } else {
-      alert(`设备更新失败: ${result.message}`)
-    }
-  } catch (error) {
-    console.error('更新设备失败:', error)
-    alert('更新设备失败')
-    if ((error as Error).message.includes('401')) {
-      authStore.logout()
-      router.push('/login')
-    }
-  }
-}
-
-// 重置编辑表单
-const resetEditForm = () => {
-  editingDevice.value = {
-    deviceId: '',
-    deviceName: '',
-    areaId: '',
-    installLocation: '',
-    deviceType: 'water_supply',
-    parentMakerId: ''
-  }
-  availableMakersForEdit.value = []
 }
 
 // 删除设备
-const deleteDevice = async () => {
+const deleteDevice = async (deviceId: string) => {
+  if (!confirm(`确定要删除设备 ${deviceId} 吗？此操作不可恢复。`)) {
+    return
+  }
+
   try {
     const token = authStore.token
     if (!token) {
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
-    const result = await request<ResultVO<boolean>>(`/api/web/device/delete/${currentDeviceId.value}`, {
+    const result = await request<ResultVO<boolean>>(`/api/web/device/delete/${deviceId}`, {
       method: 'DELETE'
     })
 
     if (result.code === 200) {
-      await loadWaterSuppliers()
-      showDeleteModal.value = false
+      // 从本地列表中移除设备
+      devices.value = devices.value.filter(d => d.deviceId !== deviceId)
       alert('设备删除成功')
     } else {
-      alert(`设备删除失败: ${result.message}`)
+      alert(`删除设备失败: ${result.message}`)
     }
   } catch (error) {
     console.error('删除设备失败:', error)
     alert('删除设备失败')
     if ((error as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
 
-// 页面加载时获取数据
+// 保存设备（新增或更新）
+const saveDevice = async () => {
+  try {
+    // 显式检查token
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      await router.push('/login')
+      return
+    }
+
+    // 验证是否选择了校区（新增设备时）
+    if (!isEditing.value && !selectedCampusId.value) {
+      alert('请选择校区')
+      return
+    }
+
+    // 验证areaId是否已设置
+    if (!currentDevice.value.areaId) {
+      alert('请先选择校区以确定所属片区')
+      return
+    }
+
+    let result: ResultVO<DeviceManageVO> | DeviceManageVO
+    if (isEditing.value) {
+      // 更新设备
+      result = await request<ResultVO<DeviceManageVO> | DeviceManageVO>('/api/web/device/edit', {
+        method: 'PUT',
+        body: JSON.stringify(currentDevice.value)
+      })
+    } else {
+      // 添加设备
+      // 验证是否选择了校区（新增设备时）
+      if (!selectedCampusId.value) {
+        alert('请选择校区')
+        return
+      }
+
+      // 验证是否设置了片区
+      if (!currentDevice.value.areaId) {
+        alert('请选择校区以确定所属片区')
+        return
+      }
+
+      result = await request<ResultVO<DeviceManageVO> | DeviceManageVO>('/api/web/device/add', {
+        method: 'POST',
+        body: JSON.stringify(currentDevice.value)
+      })
+    }
+
+    // 检查是否为ResultVO格式的响应
+    if (result && typeof result === 'object' && 'code' in result) {
+      // 如果是ResultVO格式
+      if (result.code === 200 && result.data && isDeviceManageVO(result.data)) {
+        // 添加成功后重新加载设备列表
+        await loadDevices()
+
+        // 重置表单并关闭模态框
+        showAddModal.value = false
+        isEditing.value = false
+        currentDevice.value = {
+          deviceId: '',
+          deviceName: '',
+          installLocation: '',
+          deviceType: 'water_supply',
+          status: 'online',
+          areaId: undefined
+        }
+        selectedCityId.value = ''
+        selectedCampusId.value = ''
+        campusList.value = []
+
+        alert(isEditing.value ? '设备更新成功' : '设备添加成功')
+      } else if (result.code === 200) {
+        // 如果code是200但没有data字段
+        // 添加成功后重新加载设备列表
+        await loadDevices()
+
+        // 重置表单并关闭模态框
+        showAddModal.value = false
+        isEditing.value = false
+        currentDevice.value = {
+          deviceId: '',
+          deviceName: '',
+          installLocation: '',
+          deviceType: 'water_supply',
+          status: 'online',
+          areaId: undefined
+        }
+        selectedCityId.value = ''
+        selectedCampusId.value = ''
+        campusList.value = []
+
+        alert(isEditing.value ? '设备更新成功' : '设备添加成功')
+      } else {
+        alert(`${isEditing.value ? '更新' : '添加'}设备失败: ${result.message}`)
+      }
+    }
+    // 处理直接返回设备对象的情况
+    else if (isDeviceManageVO(result)) {
+      // 添加成功后重新加载设备列表
+      await loadDevices()
+
+      // 重置表单并关闭模态框
+      showAddModal.value = false
+      isEditing.value = false
+      currentDevice.value = {
+        deviceId: '',
+        deviceName: '',
+        installLocation: '',
+        deviceType: 'water_supply',
+        status: 'online',
+        areaId: undefined
+      }
+      selectedCityId.value = ''
+      selectedCampusId.value = ''
+      campusList.value = []
+
+      alert(isEditing.value ? '设备更新成功' : '设备添加成功')
+    }
+    else {
+      // 其他成功情况
+      // 添加成功后重新加载设备列表
+      await loadDevices()
+
+      // 重置表单并关闭模态框
+      showAddModal.value = false
+      isEditing.value = false
+      currentDevice.value = {
+        deviceId: '',
+        deviceName: '',
+        installLocation: '',
+        deviceType: 'water_supply',
+        status: 'online',
+        areaId: undefined
+      }
+      selectedCityId.value = ''
+      selectedCampusId.value = ''
+      campusList.value = []
+
+      alert(isEditing.value ? '设备更新成功' : '设备添加成功')
+    }
+  } catch (error) {
+    console.error(`${isEditing.value ? '更新' : '添加'}设备失败:`, error)
+    alert(`${isEditing.value ? '更新' : '添加'}设备失败`)
+    if ((error as Error).message.includes('401')) {
+      authStore.logout()
+      await router.push('/login')
+    }
+  }
+}
+
+// 组件挂载时加载数据
 onMounted(async () => {
-  await loadCityList() // 加载市区列表
-  loadWaterSuppliers()
+  console.log('🚀 开始加载设备数据...')
+  await loadCityList()
+  await loadDevices() // 加载设备数据
 })
 </script>
 
+
 <style scoped>
 /* 样式与终端机页面保持一致 */
-.water-supplier-page {
+.supply-machine-page {
   padding: 20px;
 }
 
@@ -851,7 +775,6 @@ onMounted(async () => {
   display: flex;
   gap: 12px;
   align-items: center;
-  flex-wrap: wrap;
 }
 
 .search-box {
@@ -875,18 +798,12 @@ onMounted(async () => {
   cursor: pointer;
 }
 
-.area-filter {
-  display: flex;
-  gap: 8px;
-}
-
 .filter-select {
   padding: 8px 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
   background: white;
   cursor: pointer;
-  min-width: 120px;
 }
 
 .equipment-table {
@@ -930,12 +847,12 @@ onMounted(async () => {
   color: #8c8c8c;
 }
 
-.status-tag.warning {
+.status-tag.maintenance {
   background-color: #fff7e6;
   color: #d48806;
 }
 
-.status-tag.error {
+.status-tag.fault {
   background-color: #ffebe6;
   color: #cf1322;
 }
@@ -1114,12 +1031,8 @@ onMounted(async () => {
     width: 100%;
   }
 
-  .search-box, .area-filter, .filter-select {
+  .search-box, .filter-select {
     width: 100%;
-  }
-
-  .area-filter {
-    flex-direction: column;
   }
 
   .modal-content {

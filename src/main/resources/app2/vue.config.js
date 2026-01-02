@@ -7,7 +7,7 @@ module.exports = defineConfig({
     devServer: {
         proxy: {
             '/api': {
-                target: 'http://localhost:8080',  // 后端地址
+                target: 'https://120.46.151.248:8081',  // 后端地址
                 changeOrigin: true
             }
         }
