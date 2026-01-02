@@ -356,8 +356,15 @@ const isMapLoading = ref(false)
 const mapConfig = reactive({
   center: [112.9375, 28.1655],
   zoom: 16,
-  key: import.meta.env.VITE_AMAP_KEY || '', // 使用环境变量
-  viewMode: '3D'
+  key: import.meta.env.VITE_AMAP_KEY || '7e03ef3b43a8cdbb62e3038fc727e035', // 使用环境变量
+  viewMode: '3D',
+  plugins: [
+    'AMap.Marker',
+    'AMap.Geolocation',
+    'AMap.ToolBar',
+    'AMap.Scale',
+    'AMap.ControlBar'
+  ]
 })
 
 // 添加：后端接口获取设备位置
@@ -383,6 +390,7 @@ const initMap = async () => {
   isMapLoading.value = true
 
   try {
+    console.log('开始加载高德地图...')
     // 加载高德地图
     const AMap = await AMapLoader.load({
       key: mapConfig.key,
@@ -395,12 +403,13 @@ const initMap = async () => {
         'AMap.ControlBar'
       ]
     })
-
+    console.log('高德地图加载成功')
     // 创建地图实例
     mapInstance.value = new AMap.Map('mapContainer', {
       zoom: mapConfig.zoom,
       center: mapConfig.center,
-      viewMode: mapConfig.viewMode
+      viewMode: mapConfig.viewMode,
+      mapStyle: 'amap://styles/normal'
     })
 
     // 添加控件
