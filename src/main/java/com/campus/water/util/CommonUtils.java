@@ -554,4 +554,250 @@ public class CommonUtils {
             default -> "普通";
         };
     }
+
+
+    /**
+     * 设备MAC地址格式校验（12位十六进制，支持冒号/横线分隔或无分隔）
+     */
+    public static boolean validateMacAddress(String mac) {
+        if (isBlankWithFullWidth(mac)) {
+            return false;
+        }
+        // 去除分隔符，转为纯12位十六进制字符串
+        String pureMac = mac.replace(":", "").replace("-", "").trim().toLowerCase();
+        if (pureMac.length() != 12) {
+            return false;
+        }
+        return pureMac.matches("[0-9a-f]+");
+    }
+
+    /**
+     * 设备IP地址格式校验（IPv4）
+     */
+    public static boolean validateIpv4Address(String ip) {
+        if (isBlankWithFullWidth(ip)) {
+            return false;
+        }
+        String[] ipSegments = ip.split("\\.");
+        if (ipSegments.length != 4) {
+            return false;
+        }
+        try {
+            for (String segment : ipSegments) {
+                int num = Integer.parseInt(segment);
+                if (num < 0 || num > 255) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (NumberFormatException e) {
+            log.warn("IP地址格式错误：{}", ip);
+            return false;
+        }
+    }
+
+    /**
+     * 批量校验设备ID（返回无效ID列表）
+     */
+    public static List<String> batchValidateDeviceId(List<String> deviceIdList) {
+        List<String> invalidIds = new ArrayList<>();
+        if (isEmpty(deviceIdList)) {
+            return invalidIds;
+        }
+        for (String deviceId : deviceIdList) {
+            if (!validateDeviceId(deviceId)) {
+                invalidIds.add(deviceId);
+            }
+        }
+        return invalidIds;
+    }
+    /**
+     * 设备状态转换（中文转枚举/英文）
+     */
+    public static String convertCnToDeviceStatus(String cnStatus) {
+        if (isBlankWithFullWidth(cnStatus)) {
+            return "unknown";
+        }
+        return switch (cnStatus.trim()) {
+            case "在线" -> "online";
+            case "离线" -> "offline";
+            case "故障" -> "fault";
+            default -> "unknown";
+        };
+    }
+
+
+    /**
+     * 设备数据单位转换（MPa转Bar，1MPa=10Bar）
+     */
+    public static BigDecimal convertMpaToBar(BigDecimal mpa) {
+        if (!validateSensorValue(mpa)) {
+            return BigDecimal.ZERO;
+        }
+        return mpa.multiply(new BigDecimal("10")).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 设备数据单位转换（Bar转MPa）
+     */
+    public static BigDecimal convertBarToMpa(BigDecimal bar) {
+        if (!validateSensorValue(bar)) {
+            return BigDecimal.ZERO;
+        }
+        return bar.divide(new BigDecimal("10"), 2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 数字转中文数字（0-100，适配滤芯寿命/水位等展示）
+     */
+    public static String convertNumToCn(Integer num) {
+        if (num == null || num < 0 || num > 100) {
+            return "零";
+        }
+        String[] cnNums = {"零", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"};
+        if (num <= 10) {
+            return cnNums[num];
+        } else if (num < 20) {
+            return "十" + cnNums[num - 10];
+        } else if (num % 10 == 0) {
+            return cnNums[num / 10] + "十";
+        } else {
+            return cnNums[num / 10] + "十" + cnNums[num % 10];
+        }
+    }
+    /**
+     * 工单状态转换（枚举转中文）
+     */
+    public static String convertOrderStatusToCn(String status) {
+        if (isBlankWithFullWidth(status)) {
+            return "未知状态";
+        }
+        return switch (status.toLowerCase()) {
+            case "pending" -> "待处理";
+            case "processing" -> "处理中";
+            case "completed" -> "已完成";
+            case "cancelled" -> "已取消";
+            default -> "未知状态";
+        };
+    }
+
+    /**
+     * 工单类型转换（枚举转中文）
+     */
+    public static String convertOrderTypeToCn(String type) {
+        if (isBlankWithFullWidth(type)) {
+            return "未知类型";
+        }
+        return switch (type.toLowerCase()) {
+            case "repair" -> "故障维修";
+            case "maintenance" -> "定期保养";
+            case "inspection" -> "设备巡检";
+            default -> "未知类型";
+        };
+    }
+
+
+
+
+    /**
+     * 生成模拟告警信息（基于设备类型）
+     */
+    public static String generateMockAlertMessage(DeviceType type) {
+        String[] makerAlerts = {
+                "原水TDS值过高，超出阈值",
+                "纯水TDS值异常，滤芯可能失效",
+                "水压过低，设备无法正常制水",
+                "设备检测到漏水，需紧急处理",
+                "滤芯寿命不足，需尽快更换"
+        };
+        String[] supplyAlerts = {
+                "水位过低，需及时补水",
+                "水压异常，供水不稳定",
+                "水温过高，设备散热异常",
+                "出水流量过低，可能堵塞",
+                "设备离线，通信中断"
+        };
+        Random random = new Random();
+        if (DeviceType.water_maker.equals(type)) {
+            return makerAlerts[random.nextInt(makerAlerts.length)];
+        } else {
+            return supplyAlerts[random.nextInt(supplyAlerts.length)];
+        }
+    }
+    /**
+     * 字符串脱敏（通用，保留前n位后m位，中间用*填充）
+     */
+    public static String desensitizeString(String str, int keepPrefix, int keepSuffix) {
+        if (isBlankWithFullWidth(str)) {
+            return str;
+        }
+        int length = str.length();
+        if (length <= keepPrefix + keepSuffix) {
+            return str;
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append(str.substring(0, keepPrefix));
+        for (int i = 0; i < length - keepPrefix - keepSuffix; i++) {
+            sb.append("*");
+        }
+        sb.append(str.substring(length - keepSuffix));
+        return sb.toString();
+    }
+
+
+    /**
+     * 批量空值替换（列表）
+     */
+    public static <T> List<T> batchDefaultIfNull(List<T> list, T defaultValue) {
+        List<T> result = new ArrayList<>();
+        if (isEmpty(list)) {
+            return result;
+        }
+        for (T item : list) {
+            result.add(defaultIfNull(item, defaultValue));
+        }
+        return result;
+    }
+
+    /**
+     * 生成指定长度的随机数字字符串
+     */
+    public static String generateRandomNumStr(int length) {
+        if (length <= 0) {
+            return "";
+        }
+        Random random = new Random();
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < length; i++) {
+            sb.append(random.nextInt(10));
+        }
+        return sb.toString();
+    }
+
+    /**
+     * 生成指定长度的随机字母字符串（大小写混合）
+     */
+    public static String generateRandomLetterStr(int length) {
+        if (length <= 0) {
+            return "";
+        }
+        Random random = new Random();
+        StringBuilder sb = new StringBuilder();
+        String letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+        for (int i = 0; i < length; i++) {
+            sb.append(letters.charAt(random.nextInt(letters.length())));
+        }
+        return sb.toString();
+    }
+
+    /**
+     * 计算两个日期的间隔天数
+     */
+    public static long calculateDayInterval(Date start, Date end) {
+        if (start == null || end == null) {
+            return 0;
+        }
+        long millisDiff = Math.abs(end.getTime() - start.getTime());
+        return millisDiff / (24 * 60 * 60 * 1000);
+    }
 }
