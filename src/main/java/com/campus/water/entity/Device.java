@@ -24,8 +24,8 @@ public class Device {
     @Column(name = "device_type", length = 50)
     private DeviceType deviceType;
 
-    @Column(name = "area_id", length = 36)
-    private String areaId;
+    @Column(name = "area_name", length = 36)
+    private String areaName;
 
     @Column(name = "install_location", length = 200)
     private String installLocation;
