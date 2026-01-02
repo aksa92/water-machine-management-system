@@ -3,7 +3,7 @@ import type { LoginRequest, LoginResponse, LoginVO } from './types/auth'
 
 // 真实的登录API调用
 export const realLoginApi = async (data: LoginRequest): Promise<LoginResponse> => {
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://120.46.151.248:8081'
 
     console.log('🌐 调用登录接口:', `${API_BASE_URL}/api/common/login`)
     console.log('📤 请求数据:', data)
