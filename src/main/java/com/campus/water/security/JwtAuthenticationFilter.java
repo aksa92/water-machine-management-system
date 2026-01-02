@@ -1,5 +1,5 @@
 // com/campus/water/security/JwtAuthenticationFilter.java
-package main.java.com.campus.water.security;
+package com.campus.water.security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

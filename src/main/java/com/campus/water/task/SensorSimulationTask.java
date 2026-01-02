@@ -1,8 +1,8 @@
-package main.java.com.campus.water.task;
+package com.campus.water.task;
 
-import main.java.com.campus.water.entity.Device;
-import main.java.com.campus.water.mapper.DeviceRepository;
-import main.java.com.campus.water.service.MqttSensorSender;
+import com.campus.water.entity.Device;
+import com.campus.water.mapper.DeviceRepository;
+import com.campus.water.service.MqttSensorSender;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;

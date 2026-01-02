@@ -1,8 +1,8 @@
-package main.java.com.campus.water.controller;
+package com.campus.water.controller;
 
-import main.java.com.campus.water.entity.WorkOrder;
-import main.java.com.campus.water.service.WorkOrderService;
-import main.java.com.campus.water.util.ResultVO;
+import com.campus.water.entity.WorkOrder;
+import com.campus.water.service.WorkOrderService;
+import com.campus.water.util.ResultVO;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;

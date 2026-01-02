@@ -1,4 +1,4 @@
-package main.java.com.campus.water.util;
+package com.campus.water.util;
 
 import lombok.Data;
 

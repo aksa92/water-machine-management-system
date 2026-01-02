@@ -1,13 +1,13 @@
-package main.java.com.campus.water.service;
+package com.campus.water.service;
 
-import main.java.com.campus.water.entity.Device;
-import main.java.com.campus.water.entity.DeviceTerminalMapping;
-import main.java.com.campus.water.entity.Device.DeviceStatus;
-import main.java.com.campus.water.entity.Device.DeviceType;
-import main.java.com.campus.water.entity.DeviceTerminalMapping.TerminalStatus;
-import main.java.com.campus.water.mapper.DeviceRepository;
-import main.java.com.campus.water.mapper.DeviceTerminalMappingRepository;
-import main.java.com.campus.water.util.ResultVO;
+import com.campus.water.entity.Device;
+import com.campus.water.entity.DeviceTerminalMapping;
+import com.campus.water.entity.Device.DeviceStatus;
+import com.campus.water.entity.Device.DeviceType;
+import com.campus.water.entity.DeviceTerminalMapping.TerminalStatus;
+import com.campus.water.mapper.DeviceRepository;
+import com.campus.water.mapper.DeviceTerminalMappingRepository;
+import com.campus.water.util.ResultVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

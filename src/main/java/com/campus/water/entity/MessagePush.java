@@ -3,7 +3,7 @@
  * 对应表：message_push
  * 用于存储系统向用户、管理员、维修人员推送的消息记录
  */
-package main.java.com.campus.water.entity;
+package com.campus.water.entity;
 
 import lombok.Data;
 import jakarta.persistence.*;

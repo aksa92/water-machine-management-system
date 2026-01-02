@@ -1,8 +1,8 @@
 // com/campus/water/config/SecurityConfig.java
-package main.java.com.campus.water.config;
+package com.campus.water.config;
 
-import main.java.com.campus.water.security.JwtAuthenticationFilter;
-import main.java.com.campus.water.security.UserDetailsServiceImpl;
+import com.campus.water.security.JwtAuthenticationFilter;
+import com.campus.water.security.UserDetailsServiceImpl;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;

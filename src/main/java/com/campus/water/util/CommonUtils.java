@@ -1,8 +1,8 @@
-package main.java.com.campus.water.util;
+package com.campus.water.util;
 import java.time.LocalDate;
 import lombok.extern.slf4j.Slf4j;
-import main.java.com.campus.water.entity.Device;
-import main.java.com.campus.water.entity.Device.DeviceType;
+import com.campus.water.entity.Device;
+import com.campus.water.entity.Device.DeviceType;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;

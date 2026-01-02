@@ -3,7 +3,7 @@
  * 对应表：drink_recommendation
  * 用于记录学生的每日饮水目标和当前进度
  */
-package main.java.com.campus.water.entity;
+package com.campus.water.entity;
 
 import lombok.Data;
 import jakarta.persistence.*;

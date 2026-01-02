@@ -1,6 +1,6 @@
-package main.java.com.campus.water.service;
+package com.campus.water.service;
 
-import main.java.com.campus.water.entity.WorkOrder;
+import com.campus.water.entity.WorkOrder;
 
 import java.time.LocalDateTime;
 import java.util.List;

@@ -1,10 +1,10 @@
 // java/com/campus/water/controller/web/TerminalController.java
-package main.java.com.campus.water.controller.web;
+package com.campus.water.controller.web;
 
-import main.java.com.campus.water.service.DeviceService;
-import main.java.com.campus.water.service.TerminalService;
-import main.java.com.campus.water.entity.vo.TerminalManageVO;
-import main.java.com.campus.water.util.ResultVO;
+import com.campus.water.service.DeviceService;
+import com.campus.water.service.TerminalService;
+import com.campus.water.entity.vo.TerminalManageVO;
+import com.campus.water.util.ResultVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

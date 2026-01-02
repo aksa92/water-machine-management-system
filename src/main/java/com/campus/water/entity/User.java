@@ -3,7 +3,7 @@
  * 对应表：user
  * 用于存储学生用户的基本信息、登录状态等
  */
-package main.java.com.campus.water.entity;
+package com.campus.water.entity;
 
 import lombok.Data;
 import jakarta.persistence.*;

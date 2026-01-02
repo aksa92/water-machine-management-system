@@ -1,8 +1,8 @@
-package main.java.com.campus.water.service;
+package com.campus.water.service.impl;
 
-import main.java.com.campus.water.entity.Notification;
-import main.java.com.campus.water.mapper.NotificationRepository;
-import main.java.com.campus.water.service.NotificationService;
+import com.campus.water.entity.Notification;
+import com.campus.water.mapper.NotificationRepository;
+import com.campus.water.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

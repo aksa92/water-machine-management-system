@@ -1,4 +1,4 @@
-package main.java.com.campus.water.entity;
+package com.campus.water.entity;
 
 import java.math.BigDecimal;
 import lombok.Data;

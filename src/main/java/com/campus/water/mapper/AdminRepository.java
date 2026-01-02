@@ -1,6 +1,6 @@
-package main.java.com.campus.water.mapper;
+package com.campus.water.mapper;
 
-import main.java.com.campus.water.entity.Admin;
+import com.campus.water.entity.Admin;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -41,7 +41,7 @@ public interface AdminRepository extends JpaRepository<Admin, String> {
     // 新增2：查询所有校区关联的区域管理员（排除市区，用于管理员列表筛选）
     // 备注：此处使用@Query注解，关联Area表过滤区域类型为campus的管理员
     @Query("SELECT a FROM Admin a WHERE a.role = ?1 AND a.areaId IN " +
-            "(SELECT ar.areaId FROM Area ar WHERE ar.areaType = main.java.com.campus.water.entity.Area.AreaType.campus)")
+            "(SELECT ar.areaId FROM Area ar WHERE ar.areaType = com.campus.water.entity.Area.AreaType.campus)")
     List<Admin> findAllAreaAdminsForCampus(Admin.AdminRole role);
 
     // 检查唯一约束

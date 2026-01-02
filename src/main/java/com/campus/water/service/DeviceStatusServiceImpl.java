@@ -1,8 +1,8 @@
-package main.java.com.campus.water.service;
+package com.campus.water.service;
 
-import main.java.com.campus.water.entity.Device;
-import main.java.com.campus.water.entity.dto.request.DeviceStatusUpdateRequest;
-import main.java.com.campus.water.mapper.DeviceRepository;
+import com.campus.water.entity.Device;
+import com.campus.water.entity.dto.request.DeviceStatusUpdateRequest;
+import com.campus.water.mapper.DeviceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

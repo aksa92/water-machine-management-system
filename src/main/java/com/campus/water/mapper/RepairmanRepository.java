@@ -1,6 +1,6 @@
-package main.java.com.campus.water.mapper;
+package com.campus.water.mapper;
 
-import main.java.com.campus.water.entity.Repairman;
+import com.campus.water.entity.Repairman;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.util.List;

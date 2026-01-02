@@ -1,9 +1,9 @@
-package main.java.com.campus.water.controller; // 修正包路径：去掉main.java + 按规范放在common子包
+package com.campus.water.controller; // 修正包路径：去掉main.java + 按规范放在common子包
 
-import main.java.com.campus.water.entity.dto.request.LoginRequest; // 替换原LoginDTO为规范的LoginRequest
-import main.java.com.campus.water.entity.vo.LoginVO;
-import main.java.com.campus.water.service.LoginService;
-import main.java.com.campus.water.util.ResultVO;
+import com.campus.water.entity.dto.request.LoginRequest; // 替换原LoginDTO为规范的LoginRequest
+import com.campus.water.entity.vo.LoginVO;
+import com.campus.water.service.LoginService;
+import com.campus.water.util.ResultVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;

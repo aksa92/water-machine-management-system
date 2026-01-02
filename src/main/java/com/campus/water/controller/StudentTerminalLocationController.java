@@ -1,8 +1,8 @@
-package main.java.com.campus.water.controller;
+package com.campus.water.controller;
 
-import main.java.com.campus.water.entity.vo.TerminalLocationVO;
-import main.java.com.campus.water.service.WaterTerminalLocationService;
-import main.java.com.campus.water.util.ResultVO;
+import com.campus.water.entity.vo.TerminalLocationVO;
+import com.campus.water.service.WaterTerminalLocationService;
+import com.campus.water.util.ResultVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

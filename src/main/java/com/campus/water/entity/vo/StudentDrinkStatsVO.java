@@ -1,9 +1,9 @@
-package main.java.com.campus.water.entity.vo;
+package com.campus.water.entity.vo;
 
 import lombok.Data;
 import java.util.List;
-import main.java.com.campus.water.entity.DrinkRecord;
-import main.java.com.campus.water.entity.vo.DailyDrinkVO;
+import com.campus.water.entity.DrinkRecord;
+import com.campus.water.entity.vo.DailyDrinkVO;
 /**
  * 学生饮水量统计结果VO
  */

@@ -1,5 +1,5 @@
 // com/campus/water/entity/Device.java
-package main.java.com.campus.water.entity;
+package com.campus.water.entity;
 
 import lombok.Data;
 import jakarta.persistence.*;

@@ -1,8 +1,8 @@
-package main.java.com.campus.water.service.app;
+package com.campus.water.service.app;
 
-import main.java.com.campus.water.entity.WorkOrder;
-import main.java.com.campus.water.service.WorkOrderService;
-import main.java.com.campus.water.util.ResultVO;
+import com.campus.water.entity.WorkOrder;
+import com.campus.water.service.WorkOrderService;
+import com.campus.water.util.ResultVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;

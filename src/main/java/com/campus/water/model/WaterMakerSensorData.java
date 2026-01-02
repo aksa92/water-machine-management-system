@@ -1,4 +1,4 @@
-package main.java.com.campus.water.model;
+package com.campus.water.model;
 
 import lombok.Data;
 import java.time.LocalDateTime;

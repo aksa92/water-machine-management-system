@@ -1,10 +1,10 @@
-package main.java.com.campus.water.service;
+package com.campus.water.service;
 
-import main.java.com.campus.water.entity.Alert;
-import main.java.com.campus.water.entity.MessagePush;
-import main.java.com.campus.water.entity.Repairman;
-import main.java.com.campus.water.mapper.MessagePushRepository;
-import main.java.com.campus.water.mapper.RepairmanRepository;
+import com.campus.water.entity.Alert;
+import com.campus.water.entity.MessagePush;
+import com.campus.water.entity.Repairman;
+import com.campus.water.mapper.MessagePushRepository;
+import com.campus.water.mapper.RepairmanRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

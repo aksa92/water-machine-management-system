@@ -3,7 +3,7 @@
  * 对应表：device_terminal_mapping
  * 用于关联设备与终端设备，记录终端状态和安装信息
  */
-package main.java.com.campus.water.entity;
+package com.campus.water.entity;
 
 import lombok.Data;
 import jakarta.persistence.*;

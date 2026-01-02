@@ -1,9 +1,9 @@
-package main.java.com.campus.water.service;
+package com.campus.water.service;
 
-import main.java.com.campus.water.entity.DrinkRecord;
-import main.java.com.campus.water.entity.vo.DailyDrinkVO;
-import main.java.com.campus.water.entity.vo.StudentDrinkStatsVO;
-import main.java.com.campus.water.mapper.DrinkRecordRepository;
+import com.campus.water.entity.DrinkRecord;
+import com.campus.water.entity.vo.DailyDrinkVO;
+import com.campus.water.entity.vo.StudentDrinkStatsVO;
+import com.campus.water.mapper.DrinkRecordRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.math.BigDecimal;

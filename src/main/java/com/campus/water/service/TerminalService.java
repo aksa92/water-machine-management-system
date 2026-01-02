@@ -1,9 +1,9 @@
 // java/com/campus/water/service/TerminalService.java
-package main.java.com.campus.water.service;
+package com.campus.water.service;
 
-import main.java.com.campus.water.entity.DeviceTerminalMapping;
-import main.java.com.campus.water.entity.WaterTerminalLocation;
-import main.java.com.campus.water.entity.vo.TerminalManageVO;
+import com.campus.water.entity.DeviceTerminalMapping;
+import com.campus.water.entity.WaterTerminalLocation;
+import com.campus.water.entity.vo.TerminalManageVO;
 
 import java.util.List;
 

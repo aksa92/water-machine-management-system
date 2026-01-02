@@ -1,8 +1,8 @@
-package main.java.com.campus.water.service;
+package com.campus.water.service;
 
-import main.java.com.campus.water.entity.DeviceTerminalMapping;
-import main.java.com.campus.water.mapper.DeviceTerminalMappingRepository;
-import main.java.com.campus.water.util.DeviceMappingUtil; // 硬编码映射工具类（之前定义的）
+import com.campus.water.entity.DeviceTerminalMapping;
+import com.campus.water.mapper.DeviceTerminalMappingRepository;
+import com.campus.water.util.DeviceMappingUtil; // 硬编码映射工具类（之前定义的）
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 

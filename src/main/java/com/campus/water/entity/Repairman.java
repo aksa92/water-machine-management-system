@@ -3,7 +3,7 @@
  * 对应表：repairman
  * 用于存储维修人员信息，包括技能、状态、工作量、评分等
  */
-package main.java.com.campus.water.entity;
+package com.campus.water.entity;
 
 import lombok.Data;
 import jakarta.persistence.*;

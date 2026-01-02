@@ -1,14 +1,14 @@
-package main.java.com.campus.water.service;
+package com.campus.water.service;
 
-import main.java.com.campus.water.entity.Alert;
-import main.java.com.campus.water.entity.Device;
-import main.java.com.campus.water.entity.TerminalUsageStats;
-import main.java.com.campus.water.entity.dto.request.StatisticsQueryRequest;
-import main.java.com.campus.water.entity.vo.AlarmStatisticsVO;
-import main.java.com.campus.water.entity.vo.StatisticsVO;
-import main.java.com.campus.water.mapper.AlertRepository;
-import main.java.com.campus.water.mapper.DeviceRepository;
-import main.java.com.campus.water.mapper.TerminalUsageStatsRepository;
+import com.campus.water.entity.Alert;
+import com.campus.water.entity.Device;
+import com.campus.water.entity.TerminalUsageStats;
+import com.campus.water.entity.dto.request.StatisticsQueryRequest;
+import com.campus.water.entity.vo.AlarmStatisticsVO;
+import com.campus.water.entity.vo.StatisticsVO;
+import com.campus.water.mapper.AlertRepository;
+import com.campus.water.mapper.DeviceRepository;
+import com.campus.water.mapper.TerminalUsageStatsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

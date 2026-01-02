@@ -1,5 +1,5 @@
 // LoginRequest.java（原LoginDTO，按项目规范重命名）
-package main.java.com.campus.water.entity.dto.request;
+package com.campus.water.entity.dto.request;
 
 import lombok.Data;
 import jakarta.validation.constraints.NotBlank;

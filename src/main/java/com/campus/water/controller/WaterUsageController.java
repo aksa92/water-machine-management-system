@@ -1,8 +1,8 @@
-package main.java.com.campus.water.controller;
+package com.campus.water.controller;
 
-import main.java.com.campus.water.entity.*;
-import main.java.com.campus.water.mapper.*;
-import main.java.com.campus.water.util.ResultVO;
+import com.campus.water.entity.*;
+import com.campus.water.mapper.*;
+import com.campus.water.util.ResultVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;

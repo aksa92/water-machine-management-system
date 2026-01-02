@@ -3,7 +3,7 @@
  * 对应表：water_quality_history
  * 用于记录终端设备检测的水质历史数据，包括多个TDS值和水质评级
  */
-package main.java.com.campus.water.entity;
+package com.campus.water.entity;
 
 import lombok.Data;
 import jakarta.persistence.*;

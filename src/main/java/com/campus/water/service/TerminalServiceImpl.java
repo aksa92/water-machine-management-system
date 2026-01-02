@@ -1,12 +1,12 @@
 // java/com/campus/water/service/impl/TerminalServiceImpl.java
-package main.java.com.campus.water.service;
+package com.campus.water.service;
 
-import main.java.com.campus.water.entity.DeviceTerminalMapping;
-import main.java.com.campus.water.entity.WaterTerminalLocation;
-import main.java.com.campus.water.mapper.DeviceTerminalMappingRepository;
-import main.java.com.campus.water.mapper.WaterTerminalLocationRepository;
-import main.java.com.campus.water.service.TerminalService;
-import main.java.com.campus.water.entity.vo.TerminalManageVO;
+import com.campus.water.entity.DeviceTerminalMapping;
+import com.campus.water.entity.WaterTerminalLocation;
+import com.campus.water.mapper.DeviceTerminalMappingRepository;
+import com.campus.water.mapper.WaterTerminalLocationRepository;
+import com.campus.water.service.TerminalService;
+import com.campus.water.entity.vo.TerminalManageVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

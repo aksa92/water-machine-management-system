@@ -1,5 +1,5 @@
 // com/campus/water/entity/vo/StatisticsVO.java
-package main.java.com.campus.water.entity.vo;
+package com.campus.water.entity.vo;
 
 import lombok.Data;
 import java.util.List;

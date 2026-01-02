@@ -1,12 +1,12 @@
-package main.java.com.campus.water.service;
+package com.campus.water.service;
 
-import main.java.com.campus.water.entity.Area;
-import main.java.com.campus.water.mapper.AreaRepository;
-import main.java.com.campus.water.entity.Admin;
-import main.java.com.campus.water.mapper.AdminRepository;
-import main.java.com.campus.water.mapper.DeviceRepository;
-import main.java.com.campus.water.mapper.DeviceTerminalMappingRepository;
-import main.java.com.campus.water.security.RoleConstants;
+import com.campus.water.entity.Area;
+import com.campus.water.mapper.AreaRepository;
+import com.campus.water.entity.Admin;
+import com.campus.water.mapper.AdminRepository;
+import com.campus.water.mapper.DeviceRepository;
+import com.campus.water.mapper.DeviceTerminalMappingRepository;
+import com.campus.water.security.RoleConstants;
 
 import java.util.List;
 import org.springframework.stereotype.Service;
