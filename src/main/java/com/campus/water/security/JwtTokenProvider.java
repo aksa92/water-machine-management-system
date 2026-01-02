@@ -1,5 +1,5 @@
 // com/campus/water/security/JwtTokenProvider.java
-package com.campus.water.security;
+package main.java.com.campus.water.security;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;

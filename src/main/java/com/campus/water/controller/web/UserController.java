@@ -1,8 +1,8 @@
-package com.campus.water.controller.web;
+package main.java.com.campus.water.controller.web;
 
-import com.campus.water.entity.User;
-import com.campus.water.service.UserService;
-import com.campus.water.util.ResultVO;
+import main.java.com.campus.water.entity.User;
+import main.java.com.campus.water.service.UserService;
+import main.java.com.campus.water.util.ResultVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

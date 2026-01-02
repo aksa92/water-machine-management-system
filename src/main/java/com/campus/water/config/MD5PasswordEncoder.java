@@ -1,5 +1,5 @@
 // com/campus/water/config/MD5PasswordEncoder.java
-package com.campus.water.config;
+package main.java.com.campus.water.config;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.util.DigestUtils;

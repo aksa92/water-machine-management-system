@@ -1,16 +1,16 @@
-package com.campus.water.service;
+package main.java.com.campus.water.service;
 
-import com.campus.water.entity.WorkOrder;
-import com.campus.water.entity.Repairman;
-import com.campus.water.mapper.WorkOrderRepository;
-import com.campus.water.mapper.RepairmanRepository;
+import main.java.com.campus.water.entity.WorkOrder;
+import main.java.com.campus.water.entity.Repairman;
+import main.java.com.campus.water.mapper.WorkOrderRepository;
+import main.java.com.campus.water.mapper.RepairmanRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.campus.water.service.NotificationService;
-import com.campus.water.service.WorkOrderService;
+import main.java.com.campus.water.service.NotificationService;
+import main.java.com.campus.water.service.WorkOrderService;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;

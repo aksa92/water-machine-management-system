@@ -1,6 +1,6 @@
-package com.campus.water.mapper;
+package main.java.com.campus.water.mapper;
 
-import com.campus.water.entity.DrinkRecommendation;
+import main.java.com.campus.water.entity.DrinkRecommendation;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;

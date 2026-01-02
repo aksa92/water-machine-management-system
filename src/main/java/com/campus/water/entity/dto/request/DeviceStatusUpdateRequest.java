@@ -1,7 +1,7 @@
 // 路径：com/campus/water/entity/dto/request/DeviceStatusUpdateRequest.java
-package com.campus.water.entity.dto.request;
+package main.java.com.campus.water.entity.dto.request;
 
-import com.campus.water.entity.Device;
+import main.java.com.campus.water.entity.Device;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 

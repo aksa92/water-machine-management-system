@@ -1,8 +1,8 @@
-package com.campus.water.controller;
+package main.java.com.campus.water.controller;
 
-import com.campus.water.entity.dto.request.RegisterRequest;
-import com.campus.water.service.RegisterService;
-import com.campus.water.util.ResultVO;
+import main.java.com.campus.water.entity.dto.request.RegisterRequest;
+import main.java.com.campus.water.service.RegisterService;
+import main.java.com.campus.water.util.ResultVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;

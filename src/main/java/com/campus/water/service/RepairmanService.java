@@ -1,7 +1,7 @@
-package com.campus.water.service;
+package main.java.com.campus.water.service;
 
-import com.campus.water.entity.Repairman;
-import com.campus.water.mapper.RepairmanRepository;
+import main.java.com.campus.water.entity.Repairman;
+import main.java.com.campus.water.mapper.RepairmanRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;

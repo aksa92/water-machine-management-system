@@ -3,7 +3,7 @@
  * 对应表：terminal_usage_stats
  * 用于记录终端设备的每日使用情况统计，如用水量、使用次数等
  */
-package com.campus.water.entity;
+package main.java.com.campus.water.entity;
 
 import lombok.Data;
 import jakarta.persistence.*;

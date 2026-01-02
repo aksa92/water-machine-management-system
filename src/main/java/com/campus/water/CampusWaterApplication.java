@@ -1,4 +1,4 @@
-package com.campus.water;
+package main.java.com.campus.water;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -10,7 +10,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  * Spring Boot 主启动类
  * 核心注解：开启自动配置、定时任务、Spring Integration
  */
-@SpringBootApplication(scanBasePackages = "com.campus.water") // 扫描所有业务组件
+@SpringBootApplication(scanBasePackages = "main.java.com.campus.water") // 扫描所有业务组件
 @EnableScheduling // 开启定时任务（支持@Scheduled）
 @EnableIntegration // 开启Spring Integration（支持MQTT集成）
 @EnableIntegrationManagement // 开启Integration管理（监控消息流转）

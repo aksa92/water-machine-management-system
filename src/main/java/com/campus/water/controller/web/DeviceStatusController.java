@@ -11,12 +11,12 @@
  *   6. 自动检测：触发离线设备检测任务
  * 安全：需要权限验证，记录操作日志
  */
-package com.campus.water.controller.web;
+package main.java.com.campus.water.controller.web;
 
-import com.campus.water.entity.Device;
-import com.campus.water.entity.dto.request.DeviceStatusUpdateRequest;
-import com.campus.water.service.DeviceStatusService;
-import com.campus.water.util.ResultVO;
+import main.java.com.campus.water.entity.Device;
+import main.java.com.campus.water.entity.dto.request.DeviceStatusUpdateRequest;
+import main.java.com.campus.water.service.DeviceStatusService;
+import main.java.com.campus.water.util.ResultVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

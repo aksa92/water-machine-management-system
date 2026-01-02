@@ -1,8 +1,8 @@
-package com.campus.water.controller;
+package main.java.com.campus.water.controller;
 
-import com.campus.water.entity.Alert;
-import com.campus.water.mapper.AlertRepository;
-import com.campus.water.util.ResultVO;
+import main.java.com.campus.water.entity.Alert;
+import main.java.com.campus.water.mapper.AlertRepository;
+import main.java.com.campus.water.util.ResultVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;

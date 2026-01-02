@@ -1,6 +1,6 @@
-package com.campus.water.mapper;
+package main.java.com.campus.water.mapper;
 
-import com.campus.water.entity.InspectionRecord;
+import main.java.com.campus.water.entity.InspectionRecord;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;

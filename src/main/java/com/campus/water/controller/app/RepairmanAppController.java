@@ -1,8 +1,8 @@
-package com.campus.water.controller.app;
+package main.java.com.campus.water.controller.app;
 
-import com.campus.water.entity.WorkOrder;
-import com.campus.water.service.app.RepairmanAppService;
-import com.campus.water.util.ResultVO;
+import main.java.com.campus.water.entity.WorkOrder;
+import main.java.com.campus.water.service.app.RepairmanAppService;
+import main.java.com.campus.water.util.ResultVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 

@@ -3,7 +3,7 @@
  * 对应表：inspection_record
  * 用于记录维修人员的巡检结果，包括状态、异常描述、照片等
  */
-package com.campus.water.entity;
+package main.java.com.campus.water.entity;
 
 import lombok.Data;
 import jakarta.persistence.*;

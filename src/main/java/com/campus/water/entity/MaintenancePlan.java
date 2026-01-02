@@ -3,7 +3,7 @@
  * 对应表：maintenance_plan
  * 用于制定和管理设备的定期维护计划
  */
-package com.campus.water.entity;
+package main.java.com.campus.water.entity;
 
 import lombok.Data;
 import jakarta.persistence.*;

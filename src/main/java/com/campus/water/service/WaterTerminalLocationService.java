@@ -1,6 +1,6 @@
-package com.campus.water.service;
+package main.java.com.campus.water.service;
 
-import com.campus.water.entity.vo.TerminalLocationVO;
+import main.java.com.campus.water.entity.vo.TerminalLocationVO;
 import java.util.List;
 
 /**

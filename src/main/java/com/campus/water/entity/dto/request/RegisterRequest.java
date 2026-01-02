@@ -1,4 +1,4 @@
-package com.campus.water.entity.dto.request;
+package main.java.com.campus.water.entity.dto.request;
 
 import lombok.Data;
 import jakarta.validation.constraints.NotBlank;

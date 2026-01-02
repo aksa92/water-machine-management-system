@@ -1,7 +1,7 @@
 // com/campus/water/mapper/DeviceRepository.java
-package com.campus.water.mapper;
+package main.java.com.campus.water.mapper;
 
-import com.campus.water.entity.Device;
+import main.java.com.campus.water.entity.Device;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.util.List;

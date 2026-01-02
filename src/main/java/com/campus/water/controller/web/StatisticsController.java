@@ -10,13 +10,13 @@
  *   5. GET /hot-devices: 热门设备用水量排名
  * 技术：Spring MVC、参数验证、统一响应格式
  */
-package com.campus.water.controller.web;
+package main.java.com.campus.water.controller.web;
 
-import com.campus.water.entity.vo.AlarmStatisticsVO;
-import com.campus.water.entity.vo.StatisticsVO;
-import com.campus.water.entity.dto.request.StatisticsQueryRequest;
-import com.campus.water.service.StatisticsService;
-import com.campus.water.util.ResultVO;
+import main.java.com.campus.water.entity.vo.AlarmStatisticsVO;
+import main.java.com.campus.water.entity.vo.StatisticsVO;
+import main.java.com.campus.water.entity.dto.request.StatisticsQueryRequest;
+import main.java.com.campus.water.service.StatisticsService;
+import main.java.com.campus.water.util.ResultVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

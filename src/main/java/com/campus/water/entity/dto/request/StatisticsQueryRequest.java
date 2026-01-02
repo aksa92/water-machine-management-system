@@ -1,5 +1,5 @@
 // com/campus/water/entity/dto/request/StatisticsQueryRequest.java
-package com.campus.water.entity.dto.request;
+package main.java.com.campus.water.entity.dto.request;
 
 import lombok.Data;
 import java.time.LocalDate;
