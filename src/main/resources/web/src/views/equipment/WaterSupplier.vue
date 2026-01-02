@@ -318,11 +318,9 @@ const loadDevices = async (): Promise<void> => {
     if (selectedStatus.value && selectedStatus.value !== '') {
       params.append('status', selectedStatus.value)
     }
-    // 如果选择了校区，则按校区筛选；如果只选择了市区，则按市区筛选；否则不筛选
+    // 如果选择了校区，则按校区筛选；否则不筛选
     if (selectedCampus.value && selectedCampus.value !== '') {
       params.append('areaId', selectedCampus.value)
-    } else if (selectedCity.value && selectedCity.value !== '') {
-      params.append('areaId', selectedCity.value)
     }
     params.append('deviceType', 'water_supply')
 
@@ -439,25 +437,18 @@ const loadCampusListByCity = async (cityId: string): Promise<void> => {
 
 // 市区选择变化时的处理
 const onCityChange = async () => {
-  // 清空校区选择和设备片区信息
+  // 清空校区选择
   selectedCampus.value = ''
-  currentDevice.value.areaId = undefined
   campusList.value = []
 
-  if (selectedCityId.value) {
-    await loadCampusListByCity(selectedCityId.value)
+  if (selectedCity.value) {
+    await loadCampusListByCity(selectedCity.value)
   }
 }
 
 // 校区选择变化时的处理
 const onCampusChange = () => {
-  // 设置areaId为选中校区的areaName
-  const selectedCampus = campusList.value.find(campus => campus.areaId === selectedCampusId.value)
-  if (selectedCampus) {
-    currentDevice.value.areaId = selectedCampus.areaName // 使用areaName作为areaId
-  } else {
-    currentDevice.value.areaId = undefined
-  }
+  currentPage.value = 1 // 选择校区后重置到第一页
 }
 
 // 多条件过滤设备数据
@@ -467,16 +458,11 @@ const filteredDevices = computed(() => {
         device.deviceId.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
         device.installLocation.toLowerCase().includes(searchKeyword.value.toLowerCase())
 
-    // 如果选择了校区，则匹配校区；如果只选择了市区，则匹配市区；否则不过滤片区
+    // 如果选择了校区，则匹配校区；否则不过滤片区
     let areaMatch = true
     if (selectedCampus.value && selectedCampus.value !== '') {
       areaMatch = device.areaId === selectedCampus.value ||
                  device.areaId === campusList.value.find(c => c.areaId === selectedCampus.value)?.areaName
-    } else if (selectedCity.value && selectedCity.value !== '') {
-      // 检查设备的片区是否属于所选市区的校区
-      areaMatch = campusList.value.some(campus =>
-        device.areaId === campus.areaId || device.areaId === campus.areaName
-      ) || device.areaId === selectedCity.value
     }
 
     const statusMatch = selectedStatus.value === '' || device.status === selectedStatus.value
@@ -723,6 +709,7 @@ onMounted(async () => {
   await loadDevices() // 加载设备数据
 })
 </script>
+
 
 
 <style scoped>

@@ -517,16 +517,11 @@ const filteredDevices = computed(() => {
         device.deviceId.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
         device.installLocation.toLowerCase().includes(searchKeyword.value.toLowerCase())
 
-    // 如果选择了校区，则匹配校区；如果只选择了市区，则匹配市区；否则不过滤片区
+    // 只有当选择了校区时才进行片区匹配筛选
     let areaMatch = true
     if (selectedCampus.value && selectedCampus.value !== '') {
-      areaMatch = device.areaId === selectedCampus.value ||
-                 device.areaId === campusList.value.find(c => c.areaId === selectedCampus.value)?.areaName
-    } else if (selectedCity.value && selectedCity.value !== '') {
-      // 检查设备的片区是否属于所选市区的校区
-      areaMatch = campusList.value.some(campus =>
-        device.areaId === campus.areaId || device.areaId === campus.areaName
-      ) || device.areaId === selectedCity.value
+      // 检查设备的areaId是否与选中的校区ID匹配
+      areaMatch = device.areaId === selectedCampus.value
     }
 
     const statusMatch = selectedStatus.value === '' || device.status === selectedStatus.value
