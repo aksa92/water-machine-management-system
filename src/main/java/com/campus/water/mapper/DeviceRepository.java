@@ -9,7 +9,7 @@ import java.util.List;
 @Repository
 public interface DeviceRepository extends JpaRepository<Device, String> {
     // 根据区域名称查询设备
-    List<Device> findByAreaName(String areaName);
+    List<Device> findByAreaId(String areaId);
 
     // 根据设备类型（枚举）查询
     List<Device> findByDeviceType(Device.DeviceType deviceType);
@@ -18,7 +18,7 @@ public interface DeviceRepository extends JpaRepository<Device, String> {
     List<Device> findByStatus(Device.DeviceStatus status);
 
     // 按区域和设备类型查询
-    List<Device> findByAreaNameAndDeviceType(String areaName, Device.DeviceType deviceType);
+    List<Device> findByAreaIdAndDeviceType(String areaId, Device.DeviceType deviceType);
 
     // 按安装位置模糊查询
     List<Device> findByInstallLocationContaining(String location);

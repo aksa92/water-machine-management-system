@@ -56,6 +56,4 @@ public interface AreaRepository extends JpaRepository<Area, String> {
      */
     List<Area> findByAreaTypeAndManagerIsNullOrManagerEquals(Area.AreaType areaType, String emptyStr);
 
-    Optional<Area> findByAreaName(String areaName);
-
 }
