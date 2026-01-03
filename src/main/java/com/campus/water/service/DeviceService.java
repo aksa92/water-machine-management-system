@@ -94,11 +94,11 @@ public class DeviceService {
     /**
      * 根据条件查询设备列表
      */
-    public List<Device> queryDevices(String areaName, DeviceType deviceType, DeviceStatus status) {
-        if (areaName != null && deviceType != null) {
-            return deviceRepository.findByAreaNameAndDeviceType(areaName, deviceType);
-        } else if (areaName != null) {
-            return deviceRepository.findByAreaName (areaName);
+    public List<Device> queryDevices(String areaId, DeviceType deviceType, DeviceStatus status) {
+        if (areaId != null && deviceType != null) {
+            return deviceRepository.findByAreaIdAndDeviceType(areaId, deviceType);
+        } else if (areaId != null) {
+            return deviceRepository.findByAreaId (areaId);
         } else if (deviceType != null) {
             return deviceRepository.findByDeviceType(deviceType);
         } else if (status != null) {
@@ -111,28 +111,28 @@ public class DeviceService {
     /**
      * 关联设备与终端
      */
-    // ========== 改造：原有bindTerminal方法，添加areaName参数和校验 ==========
+    // ========== 改造：原有bindTerminal方法，添加areaId参数和校验 ==========
     @Transactional
-    public DeviceTerminalMapping bindTerminal(String deviceId, String terminalId, String terminalName, String areaName) {
+    public DeviceTerminalMapping bindTerminal(String deviceId, String terminalId, String terminalName, String areaId) {
         // 1. 校验片区非空（终端必须归属片区）
-        if (areaName == null || areaName.trim().isEmpty()) {
+        if (areaId == null || areaId.trim().isEmpty()) {
             throw new RuntimeException("片区ID不能为空，请先选择片区");
         }
         // 2. 校验设备存在且属于该片区的供水机
-        validateDeviceBelongsToArea(deviceId, areaName);
+        validateDeviceBelongsToArea(deviceId, areaId);
         // 3. 检查终端是否已绑定（原有逻辑保留）
         Optional<DeviceTerminalMapping> existing = terminalMappingRepository.findByTerminalId(terminalId);
         if (existing.isPresent()) {
             throw new RuntimeException("终端已绑定设备：" + existing.get().getDeviceId());
         }
-        // 4. 构建映射对象（新增设置areaName）
+        // 4. 构建映射对象（新增设置areaId）
         DeviceTerminalMapping mapping = new DeviceTerminalMapping();
         mapping.setDeviceId(deviceId);
         mapping.setTerminalId(terminalId);
         mapping.setTerminalName(terminalName);
         mapping.setTerminalStatus(DeviceTerminalMapping.TerminalStatus.active);
         mapping.setInstallDate(LocalDate.now());
-        mapping.setAreaId(mapping.getAreaId()); // 保存终端所属片区
+        mapping.setAreaId(areaId); // 保存终端所属片区
         return terminalMappingRepository.save(mapping);
     }
 
@@ -227,17 +227,17 @@ public class DeviceService {
     }
 
     // ========== 新增1：查询指定片区的所有供水机 ==========
-    public List<Device> getWaterSuppliesByArea(String areaName) {
+    public List<Device> getWaterSuppliesByArea(String areaId) {
         // 1. 校验片区ID非空
-        if (areaName == null || areaName.trim().isEmpty()) {
+        if (areaId == null || areaId.trim().isEmpty()) {
             throw new RuntimeException("片区ID不能为空");
         }
         // 2. 查询该片区下类型为供水机的设备
-        return deviceRepository.findByAreaNameAndDeviceType(areaName, Device.DeviceType.water_supply);
+        return deviceRepository.findByAreaIdAndDeviceType(areaId, Device.DeviceType.water_supply);
     }
 
     // ========== 新增2：校验设备是否属于指定片区 ==========
-    public void validateDeviceBelongsToArea(String deviceId, String areaName) {
+    public void validateDeviceBelongsToArea(String deviceId, String areaId) {
         // 1. 校验设备存在
         Device device = getDeviceById(deviceId);
         // 2. 校验设备是供水机
@@ -245,8 +245,8 @@ public class DeviceService {
             throw new RuntimeException("只能关联供水机设备，当前设备类型不合法");
         }
         // 3. 校验设备所属片区与选中片区一致
-        if (!areaName.equals(device.getAreaName())) {
-            throw new RuntimeException("该供水机不属于所选片区（设备所属片区：" + device.getAreaName() + "）");
+        if (!areaId.equals(device.getAreaId())) {
+            throw new RuntimeException("该供水机不属于所选片区（设备所属片区：" + device.getAreaId() + "）");
         }
     }
 
