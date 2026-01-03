@@ -1,11 +1,9 @@
 package com.campus.water.service;
 
 import com.campus.water.entity.Alert;
-import com.campus.water.entity.Area;
 import com.campus.water.entity.Device;
 import com.campus.water.entity.WorkOrder;
 import com.campus.water.mapper.AlertRepository;
-import com.campus.water.mapper.AreaRepository;
 import com.campus.water.mapper.DeviceRepository;
 import com.campus.water.mapper.WorkOrderRepository;
 import com.campus.water.model.WaterMakerSensorData;
@@ -46,7 +44,6 @@ public class AlertTriggerService {
     private final AlertRepository alertRepository;
     private final WorkOrderRepository workOrderRepository;
     private final DeviceRepository deviceRepository;
-    private final AreaRepository areaRepository;
 
     /**
      * 检查制水机数据异常并触发告警
@@ -167,11 +164,8 @@ public class AlertTriggerService {
     private void createAlertAndWorkOrder(String deviceId, String alertType,
                                          Alert.AlertLevel level, String message,
                                          WorkOrder.OrderType orderType) {
-        // 1. 获取设备的片区名称
-        String areaName = getDeviceAreaName(deviceId);
-
-        // 2. 关键步骤：通过片区名称匹配获取对应的areaId（保留原有area_id逻辑）
-        String areaId = getAreaIdByAreaName(areaName);
+        // 获取设备所在区域（用于工单分配）
+        String areaId = getDeviceAreaId(deviceId);
 
         // 1. 创建告警记录
         Alert alert = new Alert();
@@ -225,26 +219,20 @@ public class AlertTriggerService {
     /**
      * 获取设备所在区域ID（新增超时控制，避免查询阻塞）
      */
-    /**
-     * 第一步：获取设备的片区名称（从修改后的Device表中获取）
-     */
-    private String getDeviceAreaName(String deviceId) {
-        Device device = deviceRepository.findById(deviceId)
-                .orElseThrow(() -> new RuntimeException("设备不存在：" + deviceId));
-        return device.getAreaName(); // 从Device获取areaName（已修改后的字段）
-    }
-
-    /**
-     * 第二步：新增方法 - 通过片区名称匹配获取对应的areaId
-     */
-    private String getAreaIdByAreaName(String areaName) {
-        if (areaName == null || areaName.trim().isEmpty()) {
-            throw new RuntimeException("片区名称不能为空，无法匹配片区ID");
+    public String getDeviceAreaId(String deviceId) {
+        try {
+            Optional<Device> deviceOpt = deviceRepository.findById(deviceId);
+            String areaId = deviceOpt.map(Device::getAreaId).orElse(null);
+            // 空值兜底：null/空字符串→unknown
+            if (areaId == null || areaId.trim().isEmpty()) {
+                areaId = "unknown";
+                log.warn("设备{}的area_id为空/设备不存在，兜底为unknown", deviceId);
+            }
+            return areaId;
+        } catch (Exception e) { // 捕获所有数据库异常
+            log.error("获取设备{}的area_id失败（数据库异常）", deviceId, e);
+            return "unknown"; // 异常时兜底
         }
-        // 通过片区名称查询片区信息，获取对应的areaId
-        Area area = areaRepository.findByAreaName(areaName)
-                .orElseThrow(() -> new RuntimeException("未查询到对应片区ID，片区名称：" + areaName));
-        return area.getAreaId(); // 返回原有保留的areaId
     }
     /**
      * 生成唯一工单ID（WO+时间戳+随机数）
