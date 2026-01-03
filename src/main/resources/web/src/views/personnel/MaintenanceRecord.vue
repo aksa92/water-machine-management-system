@@ -187,7 +187,7 @@ const fetchRepairmanData = async () => {
     const token = authStore.token
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -228,7 +228,7 @@ const fetchRepairmanData = async () => {
 
     if (error.message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   } finally {
     loading.value = false
@@ -433,11 +433,6 @@ onMounted(() => {
   transition: all 0.3s;
 }
 
-.order-tabs button.active {
-  background: #42b983;
-  color: white;
-}
-
 .order-table {
   width: 100%;
   border-collapse: collapse;
@@ -466,54 +461,6 @@ onMounted(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.status-tag {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.status-tag.pending {
-  background-color: #fff7e6;
-  color: #d48806;
-}
-
-.status-tag.processing {
-  background-color: #e6f7ff;
-  color: #1890ff;
-}
-
-.status-tag.reviewing {
-  background-color: #f6f7ff;
-  color: #667eea;
-}
-
-.status-tag.completed {
-  background-color: #e6f7ee;
-  color: #00875a;
-}
-
-.status-tag.timeout {
-  background-color: #ffebe6;
-  color: #cf1322;
-}
-
-.status-tag.idle {
-  background-color: #e6f7ee;
-  color: #00875a;
-}
-
-.status-tag.busy {
-  background-color: #fffbe6;
-  color: #d48806;
-}
-
-.status-tag.vacation {
-  background-color: #f0f0f0;
-  color: #8c8c8c;
 }
 
 .operation-buttons {

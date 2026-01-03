@@ -10,7 +10,6 @@
     <div class="action-bar">
       <!-- 新增片区按钮 -->
       <button class="btn-add" @click="handleAddArea">新增片区</button>
-
     </div>
 
     <!-- 片区表格 -->
@@ -19,7 +18,7 @@
         <thead>
         <tr>
           <th>片区</th>
-          <th>设备数量</th>
+          <th>关联校区</th>
           <th>范围</th>
           <th>操作</th>
         </tr>
@@ -27,7 +26,12 @@
         <tbody>
         <tr v-for="area in filteredAreas" :key="area.areaId">
           <td>{{ area.areaName }}</td>
-          <td>{{ area.deviceCount || 0 }}</td>
+          <td>
+            <span v-if="area.campuses && area.campuses.length > 0">
+              {{ area.campuses.map((campus: any) => campus.areaName).join(', ') }}
+            </span>
+            <span v-else>无关联校区</span>
+          </td>
           <td>{{ area.address || '未设置' }}</td>
           <td class="operation-buttons">
             <button
@@ -134,10 +138,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { request } from '@/api/request'  // 导入项目封装的请求工具
-import { useAuthStore } from '@/stores/auth'  // 导入 authStore
+import {computed, onMounted, ref} from 'vue'
+import {useRouter} from 'vue-router'
+import {request} from '@/api/request' // 导入项目封装的请求工具
+import {useAuthStore} from '@/stores/auth' // 导入 authStore
 
 // 路由和状态管理
 const router = useRouter()
@@ -152,7 +156,7 @@ interface Area {
   address: string
   manager: string
   managerPhone: string
-  deviceCount?: number
+  campuses?: any[]  // 添加关联校区数组
   createdTime?: Date
   updatedTime?: Date
 }
@@ -180,7 +184,7 @@ const formData = ref<Partial<Area>>({
   address: '',
   manager: '',
   managerPhone: '',
-  deviceCount: 0
+  campuses: []
 })
 
 // 筛选后的片区列表
@@ -207,31 +211,67 @@ const totalPages = computed(() => {
 })
 
 // 获取片区列表
-// 修改获取片区列表的方法
 const fetchAreaList = async () => {
   loading.value = true
   try {
     const token = authStore.token
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
-    // 将参数拼接到URL中
-    const url = `/api/web/area/cities`
-    const response = await request<{
+    // 首先获取所有市区
+    const citiesResponse = await request<{
       code: number
       msg: string
       data: Area[]
-    }>(url, {
+    }>('/api/web/area/cities', {
       method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authStore.token}`
+      }
     })
 
-    if (response.code === 200) {
-      areaList.value = response.data
+    if (citiesResponse.code === 200) {
+      // 对每个市区获取其关联的校区
+      areaList.value = await Promise.all(
+          citiesResponse.data.map(async (city) => {
+            try {
+              const campusesResponse = await request<{
+                code: number
+                msg: string
+                data: Area[]
+              }>(`/api/web/area/campuses/${city.areaId}`, {
+                method: 'GET',
+                headers: {
+                  'Authorization': `Bearer ${authStore.token}`
+                }
+              })
+
+              if (campusesResponse.code === 200) {
+                return {
+                  ...city,
+                  campuses: campusesResponse.data
+                }
+              } else {
+                console.error(`获取市区 ${city.areaName} 的校区失败:`, campusesResponse.msg)
+                return {
+                  ...city,
+                  campuses: []
+                }
+              }
+            } catch (error) {
+              console.error(`获取市区 ${city.areaName} 的校区时发生错误:`, error)
+              return {
+                ...city,
+                campuses: []
+              }
+            }
+          })
+      )
     } else {
-      const errorMsg = response.msg || `获取失败（错误码：${response.code}）`
+      const errorMsg = citiesResponse.msg || `获取失败（错误码：${citiesResponse.code}）`
       console.error('获取片区列表失败:', errorMsg)
       alert(`获取片区列表失败：${errorMsg}`)
     }
@@ -248,12 +288,7 @@ const fetchAreaList = async () => {
   }
 }
 
-
 // 片区选择变更处理
-const handleAreaChange = () => {
-  currentPage.value = 1 // 重置到第一页
-}
-
 // 新增片区
 const handleAddArea = () => {
   isEdit.value = false
@@ -266,7 +301,7 @@ const handleAddArea = () => {
     address: '',
     manager: '',
     managerPhone: '',
-    deviceCount: 0
+    campuses: []
   }
   showModal.value = true
 }
@@ -295,7 +330,7 @@ const confirmDelete = async () => {
     const token = authStore.token
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -304,10 +339,13 @@ const confirmDelete = async () => {
       msg: string
     }>(`/api/web/area/delete/${deleteAreaId.value}`, {
       method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${authStore.token}`
+      }
     })
 
     if (response.code === 200) {
-      fetchAreaList() // 重新获取列表
+      await fetchAreaList() // 重新获取列表
       showDeleteConfirm.value = false
     } else {
       const errorMsg = response.msg || `删除失败（错误码：${response.code}）`
@@ -334,19 +372,19 @@ const handleSave = async () => {
     const token = authStore.token
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
     let response
 
     if (isEdit.value) {
-      // 编辑模式 - 修改URL格式以包含areaId作为路径参数
+      // 编辑模式
       response = await request<{
         code: number
         msg: string
         data: Area
-      }>(`/api/web/area/update/${formData.value.areaId}`, { // 修改URL格式
+      }>(`/api/web/area/update/${formData.value.areaId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -363,7 +401,7 @@ const handleSave = async () => {
       })
 
       if (response.code === 200) {
-        fetchAreaList() // 重新获取列表
+        await fetchAreaList() // 重新获取列表
         showModal.value = false
       } else {
         const errorMsg = response.msg || `更新失败（错误码：${response.code}）`
@@ -371,7 +409,7 @@ const handleSave = async () => {
         alert(`更新片区失败：${errorMsg}`)
       }
     } else {
-      // 新增模式 - 修改为不设置 parentAreaId
+      // 新增模式
       const newArea = {
         areaName: formData.value.areaName,
         areaType: 'zone' as const,
@@ -394,7 +432,7 @@ const handleSave = async () => {
       })
 
       if (response.code === 200) {
-        fetchAreaList() // 重新获取列表
+        await fetchAreaList() // 重新获取列表
         showModal.value = false
       } else {
         const errorMsg = response.msg || `新增失败（错误码：${response.code}）`
@@ -415,15 +453,14 @@ const handleSave = async () => {
   }
 }
 
-
-
-
 // 初始化加载数据
 onMounted(() => {
   console.log('Token:', authStore.token)
   fetchAreaList()
 })
 </script>
+
+
 
 <!-- 在 Urban.vue 文件中确保有正确的样式定义 -->
 <style scoped>
@@ -470,21 +507,6 @@ onMounted(() => {
 
 .btn-add:hover {
   background: #359e75;
-}
-
-.filter-box {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #666;
-}
-
-.area-select {
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  min-width: 200px;
-  font-size: 14px;
 }
 
 /* 表格样式 */
@@ -702,12 +724,5 @@ onMounted(() => {
     align-items: flex-start;
   }
 
-  .filter-box {
-    width: 100%;
-  }
-
-  .area-select {
-    width: 100%;
-  }
 }
 </style>

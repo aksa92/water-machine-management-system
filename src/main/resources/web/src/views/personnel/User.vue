@@ -107,9 +107,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { request } from '@/api/request'
-import { useAuthStore } from '@/stores/auth'
+import {computed, onMounted, ref} from 'vue'
+import {request} from '@/api/request'
+import {useAuthStore} from '@/stores/auth'
 
 // 用户状态类型
 type UserStatus = 'active' | 'inactive'
@@ -193,9 +193,8 @@ const fetchUserList = async () => {
 // 筛选后的用户列表
 const filteredUsers = computed(() => {
   return users.value.filter(user => {
-    const keywordMatch = searchKeyword.value.trim() === '' ||
-      user.studentName.toLowerCase().includes(searchKeyword.value.toLowerCase())
-    return keywordMatch
+    return searchKeyword.value.trim() === '' ||
+        user.studentName.toLowerCase().includes(searchKeyword.value.toLowerCase())
   })
 })
 
@@ -353,23 +352,6 @@ const closeDeleteModal = () => {
 }
 
 /* 状态标签样式 */
-.status-tag {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.status-tag.active {
-  background-color: #e6f7ee;
-  color: #00875a;
-}
-
-.status-tag.inactive {
-  background-color: #f5f5f5;
-  color: #8c8c8c;
-}
 
 /* 角色标签样式 */
 .role-tag {

@@ -190,7 +190,7 @@ const loadTerminal = async () => {
 
     const token = authStore.token
     if (!token) {
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -242,7 +242,7 @@ const loadTerminal = async () => {
     error.value = '加载终端详情失败'
     if ((err as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   } finally {
     loading.value = false
@@ -250,20 +250,13 @@ const loadTerminal = async () => {
 }
 
 // 编辑终端
-const editTerminal = () => {
-  if (terminal.value) {
-    editingTerminal.value = { ...terminal.value }
-    showEditModal.value = true
-  }
-}
-
 // 保存终端修改
 // 保存终端修改
 const saveTerminal = async () => {
   try {
     const token = authStore.token
     if (!token) {
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -317,46 +310,13 @@ const saveTerminal = async () => {
     alert('更新终端信息失败')
     if ((err as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
 
 
 // 删除终端
-const deleteTerminal = async () => {
-  if (!confirm(`确定要删除终端 ${terminal.value?.terminalId} 吗？`)) {
-    return
-  }
-
-  try {
-    const token = authStore.token
-    if (!token) {
-      router.push('/login')
-      return
-    }
-
-    const result = await request<ResultVO<boolean>>(`/api/web/terminal/delete/${terminal.value?.terminalId}`, {
-      method: 'DELETE'
-    })
-
-    if (result.code === 200 || result.code === 201 || result.code === 204) {
-      alert('终端删除成功')
-      router.push('/home/equipment/terminal')
-    } else {
-      alert(`删除终端失败: ${result.message}`)
-    }
-  } catch (err) {
-    console.error('删除终端失败:', err)
-    alert('删除终端失败')
-    if ((err as Error).message.includes('401')) {
-      authStore.logout()
-      router.push('/login')
-    }
-  }
-}
-
-
 // 返回列表
 const goBack = () => {
   router.push('/home/equipment/terminal')
@@ -439,36 +399,6 @@ onMounted(() => {
   font-size: 15px;
 }
 
-.status-tag {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  align-self: flex-start;
-  max-width: fit-content;
-}
-
-.status-tag.active {
-  background-color: #e6f7ee;
-  color: #00875a;
-}
-
-.status-tag.inactive {
-  background-color: #f5f5f5;
-  color: #8c8c8c;
-}
-
-.status-tag.warning {
-  background-color: #fff7e6;
-  color: #d48806;
-}
-
-.status-tag.fault {
-  background-color: #ffebe6;
-  color: #cf1322;
-}
-
 .action-buttons {
   display: flex;
   gap: 12px;
@@ -481,18 +411,6 @@ onMounted(() => {
   cursor: pointer;
   border: 1px solid #ddd;
   font-size: 14px;
-}
-
-.btn-edit {
-  background: #42b983;
-  color: white;
-  border: none;
-}
-
-.btn-delete {
-  background: #ff4d4f;
-  color: white;
-  border: none;
 }
 
 .btn-back {

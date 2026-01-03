@@ -274,7 +274,7 @@ const fetchMaintenanceStaff = async () => {
     // 检查是否有token
     if (!authStore.token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -318,7 +318,7 @@ const fetchMaintenanceStaff = async () => {
     // Token 无效时跳转登录页
     if (error.message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   } finally {
     loading.value = false
@@ -437,7 +437,7 @@ const saveRepairman = async () => {
     if (response.code === 200) {
       alert(isEditing.value ? '维修人员更新成功' : '维修人员新增成功')
       closeModal()
-      fetchMaintenanceStaff() // 刷新列表
+      await fetchMaintenanceStaff() // 刷新列表
     } else {
       // 如果后端返回权限错误，这里会显示
       alert(`保存失败：${response.message}`)
@@ -481,7 +481,7 @@ const deleteRepairman = async () => {
     if (response.code === 200) {
       alert('删除成功')
       closeDeleteConfirm()
-      fetchMaintenanceStaff() // 刷新列表
+      await fetchMaintenanceStaff() // 刷新列表
     } else {
       alert(`删除失败：${response.message}`)
     }

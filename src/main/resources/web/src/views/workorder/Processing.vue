@@ -295,14 +295,15 @@ const loadProcessingOrders = async () => {
         orderNo: order.orderId,
         deviceType: order.deviceType || '未知设备',
         deviceId: order.deviceId,
-        area: order.areaName || order.areaId || '', // 使用 areaName，如果不存在则使用 areaId
+        area: order.areaName || order.areaId || '',
         problemDesc: order.description || '暂无描述',
         status: order.status,
         createTime: order.createdTime ? new Date(order.createdTime).toLocaleString('zh-CN') : '未知时间',
         lastUploadTime: order.updatedTime ? new Date(order.updatedTime).toLocaleString('zh-CN') : '未知时间',
         location: order.location || '未知位置',
-        maintenanceName: order.assignedRepairmanName || '未分配',
-        maintenancePhone: order.assignedRepairmanPhone || '未知'
+        // 由于后端没有返回维修人员姓名和电话，这里显示ID
+        maintenanceName: order.assignedRepairmanId || '未分配',
+        maintenancePhone: '未知'
       }))
     } else {
       console.error('获取处理中工单失败:', response.msg)

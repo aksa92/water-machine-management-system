@@ -7,20 +7,10 @@
       </div>
 
       <form class="login-form" @submit.prevent="handleLogin">
-        <!-- 用户类型选择 -->
+        <!-- 用户类型显示（改为静态文本） -->
         <div class="form-group">
-          <label for="userType">用户类型</label>
-          <select
-              id="userType"
-              v-model="loginForm.userType"
-              class="form-input"
-              :disabled="loading"
-              required
-          >
-            <option value="admin">管理员</option>
-            <option value="user">普通用户</option>
-            <option value="repairer">维修人员</option>
-          </select>
+          <label>用户类型</label>
+          <div class="user-type-display">管理员</div>
         </div>
 
         <div class="form-group">
@@ -70,6 +60,7 @@
     </div>
   </div>
 </template>
+
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
