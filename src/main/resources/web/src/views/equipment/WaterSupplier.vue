@@ -206,16 +206,6 @@
             </p>
           </div>
 
-          <div class="form-group">
-            <label>所属片区:</label>
-            <input
-              v-model="currentDevice.areaId"
-              type="text"
-              :disabled="true"
-              placeholder="选择校区后自动填充"
-            >
-          </div>
-
           <div class="form-actions">
             <button type="button" @click="showAddModal = false">取消</button>
             <button type="submit">{{ isEditing ? '更新' : '添加' }}</button>
@@ -437,19 +427,32 @@ const loadCampusListByCity = async (cityId: string): Promise<void> => {
 
 // 市区选择变化时的处理
 const onCityChange = async () => {
-  // 清空校区选择
   selectedCampus.value = ''
   campusList.value = []
 
-  if (selectedCity.value) {
-    await loadCampusListByCity(selectedCity.value)
+  if (selectedCityId.value) {  // ✅ 应该监听 selectedCityId
+    await loadCampusListByCity(selectedCityId.value)
   }
 }
 
 // 校区选择变化时的处理
 const onCampusChange = () => {
   currentPage.value = 1 // 选择校区后重置到第一页
+
+  // 根据 selectedCampusId 获取对应的校区对象，然后提取 areaName
+  if (selectedCampusId.value) {
+    const selectedCampus = campusList.value.find(campus => campus.areaId === selectedCampusId.value)
+    if (selectedCampus) {
+      currentDevice.value.areaId = selectedCampus.areaName // 将 areaName 赋值给 areaId
+    } else {
+      currentDevice.value.areaId = undefined
+    }
+  } else {
+    currentDevice.value.areaId = undefined
+  }
 }
+
+
 
 // 多条件过滤设备数据
 const filteredDevices = computed(() => {

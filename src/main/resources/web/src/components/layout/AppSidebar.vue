@@ -93,12 +93,7 @@ const menuItems: MenuItem[] = [
       { name: '校区', route: '/home/area/campus' }
     ]
   },
-  { 
-    id: 6, 
-    name: '个人信息', 
-    icon: '👤',
-    route: '/home/profile'
-  }
+
 ]
 
 // 处理菜单项点击事件

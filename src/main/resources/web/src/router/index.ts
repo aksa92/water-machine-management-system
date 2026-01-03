@@ -216,16 +216,7 @@ const router = createRouter({
                         title: '校园片区'
                     }
                 },
-                // 个人信息路由
-                {
-                    path: 'profile',
-                    name: 'profile',
-                    component: () => import('../views/Profile.vue'),
-                    meta: {
-                        title: '个人信息',
-                        requiresAuth: true
-                    }
-                }
+
             ]
         },
         {

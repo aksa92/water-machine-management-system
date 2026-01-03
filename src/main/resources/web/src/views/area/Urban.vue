@@ -101,22 +101,6 @@
                   rows="3"
               ></textarea>
             </div>
-            <div class="form-item">
-              <label>负责人：</label>
-              <input
-                  type="text"
-                  v-model="formData.manager"
-                  placeholder="请输入负责人姓名"
-              >
-            </div>
-            <div class="form-item">
-              <label>联系电话：</label>
-              <input
-                  type="text"
-                  v-model="formData.managerPhone"
-                  placeholder="请输入负责人联系电话"
-              >
-            </div>
             <div class="form-actions">
               <button type="button" class="btn-cancel" @click="showModal = false">取消</button>
               <button type="submit" class="btn-submit" :disabled="saving">

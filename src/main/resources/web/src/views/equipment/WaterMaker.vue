@@ -196,26 +196,6 @@
               <option value="other">其他</option>
             </select>
           </div>
-          <div class="form-group">
-            <label>状态:</label>
-            <select v-model="currentDevice.status">
-              <option value="online">在线</option>
-              <option value="offline">离线</option>
-              <option value="warning">警告</option>
-              <option value="fault">故障</option>
-            </select>
-          </div>
-
-          <!-- 片区选择 -->
-          <div class="form-group">
-            <label>所属片区:</label>
-            <input
-              v-model="currentDevice.areaId"
-              type="text"
-              :disabled="true"
-              placeholder="选择校区后自动填充"
-            >
-          </div>
 
           <div class="form-actions">
             <button type="button" @click="showAddModal = false">取消</button>
