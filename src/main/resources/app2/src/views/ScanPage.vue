@@ -1,4 +1,4 @@
-<!-- ScanPage.vue - 修复样式版本 -->
+<!-- ScanPage.vue - 纯 JavaScript 扫码版本 -->
 <template>
   <div class="scan-page">
     <!-- 顶部标题栏 -->
@@ -12,28 +12,45 @@
       <!-- 扫描区域 -->
       <div class="scan-section" v-if="!deviceInfo">
         <div class="scan-area">
-          <!-- 扫描框 -->
-          <div class="scan-frame">
-            <div class="scan-lines">
-              <div class="scan-line"></div>
+          <!-- 扫码状态提示 -->
+          <div v-if="scanStatus" class="scan-status" :class="scanStatus.type">
+            {{ scanStatus.message }}
+          </div>
+
+          <!-- 扫码按钮 -->
+          <div class="scan-button-container">
+            <button class="scan-btn" @click="startScan" :disabled="isScanning">
+              <span class="scan-icon">📷</span>
+              <span class="scan-text">
+                {{ isScanning ? '正在扫码...' : '点击扫码' }}
+              </span>
+            </button>
+          </div>
+
+          <!-- 扫描框样式 -->
+          <div class="scan-frame-container">
+            <div class="scan-frame">
+              <div class="scan-lines">
+                <div class="scan-line"></div>
+              </div>
+              <div class="scan-corners">
+                <div class="corner top-left"></div>
+                <div class="corner top-right"></div>
+                <div class="corner bottom-left"></div>
+                <div class="corner bottom-right"></div>
+              </div>
             </div>
-            <div class="scan-corners">
-              <div class="corner top-left"></div>
-              <div class="corner top-right"></div>
-              <div class="corner bottom-left"></div>
-              <div class="corner bottom-right"></div>
+
+            <div class="scan-instruction">
+              请扫描设备二维码
+            </div>
+
+            <div class="scan-hint">
+              点击上方按钮开启摄像头扫码
             </div>
           </div>
 
-          <div class="scan-instruction">
-            请扫描设备二维码
-          </div>
-
-          <div class="scan-hint">
-            将二维码放入框内，即可自动扫描
-          </div>
-
-          <!-- 开发调试按钮（更简洁的样式） -->
+          <!-- 开发调试按钮 -->
           <div class="dev-options" v-if="isDevelopment">
             <div class="dev-buttons">
               <button class="dev-btn" @click="simulateScan('TERM001')">TERM001</button>
@@ -67,7 +84,7 @@
             </div>
           </div>
 
-          <!-- 用户信息（简洁样式） -->
+          <!-- 用户信息 -->
           <div class="user-info" v-if="userInfo">
             <div class="user-label">当前用户:</div>
             <div class="user-name">{{ userInfo.username }}</div>
@@ -95,7 +112,7 @@
               </div>
             </div>
 
-            <!-- 自定义输入（精简样式） -->
+            <!-- 自定义输入 -->
             <div class="custom-amount">
               <input
                   type="number"
@@ -197,7 +214,7 @@
       </div>
     </div>
 
-    <!-- 手动输入弹窗（保持原有样式） -->
+    <!-- 手动输入弹窗 -->
     <div v-if="showManualDialog" class="dialog-overlay">
       <div class="dialog-content">
         <div class="dialog-header">
@@ -247,20 +264,14 @@
   </div>
 </template>
 
-<!-- ScanPage.vue - 将所有设备设置为在线 -->
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { deviceService } from '@/services/deviceService'
 import { useUserStore } from '@/stores/user'
+import jsQR from 'jsqr'
 
-const router = useRouter()
-const userStore = useUserStore()
-
-// 开发模式标志
-const isDevelopment = ref(true)
-
-// 状态
+// 状态管理
 const deviceInfo = ref(null)
 const showManualDialog = ref(false)
 const manualDeviceId = ref('')
@@ -273,6 +284,16 @@ const showResultDialog = ref(false)
 const resultStatus = ref('')
 const resultTitle = ref('')
 const resultMessage = ref('')
+const isScanning = ref(false)
+const scanStatus = ref(null)
+
+const router = useRouter()
+const userStore = useUserStore()
+
+// 检查开发环境
+const isDevelopment = computed(() => {
+  return import.meta.env.DEV;
+});
 
 // 用户信息
 const userInfo = computed(() => {
@@ -280,7 +301,7 @@ const userInfo = computed(() => {
     username: userStore.username || '用户',
     studentId: userStore.studentId || '未登录'
   }
-})
+});
 
 // 取水量选项
 const waterAmounts = [
@@ -289,13 +310,13 @@ const waterAmounts = [
   { value: 750, price: '免费' }
 ]
 
-// 修改：将所有设备设置为在线状态
+// 模拟设备数据
 const mockDevices = {
   'TERM001': {
     id: 'TERM001',
     name: '教学楼饮水机',
     deviceId: 'WM001',
-    status: 'online',  // 改为online
+    status: 'online',
     statusText: '在线',
     location: '教学楼1F大厅',
     waterQuality: {
@@ -307,7 +328,7 @@ const mockDevices = {
     id: 'TERM002',
     name: '学生公寓饮水机',
     deviceId: 'WM002',
-    status: 'online',  // 改为online
+    status: 'online',
     statusText: '在线',
     location: '天马学生公寓1F',
     waterQuality: {
@@ -319,7 +340,7 @@ const mockDevices = {
     id: 'TERM003',
     name: '图书馆饮水机',
     deviceId: 'WM003',
-    status: 'online',  // 改为online
+    status: 'online',
     statusText: '在线',
     location: '图书馆2F',
     waterQuality: {
@@ -329,22 +350,319 @@ const mockDevices = {
   }
 }
 
-onMounted(() => {
-  console.log('扫码页面加载')
-})
+// 检查浏览器是否支持摄像头
+const checkCameraSupport = () => {
+  const isSecure = window.isSecureContext || window.location.protocol === 'https:'
+  const hasMediaDevices = 'mediaDevices' in navigator
+  const hasGetUserMedia = 'getUserMedia' in navigator.mediaDevices
 
-// 模拟扫码
-const simulateScan = async (deviceId) => {
-  console.log('模拟扫码:', deviceId)
-  // 先重置扫描
-  resetScan()
-  // 延迟加载设备信息，确保状态重置
-  setTimeout(async () => {
-    await loadDeviceInfo(deviceId)
-  }, 100)
+  console.log('摄像头支持检查:', {
+    isSecure,
+    hasMediaDevices,
+    hasGetUserMedia,
+    protocol: window.location.protocol
+  })
+
+  return isSecure && hasMediaDevices && hasGetUserMedia
 }
 
-// 修改：加载设备信息时强制设置为在线
+// 纯 JavaScript 扫码
+const startScan = async () => {
+  console.log('开始纯 JavaScript 扫码')
+
+  if (!checkCameraSupport()) {
+    alert('您的浏览器不支持摄像头访问，请使用手动输入')
+    showManualDialog.value = true
+    return
+  }
+
+  // 重置状态
+  resetScan()
+  isScanning.value = true
+  scanStatus.value = {
+    type: 'info',
+    message: '正在准备扫码...'
+  }
+
+  try {
+    // 创建扫码界面
+    const scannerContainer = document.createElement('div')
+    scannerContainer.className = 'scanner-container'
+    scannerContainer.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.95);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    `
+
+    // 标题
+    const title = document.createElement('div')
+    title.textContent = '请对准二维码'
+    title.style.cssText = `
+      color: white;
+      font-size: 18px;
+      margin-bottom: 20px;
+      font-weight: bold;
+    `
+
+    // 视频容器
+    const videoContainer = document.createElement('div')
+    videoContainer.style.cssText = `
+      position: relative;
+      width: 300px;
+      height: 300px;
+      border: 2px solid #1890ff;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    `
+
+    // 视频元素
+    const video = document.createElement('video')
+    video.style.cssText = `
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    `
+    video.setAttribute('playsinline', 'true')
+    video.setAttribute('autoplay', 'true')
+
+    // 扫描框（装饰性）
+    const scanFrame = document.createElement('div')
+    scanFrame.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    `
+
+    // 扫描线
+    const scanLine = document.createElement('div')
+    scanLine.style.cssText = `
+      position: absolute;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #1890ff, transparent);
+      top: 0;
+      animation: scanLineMove 2s infinite linear;
+    `
+
+    // 添加动画样式
+    const style = document.createElement('style')
+    style.textContent = `
+      @keyframes scanLineMove {
+        0% { top: 0; }
+        100% { top: 100%; }
+      }
+    `
+    style.id = 'scanner-style'
+
+    // 关闭按钮
+    const closeBtn = document.createElement('button')
+    closeBtn.textContent = '关闭'
+    closeBtn.style.cssText = `
+      padding: 12px 40px;
+      background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+      color: white;
+      border: none;
+      border-radius: 25px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 20px;
+      box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3);
+      transition: all 0.3s;
+    `
+
+    closeBtn.onmouseenter = () => {
+      closeBtn.style.transform = 'translateY(-2px)'
+      closeBtn.style.boxShadow = '0 6px 16px rgba(24, 144, 255, 0.4)'
+    }
+
+    closeBtn.onmouseleave = () => {
+      closeBtn.style.transform = 'translateY(0)'
+      closeBtn.style.boxShadow = '0 4px 12px rgba(24, 144, 255, 0.3)'
+    }
+
+    // 组装界面
+    scanFrame.appendChild(scanLine)
+    videoContainer.appendChild(video)
+    videoContainer.appendChild(scanFrame)
+    scannerContainer.appendChild(title)
+    scannerContainer.appendChild(videoContainer)
+    scannerContainer.appendChild(closeBtn)
+
+    document.head.appendChild(style)
+    document.body.appendChild(scannerContainer)
+
+    // 获取摄像头
+    scanStatus.value.message = '正在访问摄像头...'
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: 'environment', // 优先使用后置摄像头
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      }
+    })
+
+    video.srcObject = stream
+
+    // 等待视频播放
+    await new Promise((resolve) => {
+      video.onloadedmetadata = () => {
+        video.play()
+        resolve()
+      }
+    })
+
+    scanStatus.value.message = '请对准二维码...'
+
+    // 创建 Canvas 用于分析
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+
+    let scanning = true
+
+    // 扫描函数
+    const scanFrameFunc = () => {
+      if (!scanning) return
+
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        canvas.width = video.videoWidth
+        canvas.height = video.videoHeight
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+
+        // 使用 jsQR 分析
+        try {
+          const code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: 'dontInvert',
+          })
+
+          if (code) {
+            console.log('找到二维码:', code.data)
+            scanning = false
+
+            // 停止摄像头
+            stream.getTracks().forEach(track => track.stop())
+
+            // 移除界面
+            document.body.removeChild(scannerContainer)
+            const styleEl = document.getElementById('scanner-style')
+            if (styleEl) {
+              document.head.removeChild(styleEl)
+            }
+
+            // 加载设备信息
+            loadDeviceInfo(code.data)
+            return
+          }
+        } catch (error) {
+          console.warn('二维码分析错误:', error)
+        }
+      }
+
+      requestAnimationFrame(scanFrameFunc)
+    }
+
+    // 开始扫描
+    scanFrameFunc()
+
+    // 关闭按钮事件
+    closeBtn.onclick = () => {
+      scanning = false
+      stream.getTracks().forEach(track => track.stop())
+      document.body.removeChild(scannerContainer)
+      const styleEl = document.getElementById('scanner-style')
+      if (styleEl) {
+        document.head.removeChild(styleEl)
+      }
+      isScanning.value = false
+      scanStatus.value = null
+    }
+
+    // 错误处理
+    video.onerror = (error) => {
+      console.error('视频播放错误:', error)
+      scanning = false
+      stream.getTracks().forEach(track => track.stop())
+      document.body.removeChild(scannerContainer)
+      const styleEl = document.getElementById('scanner-style')
+      if (styleEl) {
+        document.head.removeChild(styleEl)
+      }
+      isScanning.value = false
+      scanStatus.value = {
+        type: 'error',
+        message: '摄像头访问失败'
+      }
+    }
+
+  } catch (error) {
+    console.error('扫码失败:', error)
+    isScanning.value = false
+
+    let errorMessage = '扫码失败'
+
+    if (error.name === 'NotAllowedError') {
+      errorMessage = '摄像头权限被拒绝，请在浏览器设置中开启权限'
+    } else if (error.name === 'NotFoundError') {
+      errorMessage = '未找到摄像头设备'
+    } else if (error.name === 'NotReadableError') {
+      errorMessage = '摄像头被其他应用占用'
+    } else if (error.name === 'OverconstrainedError') {
+      errorMessage = '摄像头配置不满足要求'
+    } else if (error.name === 'SecurityError') {
+      errorMessage = '需要在 HTTPS 或 localhost 环境下使用摄像头'
+    } else {
+      errorMessage = error.message || '未知错误'
+    }
+
+    scanStatus.value = {
+      type: 'error',
+      message: errorMessage
+    }
+
+    // 3秒后清除错误提示
+    setTimeout(() => {
+      scanStatus.value = null
+    }, 3000)
+
+    // 提供手动输入选项
+    setTimeout(() => {
+      showManualDialog.value = true
+    }, 1000)
+  }
+}
+
+// 模拟扫码（开发用）
+const simulateScan = async (deviceId) => {
+  console.log('模拟扫码:', deviceId)
+  resetScan()
+
+  scanStatus.value = {
+    type: 'info',
+    message: '模拟扫码中...'
+  }
+
+  setTimeout(async () => {
+    await loadDeviceInfo(deviceId)
+    scanStatus.value = null
+  }, 500)
+}
+
+// 加载设备信息
 const loadDeviceInfo = async (terminalId) => {
   try {
     const result = await deviceService.getTerminalInfo(terminalId)
@@ -354,30 +672,37 @@ const loadDeviceInfo = async (terminalId) => {
 
       deviceInfo.value = {
         id: terminalId,
-        name: data.terminalName || mockDevices[terminalId]?.name || '饮水机',
-        deviceId: data.deviceId || mockDevices[terminalId]?.deviceId,
-        status: 'online',  // 强制设置为在线
+        name: data.terminalName || '饮水机',
+        deviceId: data.deviceId || '未知',
+        status: 'online',
         statusText: '在线',
-        location: data.location || mockDevices[terminalId]?.location || '',
+        location: data.location || '未知位置',
         waterQuality: {
-          tapWater: data.rawWaterTds || mockDevices[terminalId]?.waterQuality.tapWater || '--',
-          pureWater: data.pureWaterTds || mockDevices[terminalId]?.waterQuality.pureWater || '--'
+          tapWater: data.rawWaterTds || '--',
+          pureWater: data.pureWaterTds || '--'
         }
       }
     } else {
-      // 使用模拟数据，确保在线
-      deviceInfo.value = {
-        ...mockDevices[terminalId],
+      // 使用模拟数据
+      deviceInfo.value = mockDevices[terminalId] || {
+        id: terminalId,
+        name: `${terminalId}饮水机`,
+        deviceId: `WM${terminalId.slice(-3)}`,
         status: 'online',
-        statusText: '在线'
+        statusText: '在线',
+        location: '校园内',
+        waterQuality: {
+          tapWater: '285',
+          pureWater: '15'
+        }
       }
     }
   } catch (error) {
-    console.error('获取设备信息失败，使用模拟数据:', error)
-    // 使用模拟数据，确保在线
+    console.error('获取设备信息失败:', error)
     deviceInfo.value = mockDevices[terminalId] || {
       id: terminalId,
       name: `${terminalId}饮水机`,
+      deviceId: `WM${terminalId.slice(-3)}`,
       status: 'online',
       statusText: '在线',
       location: '未知位置',
@@ -387,6 +712,8 @@ const loadDeviceInfo = async (terminalId) => {
       }
     }
   }
+
+  isScanning.value = false
 }
 
 // 选择取水量
@@ -407,7 +734,7 @@ const useCustomAmount = () => {
   }
 }
 
-// 修改：简化确认取水逻辑
+// 确认取水
 const confirmWater = async () => {
   if (!selectedAmount.value) {
     alert('请选择取水量')
@@ -473,7 +800,6 @@ const startWaterProcess = async () => {
 
 // 调用后端取水API
 const callWaterUsageAPI = async () => {
-  // 添加调用计数，用于调试
   console.log('调用取水API，水量:', selectedAmount.value)
 
   try {
@@ -502,13 +828,11 @@ const callWaterUsageAPI = async () => {
 const completeWaterProcess = async () => {
   isProcessing.value = false
 
-
   showResult(
       'success',
       '取水成功',
       `您已成功取水 ${selectedAmount.value}ml`
   )
-
 
   setTimeout(() => {
     resetScan()
@@ -530,10 +854,8 @@ const closeResultDialog = () => {
   resetScan()
 }
 
-/// 记录取水历史
 // 记录取水历史
 const recordWaterHistory = (data) => {
-  // 只保存当前扫描的设备记录
   if (!deviceInfo.value || !deviceInfo.value.id) {
     console.log('设备信息不完整，不保存历史记录')
     return
@@ -550,45 +872,11 @@ const recordWaterHistory = (data) => {
     location: deviceInfo.value.location || ''
   }
 
-  // 添加去重机制
   const existingHistory = JSON.parse(localStorage.getItem('waterHistory') || '[]')
-
-  // 检查5秒内是否有相同设备的记录
-  const now = new Date()
-  const fiveSecondsAgo = new Date(now.getTime() - 5000) // 5秒前
-
-  const duplicateIndex = existingHistory.findIndex(record => {
-    const recordTime = new Date(record.timestamp)
-    return (
-        record.deviceId === deviceInfo.value.id &&
-        recordTime >= fiveSecondsAgo &&
-        recordTime <= now
-    )
-  })
-
-  if (duplicateIndex !== -1) {
-    // 如果5秒内有重复记录，替换它而不是添加新记录
-    console.log('发现重复记录，替换而不是新增')
-    existingHistory[duplicateIndex] = history
-  } else {
-    // 没有重复记录，正常添加
-    console.log('保存新记录')
-    existingHistory.unshift(history)
-  }
-
-  // 过滤掉重复的terminalID记录（只保留最新的）
-  const deviceRecords = {}
-  const finalHistory = existingHistory.filter(record => {
-    if (!deviceRecords[record.deviceId]) {
-      deviceRecords[record.deviceId] = true
-      return true
-    }
-    return false
-  })
+  existingHistory.unshift(history)
 
   // 限制总记录数
-  const limitedHistory = finalHistory.slice(0, 20)
-
+  const limitedHistory = existingHistory.slice(0, 20)
   localStorage.setItem('waterHistory', JSON.stringify(limitedHistory))
   console.log('更新后的历史记录:', limitedHistory)
 }
@@ -629,13 +917,13 @@ const submitManualInput = async () => {
   closeManualDialog()
 }
 
-// 重置扫描
+// 重置扫码状态
 const resetScan = () => {
   deviceInfo.value = null
   selectedAmount.value = null
   customAmount.value = ''
-  isProcessing.value = false
-  progress.value = 0
+  isScanning.value = false
+  scanStatus.value = null
 }
 
 // 返回上一页
@@ -660,6 +948,12 @@ const goToPage = (page) => {
       break
   }
 }
+
+onMounted(() => {
+  console.log('扫码页面已加载')
+  console.log('摄像头支持:', checkCameraSupport())
+  console.log('开发环境:', isDevelopment.value)
+})
 </script>
 
 <style scoped>
@@ -731,6 +1025,11 @@ const goToPage = (page) => {
   padding: 30px 20px;
   margin-bottom: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* 扫描框容器 */
+.scan-frame-container {
+  margin-top: 20px;
 }
 
 /* 扫描框 */
@@ -825,6 +1124,51 @@ const goToPage = (page) => {
   color: #666;
 }
 
+/* 扫码状态提示 */
+.scan-status {
+  padding: 10px 15px;
+  margin-bottom: 15px;
+  border-radius: 8px;
+  font-size: 14px;
+  text-align: center;
+  animation: fadeIn 0.3s ease;
+}
+
+.scan-status.error {
+  background-color: #ffebee;
+  color: #c62828;
+  border: 1px solid #ffcdd2;
+}
+
+.scan-status.warning {
+  background-color: #fff3e0;
+  color: #ef6c00;
+  border: 1px solid #ffe0b2;
+}
+
+.scan-status.info {
+  background-color: #e3f2fd;
+  color: #1565c0;
+  border: 1px solid #bbdefb;
+}
+
+.scan-status.success {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #c8e6c9;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* 开发调试按钮 */
 .dev-options {
   margin-top: 16px;
@@ -850,6 +1194,48 @@ const goToPage = (page) => {
 .dev-btn:hover {
   background: #1890ff;
   color: white;
+}
+
+/* 扫码按钮容器 */
+.scan-button-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 30px;
+}
+
+.scan-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 50px;
+  padding: 20px 30px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.scan-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+
+.scan-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.scan-icon {
+  font-size: 24px;
+  margin-bottom: 5px;
+}
+
+.scan-text {
+  font-size: 14px;
 }
 
 /* 手动输入 */
@@ -1308,7 +1694,7 @@ const goToPage = (page) => {
 
 /* 手动输入弹窗 */
 .dialog-overlay {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   right: 0;
@@ -1317,13 +1703,8 @@ const goToPage = (page) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  z-index: 1000;
   animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
 }
 
 .dialog-content {
@@ -1384,7 +1765,6 @@ const goToPage = (page) => {
   border: 1px solid #e8e8e8;
   border-radius: 6px;
   font-size: 14px;
-  margin-bottom: 8px;
 }
 
 .device-input:focus {
