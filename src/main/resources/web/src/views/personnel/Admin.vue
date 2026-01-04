@@ -13,7 +13,7 @@
       <div class="search-box">
         <input
             type="text"
-            placeholder="搜索姓名或账号..."
+            placeholder="搜索姓名..."
             v-model="searchKeyword"
             @input="handleSearch"
         >
