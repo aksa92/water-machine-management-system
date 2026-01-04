@@ -51,6 +51,41 @@
         </div>
       </div>
 
+      <!-- 关联设备信息卡片 -->
+      <div v-if="terminal?.deviceId" class="card">
+        <h3>关联设备信息</h3>
+        <div v-if="deviceLoading" class="loading">加载设备信息中...</div>
+        <div v-else-if="relatedDevice" class="detail-grid">
+          <div class="detail-item">
+            <label>设备ID:</label>
+            <span>{{ relatedDevice.deviceId }}</span>
+          </div>
+          <div class="detail-item">
+            <label>设备名称:</label>
+            <span>{{ relatedDevice.deviceName }}</span>
+          </div>
+          <div class="detail-item">
+            <label>设备类型:</label>
+            <span>{{ relatedDevice.deviceType }}</span>
+          </div>
+          <div class="detail-item">
+            <label>设备状态:</label>
+            <span :class="`status-tag ${relatedDevice.status}`">
+              {{ formatDeviceStatus(relatedDevice.status) }}
+            </span>
+          </div>
+          <div class="detail-item" v-if="relatedDevice.installLocation">
+            <label>安装位置:</label>
+            <span>{{ relatedDevice.installLocation }}</span>
+          </div>
+          <div class="detail-item" v-if="relatedDevice.areaId">
+            <label>所属片区:</label>
+            <span>{{ relatedDevice.areaId }}</span>
+          </div>
+        </div>
+        <div v-else class="no-data">未关联设备或设备信息不存在</div>
+      </div>
+
       <!-- 操作按钮 -->
       <div class="action-buttons">
         <button class="btn-back" @click="goBack">返回列表</button>
@@ -129,6 +164,16 @@ interface TerminalManageVO {
   deviceId?: string
 }
 
+// 设备类型定义
+interface Device {
+  deviceId: string
+  deviceName: string
+  deviceType: string
+  status: string
+  installLocation?: string
+  areaId?: string
+}
+
 // 检查是否为终端对象的类型守卫
 function isTerminalManageVO(obj: any): obj is TerminalManageVO {
   return obj &&
@@ -156,6 +201,10 @@ const editingTerminal = ref<TerminalManageVO>({
   terminalStatus: 'active'
 })
 
+// 添加响应式数据
+const relatedDevice = ref<Device | null>(null)
+const deviceLoading = ref(false)
+
 // 获取终端ID
 const terminalId = route.params.id as string
 
@@ -170,11 +219,70 @@ const formatStatus = (status: TerminalStatus): string => {
   return statusMap[status] || status
 }
 
+// 格式化设备状态
+const formatDeviceStatus = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    'online': '在线',
+    'offline': '离线',
+    'fault': '故障',
+    'warning': '警告',
+    'active': '运行中',
+    'inactive': '停止'
+  }
+  return statusMap[status] || status
+}
+
 // 时间格式化
 const formatDate = (dateString?: string): string => {
   if (!dateString) return '-'
   // 如果是日期字符串，直接返回，否则格式化
   return dateString
+}
+
+// 获取关联设备信息的方法
+const loadRelatedDevice = async (deviceId: string) => {
+  if (!deviceId) {
+    return
+  }
+
+  try {
+    deviceLoading.value = true
+
+    const token = authStore.token
+    if (!token) {
+      await router.push('/login')
+      return
+    }
+
+    const result = await request<any>(`/api/web/device/${deviceId}`, {
+      method: 'GET'
+    })
+
+    if (result && typeof result === 'object' && 'code' in result) {
+      if (result.code === 200 && result.data) {
+        // 从返回的Map中提取deviceInfo部分
+        if (result.data.deviceInfo) {
+          relatedDevice.value = result.data.deviceInfo as Device
+        } else {
+          // 如果直接返回设备信息
+          relatedDevice.value = result.data as Device
+        }
+      } else {
+        console.warn('获取关联设备失败:', result.message)
+      }
+    } else {
+      // 直接返回数据的情况
+      if (result && typeof result === 'object' && result.deviceInfo) {
+        relatedDevice.value = result.deviceInfo as Device
+      } else if (result && typeof result === 'object') {
+        relatedDevice.value = result as Device
+      }
+    }
+  } catch (err) {
+    console.error('获取关联设备失败:', err)
+  } finally {
+    deviceLoading.value = false
+  }
 }
 
 // 加载终端详情
@@ -216,6 +324,11 @@ const loadTerminal = async () => {
         }
         // 初始化编辑终端数据
         editingTerminal.value = { ...terminal.value }
+
+        // 加载关联设备信息
+        if (terminal.value.deviceId) {
+          await loadRelatedDevice(terminal.value.deviceId)
+        }
       } else {
         error.value = result.message || '获取终端信息失败'
         console.warn('API响应非成功状态或数据格式错误:', result)
@@ -233,6 +346,11 @@ const loadTerminal = async () => {
       }
       // 初始化编辑终端数据
       editingTerminal.value = { ...terminal.value }
+
+      // 加载关联设备信息
+      if (terminal.value.deviceId) {
+        await loadRelatedDevice(terminal.value.deviceId)
+      }
     } else {
       error.value = '获取终端信息失败'
       console.warn('API响应数据格式错误:', result)
@@ -487,4 +605,5 @@ onMounted(() => {
   color: white;
   border: none;
 }
+
 </style>
