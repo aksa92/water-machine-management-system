@@ -44,7 +44,6 @@
             <input type="checkbox" v-model="loginForm.rememberMe" />
             <span class="checkbox-text">记住我</span>
           </label>
-          <a href="#" class="forgot-password">忘记密码？</a>
         </div>
 
         <button type="submit" class="login-button" :disabled="loading">
