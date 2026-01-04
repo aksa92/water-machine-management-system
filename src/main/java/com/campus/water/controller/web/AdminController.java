@@ -42,6 +42,25 @@ public class AdminController {
 
 
     /**
+     * 按ID查询单个管理员信息
+     */
+    @GetMapping("/{adminId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN')") // 超级/区域管理员可查看
+    @Operation(summary = "按ID查询单个管理员", description = "根据管理员ID返回完整的管理员信息")
+    public ResponseEntity<ResultVO<Admin>> getAdminById(@PathVariable String adminId) {
+        try {
+            Optional<Admin> adminOpt = adminService.getAdminById(adminId);
+            if (adminOpt.isPresent()) {
+                return ResponseEntity.ok(ResultVO.success(adminOpt.get()));
+            } else {
+                return ResponseEntity.ok(ResultVO.error(404, "管理员不存在，ID：" + adminId));
+            }
+        } catch (Exception e) {
+            return ResponseEntity.ok(ResultVO.error(500, "查询管理员失败：" + e.getMessage()));
+        }
+    }
+
+    /**
      * 新增：查询可分配校区的区域管理员（未负责任何片区）
      */
     @GetMapping("/available-area-admins")
