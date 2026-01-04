@@ -2,6 +2,7 @@ package com.campus.water.controller.web;
 
 import com.campus.water.entity.Area;
 import com.campus.water.service.AreaService;
+import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -162,6 +163,32 @@ public class AreaController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(buildResponse(500, "查询区域详情失败：" + e.getMessage(), null));
+        }
+    }
+
+    /**
+     * 按ID查询单个校区信息（专属接口，仅返回校区类型）
+     */
+    @GetMapping("/campus/{areaId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN', 'REPAIRMAN')") // 与普通区域查询权限一致
+    @Operation(summary = "按ID查询单个校区", description = "根据区域ID返回校区信息，非校区类型返回错误")
+    public ResponseEntity<Map<String, Object>> getCampusById(@PathVariable String areaId) {
+        try {
+            // 先调用已有的service方法查询区域
+            Area area = areaService.getAreaById(areaId);
+
+            // 核心：过滤校区类型，校验是否为campus
+            if (Area.AreaType.campus.equals(area.getAreaType())) {
+                return ResponseEntity.ok(buildResponse(200, "查询校区成功", area));
+            } else {
+                return ResponseEntity.badRequest().body(buildResponse(400, "该区域不是校区，ID：" + areaId, null));
+            }
+        } catch (RuntimeException e) {
+            // 捕获service中抛出的"区域不存在"异常
+            return ResponseEntity.badRequest().body(buildResponse(400, e.getMessage(), null));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(buildResponse(500, "查询校区失败：" + e.getMessage(), null));
         }
     }
 }
