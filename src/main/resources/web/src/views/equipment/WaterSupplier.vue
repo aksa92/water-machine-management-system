@@ -200,9 +200,31 @@
               >
                 {{ campus.areaName }}
               </option>
+              <p v-if="selectedCityId && !campusList.length" class="no-data-message">
+                该市区暂无校区
+              </p>
             </select>
-            <p v-if="selectedCityId && !campusList.length" class="no-data-message">
-              该市区暂无校区
+          </div>
+
+          <!-- 制水机选择（仅供水机时显示，可选） -->
+          <div class="form-group" v-if="!isEditing && currentDevice.deviceType === 'water_supply'">
+            <label>选择制水机:</label>
+            <select
+              v-model="selectedMakerId"
+              class="select-input"
+              :disabled="!makerList.length"
+            >
+              <option value="">不关联制水机（可选）</option>
+              <option
+                v-for="maker in makerList"
+                :key="maker.deviceId"
+                :value="maker.deviceId"
+              >
+                {{ maker.deviceName }} ({{ maker.deviceId }})
+              </option>
+            </select>
+            <p v-if="selectedCampusId && !makerList.length" class="no-data-message">
+              该校区暂无制水机
             </p>
           </div>
 
@@ -215,7 +237,6 @@
     </div>
   </div>
 </template>
-
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
@@ -246,6 +267,7 @@ interface DeviceManageVO {
   deviceType: string
   status: DeviceStatus
   areaId?: string
+  parentMakerId?: string  // 添加父级制水机ID字段
 }
 
 // 区域类型定义
@@ -281,7 +303,8 @@ const currentDevice = ref<DeviceManageVO>({
   installLocation: '',
   deviceType: 'water_supply',
   status: 'online',
-  areaId: undefined
+  areaId: undefined,
+  parentMakerId: undefined  // 添加父级制水机ID
 })
 
 // 片区相关数据
@@ -289,6 +312,10 @@ const cityList = ref<Area[]>([]) // 市区列表
 const campusList = ref<Area[]>([]) // 校区列表
 const selectedCityId = ref('') // 选择的市区ID
 const selectedCampusId = ref('') // 选择的校区ID
+
+// 制水机列表
+const makerList = ref<DeviceManageVO[]>([]) // 制水机列表
+const selectedMakerId = ref('') // 选择的制水机ID
 
 // 加载设备数据
 const loadDevices = async (): Promise<void> => {
@@ -333,7 +360,8 @@ const loadDevices = async (): Promise<void> => {
         deviceType: item.deviceType,
         areaId: item.areaId,
         installLocation: item.installLocation,
-        status: item.status
+        status: item.status,
+        parentMakerId: item.parentMakerId  // 添加父级制水机ID
       }))
     }
 
@@ -425,10 +453,52 @@ const loadCampusListByCity = async (cityId: string): Promise<void> => {
   }
 }
 
+// 根据片区名称获取制水机列表
+const loadMakersByAreaName = async (areaName: string): Promise<void> => {
+  try {
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      await router.push('/login')
+      return
+    }
+
+    console.log(`开始加载区域 ${areaName} 的制水机列表...`)
+
+    const result = await request<ResultVO<DeviceManageVO[]>>(
+      `/api/web/device-status/by-type?deviceType=water_maker&areaId=${encodeURIComponent(areaName)}`,
+      { method: 'GET' }
+    )
+
+    if (result.code === 200 && result.data && Array.isArray(result.data)) {
+      makerList.value = result.data.map((item: any) => ({
+        deviceId: item.deviceId,
+        deviceName: item.deviceName,
+        deviceType: item.deviceType,
+        areaId: item.areaId,
+        installLocation: item.installLocation,
+        status: item.status
+      }))
+      console.log(`获取到${makerList.value.length}个制水机`)
+    } else {
+      console.warn('API响应非成功状态或数据格式错误:', result)
+      makerList.value = []
+    }
+  } catch (error) {
+    console.error('加载制水机列表失败:', error)
+    makerList.value = []
+    if ((error as Error).message.includes('401')) {
+      authStore.logout()
+      await router.push('/login')
+    }
+  }
+}
+
 // 市区选择变化时的处理
 const onCityChange = async () => {
   selectedCampus.value = ''
   campusList.value = []
+  makerList.value = []
 
   if (selectedCityId.value) {  // ✅ 应该监听 selectedCityId
     await loadCampusListByCity(selectedCityId.value)
@@ -436,7 +506,7 @@ const onCityChange = async () => {
 }
 
 // 校区选择变化时的处理
-const onCampusChange = () => {
+const onCampusChange = async () => {
   currentPage.value = 1 // 选择校区后重置到第一页
 
   // 根据 selectedCampusId 获取对应的校区对象，然后提取 areaName
@@ -444,15 +514,17 @@ const onCampusChange = () => {
     const selectedCampus = campusList.value.find(campus => campus.areaId === selectedCampusId.value)
     if (selectedCampus) {
       currentDevice.value.areaId = selectedCampus.areaName // 将 areaName 赋值给 areaId
+      // 使用 areaName 加载该校区下的制水机列表
+      await loadMakersByAreaName(selectedCampus.areaName)
     } else {
       currentDevice.value.areaId = undefined
+      makerList.value = []
     }
   } else {
     currentDevice.value.areaId = undefined
+    makerList.value = []
   }
 }
-
-
 
 // 多条件过滤设备数据
 const filteredDevices = computed(() => {
@@ -510,6 +582,8 @@ const viewDevice = (id: string) => {
 // 编辑设备
 const openEditModal = (device: DeviceManageVO) => {
   currentDevice.value = { ...device }
+  // 设置选择的制水机ID
+  selectedMakerId.value = device.parentMakerId || ''
   isEditing.value = true
   showAddModal.value = true
 
@@ -576,6 +650,17 @@ const saveDevice = async () => {
       return
     }
 
+    // 如果是供水机，制水机是可选的，只有在选择了制水机时才关联
+    if (currentDevice.value.deviceType === 'water_supply') {
+      // 只有当用户选择了制水机时才设置parentMakerId
+      if (selectedMakerId.value) {
+        currentDevice.value.parentMakerId = selectedMakerId.value
+      } else {
+        // 如果没有选择制水机，显式设置为null或undefined
+        currentDevice.value.parentMakerId = undefined
+      }
+    }
+
     let result: ResultVO<DeviceManageVO> | DeviceManageVO
     if (isEditing.value) {
       // 更新设备
@@ -619,11 +704,14 @@ const saveDevice = async () => {
           installLocation: '',
           deviceType: 'water_supply',
           status: 'online',
-          areaId: undefined
+          areaId: undefined,
+          parentMakerId: undefined
         }
         selectedCityId.value = ''
         selectedCampusId.value = ''
+        selectedMakerId.value = ''
         campusList.value = []
+        makerList.value = []
 
         alert(isEditing.value ? '设备更新成功' : '设备添加成功')
       } else if (result.code === 200) {
@@ -640,11 +728,14 @@ const saveDevice = async () => {
           installLocation: '',
           deviceType: 'water_supply',
           status: 'online',
-          areaId: undefined
+          areaId: undefined,
+          parentMakerId: undefined
         }
         selectedCityId.value = ''
         selectedCampusId.value = ''
+        selectedMakerId.value = ''
         campusList.value = []
+        makerList.value = []
 
         alert(isEditing.value ? '设备更新成功' : '设备添加成功')
       } else {
@@ -665,11 +756,14 @@ const saveDevice = async () => {
         installLocation: '',
         deviceType: 'water_supply',
         status: 'online',
-        areaId: undefined
+        areaId: undefined,
+        parentMakerId: undefined
       }
       selectedCityId.value = ''
       selectedCampusId.value = ''
+      selectedMakerId.value = ''
       campusList.value = []
+      makerList.value = []
 
       alert(isEditing.value ? '设备更新成功' : '设备添加成功')
     }
@@ -687,11 +781,14 @@ const saveDevice = async () => {
         installLocation: '',
         deviceType: 'water_supply',
         status: 'online',
-        areaId: undefined
+        areaId: undefined,
+        parentMakerId: undefined
       }
       selectedCityId.value = ''
       selectedCampusId.value = ''
+      selectedMakerId.value = ''
       campusList.value = []
+      makerList.value = []
 
       alert(isEditing.value ? '设备更新成功' : '设备添加成功')
     }
@@ -712,8 +809,6 @@ onMounted(async () => {
   await loadDevices() // 加载设备数据
 })
 </script>
-
-
 
 <style scoped>
 /* 样式与终端机页面保持一致 */

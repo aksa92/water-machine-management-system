@@ -498,10 +498,14 @@ const filteredDevices = computed(() => {
         device.installLocation.toLowerCase().includes(searchKeyword.value.toLowerCase())
 
     // 只有当选择了校区时才进行片区匹配筛选
-    let areaMatch = true
+    let areaMatch = true;
     if (selectedCampus.value && selectedCampus.value !== '') {
-      // 检查设备的areaId是否与选中的校区ID匹配
-      areaMatch = device.areaId === selectedCampus.value
+      // 找到选中的校区对象
+      const selectedCampusObj = campusList.value.find(c => c.areaId === selectedCampus.value);
+      if (selectedCampusObj) {
+        // 使用 areaName 进行匹配，因为设备的 areaId 存储的是校区名称
+        areaMatch = device.areaId === selectedCampusObj.areaName;
+      }
     }
 
     const statusMatch = selectedStatus.value === '' || device.status === selectedStatus.value

@@ -146,6 +146,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { request } from '@/api/request'
 import { useAuthStore } from '@/stores/auth'
 import type { WorkOrder } from '@/api/types/workorder'
+import type {ResultVO} from "@/api/types/auth";
 
 // 定义接口
 interface RepairmanInfo {
@@ -155,6 +156,14 @@ interface RepairmanInfo {
   areaId: string
   status: RepairmanStatus // 明确指定枚举类型
 }
+
+interface MaintenanceStaff {
+   repairmanId: string
+   repairmanName: string
+   phone: string
+   areaId: string
+   status: RepairmanStatus
+ }
 
 
 // 枚举类型
@@ -193,16 +202,34 @@ const fetchRepairmanData = async () => {
 
     const repairmanId = route.params.id as string
 
-    // 这里需要调用获取维修人员信息的接口（如果有的话）
-    // 暂时先设置一个默认值
-    repairmanInfo.value.repairmanId = repairmanId
-    repairmanInfo.value.repairmanName = '维修人员姓名'
-    repairmanInfo.value.phone = '13800138000'
-    repairmanInfo.value.areaId = '市区'
-    repairmanInfo.value.status = 'idle'
+    // 首先获取维修人员详细信息
+    const repairmanResponse = await request<ResultVO<MaintenanceStaff>>(
+      `/api/web/repairman/${repairmanId}`,
+      {
+        method: 'GET'
+      }
+    )
+
+    if (repairmanResponse.code === 200 && repairmanResponse.data) {
+      // 将返回的维修人员信息赋值给 repairmanInfo
+      repairmanInfo.value = {
+        repairmanId: repairmanResponse.data.repairmanId,
+        repairmanName: repairmanResponse.data.repairmanName,
+        phone: repairmanResponse.data.phone,
+        areaId: repairmanResponse.data.areaId,
+        status: repairmanResponse.data.status
+      }
+    } else if (repairmanResponse.code === 404) {
+      alert('维修人员不存在')
+      router.push('/home/personnel/maintenance')
+      return
+    } else {
+      console.error('获取维修人员信息失败:', repairmanResponse.message)
+      alert(`获取维修人员信息失败：${repairmanResponse.message}`)
+    }
 
     // 获取该维修人员的所有工单
-    const response = await request<{
+    const orderResponse = await request<{
       code: number
       msg: string
       data: WorkOrder[]
@@ -210,10 +237,10 @@ const fetchRepairmanData = async () => {
       method: 'GET'
     })
 
-    if (response.code === 200) {
-      allOrders.value = response.data || []
+    if (orderResponse.code === 200) {
+      allOrders.value = orderResponse.data || []
     } else {
-      const errorMsg = response.msg || `获取失败（错误码：${response.code}）`
+      const errorMsg = orderResponse.msg || `获取失败（错误码：${orderResponse.code}）`
       console.error('获取工单列表失败:', errorMsg)
       alert(`获取工单列表失败：${errorMsg}`)
     }
@@ -234,6 +261,7 @@ const fetchRepairmanData = async () => {
     loading.value = false
   }
 }
+
 
 // 处理中的工单
 const processingOrders = computed(() => {

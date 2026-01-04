@@ -1,4 +1,4 @@
-<!-- src/views/personnel/Maintenance.vue -->
+11<!-- src/views/personnel/Maintenance.vue -->
 <template>
   <div class="maintenance-page">
     <!-- 页面标题和面包屑 -->
@@ -26,10 +26,13 @@
         <div class="filter-item">
           <select v-model="searchFilters.areaId" @change="handleSearch">
             <option value="">全部区域</option>
-            <option value="A">A区</option>
-            <option value="B">B区</option>
-            <option value="C">C区</option>
-            <option value="D">D区</option>
+            <option
+              v-for="area in uniqueAreas"
+              :key="area"
+              :value="area"
+            >
+              {{ area }}
+            </option>
           </select>
         </div>
 
@@ -128,6 +131,16 @@
         </div>
         <div class="modal-body">
           <form @submit.prevent="saveRepairman">
+            <!-- ID字段（添加时显示） -->
+            <div v-if="!isEditing" class="form-group">
+              <label class="form-label required">ID：</label>
+              <input
+                  type="text"
+                  v-model="form.repairmanId"
+                  required
+                  placeholder="请输入ID"
+              />
+            </div>
             <!-- ID字段（编辑时显示） -->
             <div v-if="isEditing" class="form-group">
               <label>ID：</label>
@@ -156,12 +169,32 @@
                   placeholder="请输入联系电话"
               />
             </div>
+            <!-- 市区选择 -->
             <div class="form-group">
-              <label class="form-label required">维修片区：</label>
+              <label class="form-label required">所属市区：</label>
+              <select v-model="selectedCity" @change="onCityChange" required>
+                <option value="">请选择市区</option>
+                <option
+                  v-for="city in cities"
+                  :key="city.areaId"
+                  :value="city.areaId"
+                >
+                  {{ city.areaName }}
+                </option>
+              </select>
+            </div>
+            <!-- 校区选择 -->
+            <div class="form-group">
+              <label class="form-label required">维修校区：</label>
               <select v-model="form.areaId" required>
-                <option value="">请选择片区</option>
-                <option value="A">A</option>
-                <option value="B">B</option>
+                <option value="">请选择校区</option>
+                <option
+                  v-for="campus in campuses"
+                  :key="campus.areaId"
+                  :value="campus.areaName"
+                >
+                  {{ campus.areaName }}
+                </option>
               </select>
             </div>
             <div class="form-group">
@@ -210,6 +243,13 @@ import type { ResultVO } from '@/api/types/auth'
 // 维修人员状态类型
 type RepairmanStatus = 'idle' | 'busy' | 'vacation'
 
+// 区域数据接口
+interface Area {
+  areaId: string
+  areaName: string
+  parentAreaId?: string
+}
+
 // 维修人员数据接口（与后端实体保持一致）
 interface MaintenanceStaff {
   repairmanId: string
@@ -238,10 +278,11 @@ interface FormData {
 const authStore = useAuthStore()
 const router = useRouter()
 
-// ========== 已移除权限检查函数 ==========
-
 // 响应式数据
 const staffList = ref<MaintenanceStaff[]>([])
+const cities = ref<Area[]>([]) // 市区列表
+const campuses = ref<Area[]>([]) // 校区列表
+const selectedCity = ref<string>('') // 选中的市区
 const searchFilters = ref<SearchFilters>({
   name: '',
   areaId: '',
@@ -266,6 +307,11 @@ const form = ref<FormData>({
   areaId: '',
   status: 'idle'
 })
+
+// 生成唯一ID的方法
+const generateId = () => {
+  return 'RM' + Date.now() + Math.floor(Math.random() * 10000)
+}
 
 // 获取维修人员列表
 const fetchMaintenanceStaff = async () => {
@@ -325,6 +371,72 @@ const fetchMaintenanceStaff = async () => {
   }
 }
 
+// 获取市区列表
+const fetchCities = async () => {
+  try {
+    const response = await request<ResultVO<any>>(
+      `/api/web/area/cities`,
+      {
+        method: 'GET'
+      }
+    )
+
+    if (response.code === 200) {
+      cities.value = response.data.map((area: any) => ({
+        areaId: area.areaId,
+        areaName: area.areaName || area.name
+      }))
+    } else {
+      console.error('获取市区列表失败:', response.message)
+    }
+  } catch (error) {
+    console.error('请求市区列表失败:', error)
+  }
+}
+
+// 根据市区ID获取校区列表
+const fetchCampusesByCity = async (cityId: string) => {
+  if (!cityId) {
+    campuses.value = []
+    return
+  }
+
+  try {
+    const response = await request<ResultVO<any>>(
+      `/api/web/area/campuses/${cityId}`,
+      {
+        method: 'GET'
+      }
+    )
+
+    if (response.code === 200) {
+      campuses.value = response.data.map((area: any) => ({
+        areaId: area.areaId,
+        areaName: area.areaName || area.name
+      }))
+    } else {
+      console.error('获取校区列表失败:', response.message)
+    }
+  } catch (error) {
+    console.error('请求校区列表失败:', error)
+  }
+}
+
+// 市区选择变化时更新校区列表
+const onCityChange = async () => {
+  await fetchCampusesByCity(selectedCity.value)
+  // 重置校区选择
+  if (!isEditing.value) {
+    form.value.areaId = ''
+  }
+}
+
+// 获取所有唯一的片区（用于筛选下拉框）
+const uniqueAreas = computed(() => {
+  const areas = [...new Set(staffList.value.map(staff => staff.areaId))]
+  return areas.filter(area => area && area.trim() !== '') // 过滤空值
+})
+
 // 筛选后的维修人员列表
 const filteredStaff = computed(() => {
   // 前端额外筛选（作为后备保障）
@@ -380,24 +492,49 @@ const getStatusText = (status: RepairmanStatus) => {
   return statusMap[status] || status
 }
 
-// ========== 编辑处理（已移除权限检查） ==========
-const openEditForm = (staff: MaintenanceStaff) => {
+// 编辑处理
+const openEditForm = async (staff: MaintenanceStaff) => {
   // 深拷贝数据，避免直接修改原数据
   form.value = JSON.parse(JSON.stringify(staff))
+
+  // 获取该维修人员所在校区的详细信息
+  try {
+    const response = await request<ResultVO<any>>(
+      `/api/web/area/${staff.areaId}`,
+      {
+        method: 'GET'
+      }
+    )
+
+    if (response.code === 200) {
+      const campus = response.data
+      // 查找父级市区
+      if (campus.parentAreaId) {
+        selectedCity.value = campus.parentAreaId
+        // 获取该市区下的所有校区
+        await fetchCampusesByCity(campus.parentAreaId)
+      }
+    }
+  } catch (error) {
+    console.error('获取区域信息失败:', error)
+  }
+
   isEditing.value = true
   isModalOpen.value = true
 }
 
-// ========== 新增处理（已移除权限检查） ==========
+// 新增处理
 const openAddForm = () => {
-  // 重置表单数据
+  // 重置表单数据，生成默认ID
   form.value = {
-    repairmanId: '',
+    repairmanId: generateId(), // 自动生成默认ID
     repairmanName: '',
     phone: '',
     areaId: '',
     status: 'idle'
   }
+  selectedCity.value = '' // 重置选中的市区
+  campuses.value = [] // 清空校区列表
   isEditing.value = false
   isModalOpen.value = true
 }
@@ -412,6 +549,10 @@ const closeModal = () => {
 const saveRepairman = async () => {
   try {
     // 验证表单数据
+    if (!form.value.repairmanId.trim()) {
+      alert('请输入ID')
+      return
+    }
     if (!form.value.repairmanName.trim()) {
       alert('请输入姓名')
       return
@@ -421,7 +562,7 @@ const saveRepairman = async () => {
       return
     }
     if (!form.value.areaId) {
-      alert('请选择维修片区')
+      alert('请选择维修校区')
       return
     }
 
@@ -499,8 +640,9 @@ const handleViewRecords = (id: string) => {
 }
 
 // 页面加载时获取数据
-onMounted(() => {
-  fetchMaintenanceStaff()
+onMounted(async () => {
+  await fetchMaintenanceStaff()
+  await fetchCities() // 获取市区列表
 })
 </script>
 
