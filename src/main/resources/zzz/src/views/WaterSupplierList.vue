@@ -1,11 +1,13 @@
 <template>
   <div class="water-supplier-list">
-    <!-- 顶部标题栏 -->
+    <!-- 顶部标题栏 - 添加返回按钮和制水机名称显示 -->
     <div class="header">
       <div class="header-left">
         <span class="back-btn" @click="goBack">返回</span>
       </div>
-      <div class="header-title">设备巡检</div>
+      <div class="header-title">
+        {{ fromMaker ? `制水机#${makerId}的供水机` : '设备巡检' }}
+      </div>
       <div class="header-right">
         <span class="nav-text">供水机</span>
       </div>
@@ -28,7 +30,9 @@
 
       <!-- 正常状态 -->
       <div v-else class="device-list">
-        <div v-for="device in deviceList" :key="device.id" class="device-item">
+
+
+        <div v-for="device in filteredDeviceList" :key="device.id" class="device-item">
           <div class="device-info">
             <div class="device-name">{{ device.name }}</div>
             <div class="device-location">{{ device.location }}</div>
@@ -48,6 +52,11 @@
             </button>
           </div>
         </div>
+
+        <!-- 没有供水机时的提示 -->
+        <div v-if="fromMaker && filteredDeviceList.length === 0" class="empty-tip">
+          该制水机暂未关联任何供水机
+        </div>
       </div>
     </div>
 
@@ -62,18 +71,25 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { deviceService } from '@/services/deviceService'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 
 // 设备数据
 const deviceList = ref([])
+const filteredDeviceList = ref([])
 const loading = ref(true)
 const error = ref(null)
+
+// 路由参数
+const makerId = ref(route.query.makerId || '')
+const relatedSuppliers = ref([])
+const fromMaker = ref(route.query.fromMaker === 'true')
 
 // 获取供水机列表
 const fetchWaterSuppliers = async () => {
@@ -94,6 +110,21 @@ const fetchWaterSuppliers = async () => {
         storageCapacity: device.storageCapacity || 0,
         areaId: device.areaId
       }))
+
+      // 如果是从制水机页面跳转过来，过滤关联的供水机
+      if (fromMaker.value && route.query.relatedSuppliers) {
+        try {
+          relatedSuppliers.value = JSON.parse(route.query.relatedSuppliers)
+          filteredDeviceList.value = deviceList.value.filter(device =>
+            relatedSuppliers.value.includes(device.id)
+          )
+        } catch (e) {
+          console.error('解析关联供水机参数失败:', e)
+          filteredDeviceList.value = deviceList.value
+        }
+      } else {
+        filteredDeviceList.value = deviceList.value
+      }
     } else {
       error.value = response.message
     }
@@ -411,5 +442,22 @@ onMounted(() => {
   font-size: 12px;
   color: #999;
   margin-top: 4px;
+}
+
+.related-tip {
+  background: #e6f7ff;
+  border: 1px solid #91d5ff;
+  border-radius: 4px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  color: #1890ff;
+  font-size: 14px;
+}
+
+.empty-tip {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+  font-size: 16px;
 }
 </style>
