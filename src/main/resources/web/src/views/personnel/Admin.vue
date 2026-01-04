@@ -31,7 +31,6 @@
           <th>联系电话</th>
           <th>身份</th>
           <th>关联区域</th>
-          <th>状态</th>
           <th>操作</th>
         </tr>
         </thead>
@@ -47,11 +46,6 @@
             </span>
             <span v-else>-</span>
           </td>
-          <td>
-              <span :class="`status-tag ${admin.status}`">
-                {{ admin.status === 'active' ? '启用' : '禁用' }}
-              </span>
-          </td>
           <td class="operation-buttons">
             <button
                 class="btn-edit"
@@ -65,17 +59,10 @@
             >
               删除
             </button>
-            <button
-                class="btn-status"
-                :class="admin.status === 'active' ? 'btn-disable' : 'btn-enable'"
-                @click="handleStatusChange(admin.adminId, admin.status)"
-            >
-              {{ admin.status === 'active' ? '禁用' : '启用' }}
-            </button>
           </td>
         </tr>
         <tr v-if="paginatedAdmins.length === 0">
-          <td colspan="7" class="no-data">暂无管理员数据</td>
+          <td colspan="6" class="no-data">暂无管理员数据</td>
         </tr>
         </tbody>
       </table>
@@ -226,9 +213,6 @@ import {request} from '@/api/request'
 import {useAuthStore} from '@/stores/auth'
 import type {ResultVO} from '@/api/types/auth'
 
-// 管理员状态类型
-type AdminStatus = 'active' | 'disabled'
-
 // 区域信息接口
 interface Area {
   areaId: string
@@ -247,7 +231,6 @@ interface Admin {
   account: string
   phone: string
   role: string
-  status: AdminStatus
   areaId?: string
   areaName?: string
 }
@@ -372,7 +355,6 @@ const fetchAdminList = async () => {
         account: admin.adminId || '',
         phone: admin.phone || '未知电话',
         role: admin.role || '未知角色',
-        status: 'active' as AdminStatus,
         areaId: admin.areaId,
         areaName: admin.areaName || undefined // 添加区域名称
       }))
@@ -464,31 +446,6 @@ onMounted(async () => {
   await loadUnassignedAreas()
   await fetchAdminList()
 })
-
-// 状态变更处理
-const handleStatusChange = async (id: string, currentStatus: AdminStatus) => {
-  try {
-    const newStatus: AdminStatus = currentStatus === 'active' ? 'disabled' : 'active'
-
-    // 调用API更新状态
-    const response = await request<ResultVO>(`/api/web/admin/status/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ status: newStatus })
-    })
-
-    if (response.code === 200) {
-      // 更新本地数据
-      admins.value = admins.value.map(admin =>
-          admin.adminId === id ? { ...admin, status: newStatus } : admin
-      )
-    } else {
-      alert(`状态更新失败: ${response.message}`)
-    }
-  } catch (error: any) {
-    console.error('更新状态失败:', error)
-    alert(`更新状态失败: ${error.message}`)
-  }
-}
 
 // 编辑处理
 const handleEdit = async (id: string) => {
@@ -788,16 +745,6 @@ const handleSubmit = async () => {
 
 .btn-delete:hover {
   background-color: #ffccc7;
-}
-
-.btn-enable {
-  background-color: #e6f7ee;
-  color: #00875a;
-}
-
-.btn-disable {
-  background-color: #ffebe6;
-  color: #cf1322;
 }
 
 .no-data {
