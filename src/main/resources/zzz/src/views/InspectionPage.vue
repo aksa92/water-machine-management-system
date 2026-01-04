@@ -19,7 +19,6 @@
         <div class="area-card">
           <div class="area-info">
             <div class="area-name">岳麓片区</div>
-            <div class="area-details">5所学校 · 12台制水机</div>
           </div>
           <div class="area-divider"></div>
           <button class="view-btn" @click="viewYueluArea">查看</button>

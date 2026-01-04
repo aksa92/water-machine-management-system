@@ -16,12 +16,12 @@
         </div>
 
         <div class="form-group">
-          <label for="studentId">学号</label>
+          <label for="studentId">姓名</label>
           <input
               type="text"
               id="studentId"
               v-model="loginForm.studentId"
-              placeholder="请输入学号"
+              placeholder="请输入姓名"
               @keyup.enter="handleLogin"
           />
         </div>
@@ -280,7 +280,7 @@ const showConfirmPassword = ref(false)
 // 表单验证规则
 const validateLogin = () => {
   if (!loginForm.studentId.trim()) {
-    alert('请输入学号')
+    alert('请输入姓名')
     return false
   }
   if (!loginForm.password) {

@@ -53,7 +53,7 @@
                 <button class="action-btn detail" @click="viewDeviceDetail(device.id)">
                   详情
                 </button>
-                <button class="action-btn inspect" @click="viewWaterSupplier(device.id)">
+                <button class="action-btn inspect" @click="viewRelatedWaterSuppliers(device)">
                   查看供水机
                 </button>
               </div>
@@ -77,6 +77,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { deviceService } from '@/services/deviceService'
+import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
@@ -131,7 +132,44 @@ const fetchWaterMakers = async () => {
   }
 }
 
-// 导航函数（保持不变）
+// 新增：获取制水机关联的供水机
+const fetchRelatedWaterSuppliers = async (makerId) => {
+  try {
+    loading.value = true
+    // 调用后端接口获取制水机关联的供水机列表
+    const response = await api.get(`/api/web/device/maker/${makerId}/suppliers`)
+
+    if (response.data.code === 200) {
+      const relatedSuppliers = response.data.data || []
+
+      // 如果没有关联的供水机，显示提示
+      if (relatedSuppliers.length === 0) {
+        alert('该制水机暂未关联供水机')
+        return
+      }
+
+      // 如果有关联的供水机，跳转到供水机列表页面并传递关联的供水机ID数组
+      const supplierIds = relatedSuppliers.map(supplier => supplier.deviceId)
+      router.push({
+        path: '/inspection/water-supplier',
+        query: {
+          makerId: makerId,
+          relatedSuppliers: JSON.stringify(supplierIds),
+          fromMaker: true // 标记来自制水机页面
+        }
+      })
+    } else {
+      error.value = response.data.message
+    }
+  } catch (err) {
+    console.error('获取关联供水机失败:', err)
+    alert('获取关联供水机失败，请稍后重试')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 导航函数
 const goBack = () => {
   router.back()
 }
@@ -156,9 +194,9 @@ const viewDeviceDetail = (deviceId) => {
   router.push(`/inspection/water-maker/${deviceId}`)
 }
 
-const viewWaterSupplier = (deviceId) => {
-  // 传递制水机ID参数
-  router.push(`/inspection/water-supplier?makerId=${deviceId}`)
+// 修改：查看制水机关联的供水机
+const viewRelatedWaterSuppliers = (device) => {
+  fetchRelatedWaterSuppliers(device.id)
 }
 
 // 组件挂载时获取数据
