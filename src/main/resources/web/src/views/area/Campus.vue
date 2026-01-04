@@ -27,6 +27,11 @@
       </div>
     </div>
 
+    <!-- 空闲管理员提示 -->
+    <div v-if="availableAdmins.length === 0" class="no-available-admins">
+      ⚠️ 所有区域管理员都有负责的校区，当前无空闲区域管理员
+    </div>
+
     <!-- 校区表格 -->
     <div class="card">
       <table class="campus-table">
@@ -50,12 +55,6 @@
             <td>{{ campus.managerPhone }}</td>
             <td>{{ formatDate(campus.createdTime) }}</td>
             <td class="operation-buttons">
-              <button
-                class="btn-stats"
-                @click="handleViewStats(campus.areaId, campus.areaName)"
-              >
-                统计
-              </button>
               <button
                 class="btn-edit"
                 @click="handleEdit(campus)"
@@ -147,9 +146,19 @@
                 required
               >
                 <option value="">请选择负责人</option>
-                <option v-for="admin in adminList" :key="admin.adminId" :value="admin">
-                  {{ admin.adminName }}
-                </option>
+                <!-- 显示空闲管理员提示 -->
+                <optgroup v-if="availableAdmins.length === 0" label="提示">
+                  <option value="" disabled>当前无空闲区域管理员</option>
+                </optgroup>
+                <optgroup label="空闲区域管理员" v-else>
+                  <option
+                    v-for="admin in availableAdmins"
+                    :key="admin.adminId"
+                    :value="admin"
+                  >
+                    {{ admin.adminName }} ({{ admin.phone }})
+                  </option>
+                </optgroup>
               </select>
             </div>
             <div class="form-item">
@@ -321,7 +330,7 @@ interface AreaDeviceStatsVO {
 // 响应式数据
 const campusList = ref<Area[]>([]) // 所有校区列表
 const cityList = ref<Area[]>([]) // 所有市区列表
-const adminList = ref<Admin[]>([])
+const allAdminList = ref<Admin[]>([]) // 所有区域管理员列表
 const selectedManager = ref<Admin | null>(null)
 const selectedCityFilter = ref('') // 新增：筛选用的市区ID
 const selectedCampus = ref('')
@@ -350,6 +359,25 @@ const formData = ref<Area>({
   managerPhone: '',
   createdTime: undefined,
   updatedTime: undefined
+})
+
+// 计算属性：获取所有校区的负责人ID列表
+const assignedManagerIds = computed(() => {
+  return campusList.value.map(campus => campus.manager)
+})
+
+// 计算属性：获取空闲管理员（未分配校区的区域管理员）
+const availableAdmins = computed(() => {
+  return allAdminList.value.filter(admin =>
+    !assignedManagerIds.value.includes(admin.adminId)
+  )
+})
+
+// 计算属性：获取已分配校区的管理员
+const assignedAdmins = computed(() => {
+  return allAdminList.value.filter(admin =>
+    assignedManagerIds.value.includes(admin.adminId)
+  )
 })
 
 // 格式化日期
@@ -517,7 +545,7 @@ const fetchAdminList = async () => {
       const areaAdmins = response.data.filter(admin =>
         admin.role === 'AREA_ADMIN' || admin.role === 'ROLE_AREA_ADMIN'
       )
-      adminList.value = areaAdmins
+      allAdminList.value = areaAdmins
     } else {
       console.error('获取可分配校区的区域管理员失败:', response?.msg || '未知错误')
       alert(`获取可分配校区的区域管理员失败：${response?.msg || '未知错误'}`)
@@ -575,12 +603,12 @@ const handleEdit = (campus: Area) => {
   formData.value = { ...campus }
 
   // 尝试匹配现有的负责人
-  const matchedAdmin = adminList.value.find(admin => admin.adminId === campus.manager)
+  const matchedAdmin = allAdminList.value.find(admin => admin.adminId === campus.manager)
   selectedManager.value = matchedAdmin || null
 
   // 如果没有找到匹配的管理员，尝试通过姓名匹配（兼容性处理）
   if (!selectedManager.value) {
-    const matchedByName = adminList.value.find(admin => admin.adminName === campus.manager)
+    const matchedByName = allAdminList.value.find(admin => admin.adminName === campus.manager)
     selectedManager.value = matchedByName || null
   }
 
@@ -613,7 +641,7 @@ const confirmDelete = async () => {
     })
 
     if (response?.code === 200) {
-      fetchCampusList() // 重新获取列表
+      await fetchCampusList() // 重新获取列表
       showDeleteConfirm.value = false
     } else {
       const errorMsg = response?.msg || `删除失败（错误码：${response?.code || '未知'}）`
@@ -681,7 +709,7 @@ const handleSave = async () => {
       })
 
       if (response?.code === 200 && response?.data) {
-        fetchCampusList() // 重新获取列表
+        await fetchCampusList() // 重新获取列表
         showModal.value = false
       } else {
         const errorMsg = response?.msg || `更新失败（错误码：${response?.code || '未知'}）`
@@ -731,7 +759,7 @@ const handleSave = async () => {
       })
 
       if (response?.code === 200 && response?.data) {
-        fetchCampusList() // 重新获取列表
+        await fetchCampusList() // 重新获取列表
         showModal.value = false
       } else {
         const errorMsg = response?.msg || `新增失败（错误码：${response?.code || '未知'}）`
@@ -758,7 +786,7 @@ const handleSave = async () => {
 // 根据管理员ID获取管理员姓名
 const getManagerName = (managerId: string) => {
   if (!managerId) return '未分配'
-  const admin = adminList.value.find(admin => admin.adminId === managerId)
+  const admin = allAdminList.value.find(admin => admin.adminId === managerId)
   return admin ? admin.adminName : '未知负责人'
 }
 
@@ -813,7 +841,7 @@ onMounted(async () => {
   console.log('Token:', authStore.token)
   await fetchCityList() // 先加载市区列表
   await fetchAdminList() // 加载管理员列表
-  fetchCampusList() // 获取所有校区数据
+  await fetchCampusList() // 获取所有校区数据
 })
 </script>
 
@@ -846,6 +874,16 @@ onMounted(async () => {
   margin-bottom: 16px;
   flex-wrap: wrap;
   gap: 16px;
+}
+
+.no-available-admins {
+  background-color: #fffbe6;
+  border: 1px solid #ffe58f;
+  color: #faad14;
+  padding: 12px 16px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  text-align: center;
 }
 
 .btn-add {
