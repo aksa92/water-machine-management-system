@@ -51,7 +51,11 @@
             <td>{{ campus.areaName }}</td>
             <td>{{ getCityName(campus.parentAreaId) }}</td> <!-- 显示所属市区名称 -->
             <td>{{ campus.address }}</td>
-            <td>{{ getManagerName(campus.manager) }}</td>
+            <td>
+              <span v-if="managerNames[campus.areaId]">{{ managerNames[campus.areaId] }}</span>
+              <span v-else-if="loadingManagerNames.includes(campus.areaId)">加载中...</span>
+              <span v-else>未知负责人</span>
+            </td>
             <td>{{ campus.managerPhone }}</td>
             <td>{{ formatDate(campus.createdTime) }}</td>
             <td class="operation-buttons">
@@ -348,6 +352,10 @@ const saving = ref(false)   // 添加保存状态
 const deleting = ref(false) // 添加删除状态
 const loadingStats = ref(false) // 添加统计加载状态
 
+// 添加管理员姓名缓存
+const managerNames = ref<Record<string, string>>({}) // 存储管理员姓名的缓存
+const loadingManagerNames = ref<string[]>([]) // 正在加载的管理员ID
+
 // 表单数据
 const formData = ref<Area>({
   areaId: '',
@@ -420,6 +428,84 @@ const totalPages = computed(() => {
   return Math.ceil(filteredCount / pageSize.value)
 })
 
+// 异步获取管理员姓名
+const loadManagerName = async (areaId: string, managerId: string) => {
+  if (!managerId) {
+    managerNames.value[areaId] = '未分配'
+    return
+  }
+
+  // 避免重复加载
+  if (loadingManagerNames.value.includes(areaId)) return
+
+  loadingManagerNames.value.push(areaId)
+
+  try {
+    const response = await request<{
+      code: number
+      msg: string
+      data: Admin
+    }>(`/api/web/admin/${managerId}`, {
+      method: 'GET',
+    })
+
+    if (response.code === 200 && response.data) {
+      managerNames.value[areaId] = response.data.adminName
+    } else {
+      managerNames.value[areaId] = '未知负责人'
+    }
+  } catch (error) {
+    console.error('获取管理员姓名失败:', error)
+    managerNames.value[areaId] = '未知负责人'
+  } finally {
+    loadingManagerNames.value = loadingManagerNames.value.filter(id => id !== areaId)
+  }
+}
+
+// 批量加载所有管理员姓名
+const loadAllManagerNames = async () => {
+  for (const campus of campusList.value) {
+    await loadManagerName(campus.areaId, campus.manager)
+  }
+}
+
+// 更新管理员的区域ID
+const updateAdminAreaId = async (adminId: string, areaId: string) => {
+  try {
+    const response = await request<{
+      code: number
+      msg: string
+      data: Admin
+    }>('/api/web/admin/save', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authStore.token}`
+      },
+      body: JSON.stringify({
+        adminId: adminId,
+        areaId: areaId
+      })
+    });
+
+    if (response.code === 200) {
+      // 更新本地缓存
+      const adminIndex = allAdminList.value.findIndex(admin => admin.adminId === adminId);
+      if (adminIndex !== -1) {  // 确保索引有效
+        const admin = allAdminList.value[adminIndex];
+        if (admin) {  // 确保元素存在
+          admin.areaId = areaId;
+        }
+      }
+      console.log('管理员区域ID更新成功');
+    } else {
+      console.error('更新管理员区域ID失败:', response.msg);
+    }
+  } catch (error) {
+    console.error('更新管理员区域ID请求失败:', error);
+  }
+}
+
 // 获取所有校区列表（通过多次调用市区接口获取所有校区）
 const fetchCampusList = async () => {
   loading.value = true
@@ -472,6 +558,9 @@ const fetchCampusList = async () => {
     }
 
     campusList.value = allCampuses
+
+    // 加载所有管理员姓名
+    await loadAllManagerNames()
   } catch (error: any) {
     console.error('请求异常:', error)
     const errorMsg = error.message.includes('401') || error.message.includes('403')
@@ -562,11 +651,14 @@ const fetchAdminList = async () => {
 }
 
 
-// 处理负责人选择变化 - 修改为传递管理员ID而不是姓名
-const onManagerChange = () => {
+// 处理负责人选择变化 - 修改为传递管理员ID而不是姓名，但不在此处更新管理员的areaId
+const onManagerChange = async () => {
   if (selectedManager.value) {
     formData.value.manager = selectedManager.value.adminId // 传递管理员ID而非姓名
     formData.value.managerPhone = selectedManager.value.phone
+
+    // 在负责人选择变化时，不立即更新管理员的areaId，因为此时校区的areaId可能还未确定
+    // 管理员的areaId将在校区保存成功后更新
   } else {
     formData.value.manager = ''
     formData.value.managerPhone = ''
@@ -610,6 +702,11 @@ const handleEdit = (campus: Area) => {
   if (!selectedManager.value) {
     const matchedByName = allAdminList.value.find(admin => admin.adminName === campus.manager)
     selectedManager.value = matchedByName || null
+  }
+
+  // 确保管理员的areaId与校区一致
+  if (selectedManager.value && campus.areaId) {
+    selectedManager.value.areaId = campus.areaId;
   }
 
   showModal.value = true
@@ -699,6 +796,7 @@ const handleSave = async () => {
           'Authorization': `Bearer ${authStore.token}` // 添加认证头
         },
         body: JSON.stringify({
+          areaId: formData.value.areaId,
           areaName: formData.value.areaName,
           areaType: 'campus',
           parentAreaId: formData.value.parentAreaId,
@@ -709,6 +807,10 @@ const handleSave = async () => {
       })
 
       if (response?.code === 200 && response?.data) {
+        // 更新管理员的areaId
+        if (selectedManager.value && response.data.areaId) {
+          await updateAdminAreaId(selectedManager.value.adminId, response.data.areaId);
+        }
         await fetchCampusList() // 重新获取列表
         showModal.value = false
       } else {
@@ -759,6 +861,10 @@ const handleSave = async () => {
       })
 
       if (response?.code === 200 && response?.data) {
+        // 更新管理员的areaId - 使用响应中的areaId
+        if (selectedManager.value && response.data.areaId) {
+          await updateAdminAreaId(selectedManager.value.adminId, response.data.areaId);
+        }
         await fetchCampusList() // 重新获取列表
         showModal.value = false
       } else {
@@ -783,7 +889,7 @@ const handleSave = async () => {
 }
 
 
-// 根据管理员ID获取管理员姓名
+// 根据管理员ID获取管理员姓名 - 使用后端接口
 const getManagerName = (managerId: string) => {
   if (!managerId) return '未分配'
   const admin = allAdminList.value.find(admin => admin.adminId === managerId)
