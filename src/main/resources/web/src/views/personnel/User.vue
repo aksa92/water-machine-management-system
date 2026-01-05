@@ -1,4 +1,3 @@
-<!-- src/views/personnel/User.vue -->
 <template>
   <div class="user-page">
     <!-- 页面标题和面包屑 -->
@@ -50,16 +49,10 @@
             </td>
             <td class="operation-buttons">
               <button
-                class="btn-view"
-                @click="handleView(user.studentId)"
+                class="btn-delete"
+                @click="handleDelete(user.studentId, user.studentName)"
               >
-                查看
-              </button>
-              <button
-                class="btn-edit"
-                @click="handleEdit(user.studentId)"
-              >
-                编辑
+                删除
               </button>
             </td>
           </tr>
@@ -68,6 +61,26 @@
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- 删除确认弹窗 -->
+    <div class="modal" v-if="showDeleteModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>确认删除</h3>
+          <button class="close-btn" @click="closeDeleteModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p>确定要删除用户 <strong>{{ deleteUserName }}</strong> 吗？</p>
+          <p>此操作不可撤销，删除后用户信息将永久丢失。</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" @click="closeDeleteModal">取消</button>
+          <button class="btn-confirm-delete" @click="confirmDelete" :disabled="deleteLoading">
+            {{ deleteLoading ? '删除中...' : '确认删除' }}
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- 分页控件 -->
@@ -94,10 +107,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { request } from '@/api/request'
-import { useAuthStore } from '@/stores/auth'
+import {computed, onMounted, ref} from 'vue'
+import {request} from '@/api/request'
+import {useAuthStore} from '@/stores/auth'
 
 // 用户状态类型
 type UserStatus = 'active' | 'inactive'
@@ -111,7 +123,6 @@ interface User {
 }
 
 const authStore = useAuthStore()
-const router = useRouter()
 
 // 响应式数据
 const users = ref<User[]>([])
@@ -120,6 +131,12 @@ const currentPage = ref(1)
 const pageSize = 10
 const loading = ref(false)
 
+// 删除相关状态
+const showDeleteModal = ref(false)
+const deleteUserId = ref('')
+const deleteUserName = ref('')
+const deleteLoading = ref(false)
+
 // 获取用户列表
 const fetchUserList = async () => {
   loading.value = true
@@ -127,7 +144,7 @@ const fetchUserList = async () => {
     // 检查是否有token
     if (!authStore.token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      window.location.href = '/login' // 简单跳转到登录页
       return
     }
 
@@ -166,7 +183,7 @@ const fetchUserList = async () => {
     // Token 无效时跳转登录页
     if (error.message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      window.location.href = '/login'
     }
   } finally {
     loading.value = false
@@ -176,9 +193,8 @@ const fetchUserList = async () => {
 // 筛选后的用户列表
 const filteredUsers = computed(() => {
   return users.value.filter(user => {
-    const keywordMatch = searchKeyword.value.trim() === '' ||
-      user.studentName.toLowerCase().includes(searchKeyword.value.toLowerCase())
-    return keywordMatch
+    return searchKeyword.value.trim() === '' ||
+        user.studentName.toLowerCase().includes(searchKeyword.value.toLowerCase())
   })
 })
 
@@ -204,14 +220,60 @@ onMounted(() => {
   fetchUserList()
 })
 
-// 查看用户详情
-const handleView = (id: string) => {
-  router.push(`/home/personnel/user/view/${id}`)
+// 删除用户 - 显示确认弹窗
+const handleDelete = (id: string, name: string) => {
+  deleteUserId.value = id
+  deleteUserName.value = name
+  showDeleteModal.value = true
 }
 
-// 编辑用户
-const handleEdit = (id: string) => {
-  router.push(`/home/personnel/user/edit/${id}`)
+// 确认删除用户
+const confirmDelete = async () => {
+  deleteLoading.value = true
+  try {
+    // 发送删除请求
+    const response = await request<{
+      code: number
+      msg: string
+      data: null
+    }>(`/api/web/user/${deleteUserId.value}`, {
+      method: 'DELETE'
+    })
+
+    if (response.code === 200) {
+      // 删除成功，刷新列表
+      showDeleteModal.value = false
+      await fetchUserList()
+      alert('用户删除成功')
+    } else {
+      const errorMsg = response.msg || `删除失败（错误码：${response.code}）`
+      console.error('删除用户失败:', errorMsg)
+      alert(`删除用户失败：${errorMsg}`)
+    }
+  } catch (error: any) {
+    console.error('删除请求异常:', error)
+    const errorMsg = error.message.includes('401')
+        ? '登录已过期，请重新登录'
+        : error.message.includes('Network')
+            ? '网络连接失败，请检查网络'
+            : error.message || '删除失败，请稍后重试'
+    alert(`删除用户失败：${errorMsg}`)
+
+    // Token 无效时跳转登录页
+    if (error.message.includes('401')) {
+      authStore.logout()
+      window.location.href = '/login'
+    }
+  } finally {
+    deleteLoading.value = false
+  }
+}
+
+// 关闭删除确认弹窗
+const closeDeleteModal = () => {
+  showDeleteModal.value = false
+  deleteUserId.value = ''
+  deleteUserName.value = ''
 }
 </script>
 
@@ -290,23 +352,6 @@ const handleEdit = (id: string) => {
 }
 
 /* 状态标签样式 */
-.status-tag {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.status-tag.active {
-  background-color: #e6f7ee;
-  color: #00875a;
-}
-
-.status-tag.inactive {
-  background-color: #f5f5f5;
-  color: #8c8c8c;
-}
 
 /* 角色标签样式 */
 .role-tag {
@@ -340,14 +385,9 @@ const handleEdit = (id: string) => {
   opacity: 0.9;
 }
 
-.btn-view {
-  background-color: #f6f7ff;
-  color: #667eea;
-}
-
-.btn-edit {
-  background-color: #e6f7ff;
-  color: #1890ff;
+.btn-delete {
+  background-color: #ffe6e6;
+  color: #ff4d4f;
 }
 
 .no-data {
@@ -379,6 +419,107 @@ const handleEdit = (id: string) => {
   cursor: not-allowed;
 }
 
+/* 删除确认弹窗样式 */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 8px;
+  width: 450px;
+  max-width: 90%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: #999;
+}
+
+.close-btn:hover {
+  color: #333;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-body p {
+  margin: 0 0 10px 0;
+  color: #666;
+  line-height: 1.5;
+}
+
+.modal-body p:last-child {
+  margin-bottom: 0;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.btn-cancel {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #666;
+}
+
+.btn-cancel:hover {
+  background: #f5f5f5;
+}
+
+.btn-confirm-delete {
+  padding: 8px 16px;
+  border: none;
+  background: #ff4d4f;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-confirm-delete:hover {
+  background: #ff7875;
+}
+
+.btn-confirm-delete:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
 /* 响应式调整 */
 @media (max-width: 768px) {
   .action-bar {
@@ -392,6 +533,14 @@ const handleEdit = (id: string) => {
 
   .search-box input {
     width: 100%;
+  }
+
+  .operation-buttons {
+    flex-wrap: wrap;
+  }
+
+  .modal-content {
+    width: 90%;
   }
 }
 </style>

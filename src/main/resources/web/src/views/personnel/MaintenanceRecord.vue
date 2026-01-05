@@ -1,4 +1,3 @@
-<!-- src/views/personnel/MaintenanceRecord.vue -->
 <template>
   <div class="record-page">
     <!-- 页面标题和面包屑 -->
@@ -8,12 +7,11 @@
     </div>
 
     <!-- 返回按钮 -->
-   <div class="back-button">
-   <button @click="goBack" class="btn-back">
-      ← 返回维修人员列表
-    </button>
-   </div>
-
+    <div class="back-button">
+      <button @click="goBack" class="btn-back">
+        ← 返回维修人员列表
+      </button>
+    </div>
 
     <!-- 维修人员信息 -->
     <div class="repairman-info card">
@@ -105,7 +103,7 @@
             </td>
             <td>{{ formatDate(order.createdTime) }}</td>
             <td class="operation-buttons">
-              <button class="btn-view" @click="viewOrderDetail(order.orderId)">
+              <button class="btn-view" @click="showOrderDetail(order)">
                 查看详情
               </button>
             </td>
@@ -137,6 +135,71 @@
         下一页
       </button>
     </div>
+
+    <!-- 工单详情弹窗 -->
+    <div v-if="showDetailModal" class="modal-overlay" @click="closeDetailModal">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>工单详情</h3>
+          <button class="close-btn" @click="closeDetailModal">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="order-detail-info">
+            <div class="info-row">
+              <span class="info-label">工单号：</span>
+              <span>{{ currentOrder.orderId }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">设备ID：</span>
+              <span>{{ currentOrder.deviceId }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">片区：</span>
+              <span>{{ currentOrder.areaId }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">工单类型：</span>
+              <span>{{ formatOrderType(currentOrder.orderType) }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">状态：</span>
+              <span :class="`status-tag ${currentOrder.status}`">
+                {{ formatOrderStatus(currentOrder.status) }}
+              </span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">创建时间：</span>
+              <span>{{ formatDate(currentOrder.createdTime) }}</span>
+            </div>
+            <div class="info-row" v-if="currentOrder.grabbedTime">
+              <span class="info-label">抢单时间：</span>
+              <span>{{ formatDate(currentOrder.grabbedTime) }}</span>
+            </div>
+            <div class="info-row" v-if="currentOrder.completedTime">
+              <span class="info-label">完成时间：</span>
+              <span>{{ formatDate(currentOrder.completedTime) }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">问题描述：</span>
+              <div class="description-content">{{ currentOrder.description }}</div>
+            </div>
+            <div class="info-row" v-if="currentOrder.dealNote">
+              <span class="info-label">处理结果：</span>
+              <div class="deal-note-content">{{ currentOrder.dealNote }}</div>
+            </div>
+            <div class="info-row" v-if="currentOrder.imgUrl">
+              <span class="info-label">处理图片：</span>
+              <div class="image-container">
+                <img :src="currentOrder.imgUrl" alt="维修图片" class="work-image">
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-close" @click="closeDetailModal">关闭</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -146,6 +209,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { request } from '@/api/request'
 import { useAuthStore } from '@/stores/auth'
 import type { WorkOrder } from '@/api/types/workorder'
+import type {ResultVO} from "@/api/types/auth"
 
 // 定义接口
 interface RepairmanInfo {
@@ -156,10 +220,19 @@ interface RepairmanInfo {
   status: RepairmanStatus // 明确指定枚举类型
 }
 
+interface MaintenanceStaff {
+   repairmanId: string
+   repairmanName: string
+   phone: string
+   areaId: string
+   status: RepairmanStatus
+ }
 
 // 枚举类型
 type OrderStatus = 'pending' | 'processing' | 'reviewing' | 'completed' | 'timeout'
 type RepairmanStatus = 'idle' | 'busy' | 'vacation'
+type OrderType = 'repair' | 'maintenance' | 'inspection'
+type OrderPriority = 'low' | 'medium' | 'high' | 'urgent'
 
 const route = useRoute()
 const router = useRouter()
@@ -180,6 +253,28 @@ const currentPage = ref(1)
 const pageSize = 10
 const loading = ref(false)
 
+// 弹窗相关数据
+const showDetailModal = ref(false)
+const currentOrder = ref<WorkOrder>({
+  orderId: '',
+  deviceId: '',
+  areaId: '',
+  orderType: 'repair',
+  description: '',
+  priority: 'medium',
+  status: 'pending',
+  assignedRepairmanId: '',
+  createdTime: undefined,
+  grabbedTime: undefined,
+  deadline: undefined,
+  completedTime: undefined,
+  dealNote: '',
+  imgUrl: '',
+  createdBy: '',
+  updatedTime: undefined,
+  alertId: undefined
+})
+
 // 获取维修人员信息和工单数据
 const fetchRepairmanData = async () => {
   loading.value = true
@@ -187,22 +282,40 @@ const fetchRepairmanData = async () => {
     const token = authStore.token
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
     const repairmanId = route.params.id as string
 
-    // 这里需要调用获取维修人员信息的接口（如果有的话）
-    // 暂时先设置一个默认值
-    repairmanInfo.value.repairmanId = repairmanId
-    repairmanInfo.value.repairmanName = '维修人员姓名'
-    repairmanInfo.value.phone = '13800138000'
-    repairmanInfo.value.areaId = '市区'
-    repairmanInfo.value.status = 'idle'
+    // 首先获取维修人员详细信息
+    const repairmanResponse = await request<ResultVO<MaintenanceStaff>>(
+      `/api/web/repairman/${repairmanId}`,
+      {
+        method: 'GET'
+      }
+    )
+
+    if (repairmanResponse.code === 200 && repairmanResponse.data) {
+      // 将返回的维修人员信息赋值给 repairmanInfo
+      repairmanInfo.value = {
+        repairmanId: repairmanResponse.data.repairmanId,
+        repairmanName: repairmanResponse.data.repairmanName,
+        phone: repairmanResponse.data.phone,
+        areaId: repairmanResponse.data.areaId,
+        status: repairmanResponse.data.status
+      }
+    } else if (repairmanResponse.code === 404) {
+      alert('维修人员不存在')
+      router.push('/home/personnel/maintenance')
+      return
+    } else {
+      console.error('获取维修人员信息失败:', repairmanResponse.message)
+      alert(`获取维修人员信息失败：${repairmanResponse.message}`)
+    }
 
     // 获取该维修人员的所有工单
-    const response = await request<{
+    const orderResponse = await request<{
       code: number
       msg: string
       data: WorkOrder[]
@@ -210,10 +323,10 @@ const fetchRepairmanData = async () => {
       method: 'GET'
     })
 
-    if (response.code === 200) {
-      allOrders.value = response.data || []
+    if (orderResponse.code === 200) {
+      allOrders.value = orderResponse.data || []
     } else {
-      const errorMsg = response.msg || `获取失败（错误码：${response.code}）`
+      const errorMsg = orderResponse.msg || `获取失败（错误码：${orderResponse.code}）`
       console.error('获取工单列表失败:', errorMsg)
       alert(`获取工单列表失败：${errorMsg}`)
     }
@@ -228,7 +341,7 @@ const fetchRepairmanData = async () => {
 
     if (error.message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   } finally {
     loading.value = false
@@ -291,13 +404,34 @@ const getStatusText = (status: RepairmanStatus): string => {
 // 格式化工单状态显示
 const formatOrderStatus = (status: OrderStatus): string => {
   const statusMap: Record<OrderStatus, string> = {
-    'pending': '待抢单',
+    'pending': '待处理',
     'processing': '处理中',
     'reviewing': '待审核',
     'completed': '已完成',
-    'timeout': '超时未抢'
+    'timeout': '超时'
   }
   return statusMap[status] || status
+}
+
+// 格式化工单类型
+const formatOrderType = (type: OrderType): string => {
+  const typeMap: Record<OrderType, string> = {
+    'repair': '维修',
+    'maintenance': '保养',
+    'inspection': '巡检'
+  }
+  return typeMap[type] || type
+}
+
+// 格式化工单优先级
+const formatOrderPriority = (priority: OrderPriority): string => {
+  const priorityMap: Record<OrderPriority, string> = {
+    'low': '低',
+    'medium': '中',
+    'high': '高',
+    'urgent': '紧急'
+  }
+  return priorityMap[priority] || priority
 }
 
 // 格式化日期
@@ -307,10 +441,35 @@ const formatDate = (dateString?: string): string => {
   return date.toLocaleString('zh-CN')
 }
 
-// 查看工单详情
-const viewOrderDetail = (orderId: string) => {
-  // 跳转到工单详情页面（需要根据实际路由调整）
-  router.push(`/home/work-order/detail/${orderId}`)
+// 显示工单详情弹窗
+const showOrderDetail = (order: WorkOrder) => {
+  currentOrder.value = { ...order } // 深拷贝工单数据
+  showDetailModal.value = true
+}
+
+// 关闭工单详情弹窗
+const closeDetailModal = () => {
+  showDetailModal.value = false
+  // 重置当前订单
+  currentOrder.value = {
+    orderId: '',
+    deviceId: '',
+    areaId: '',
+    orderType: 'repair',
+    description: '',
+    priority: 'medium',
+    status: 'pending',
+    assignedRepairmanId: '',
+    createdTime: undefined,
+    grabbedTime: undefined,
+    deadline: undefined,
+    completedTime: undefined,
+    dealNote: '',
+    imgUrl: '',
+    createdBy: '',
+    updatedTime: undefined,
+    alertId: undefined
+  }
 }
 
 // 返回上一页
@@ -318,9 +477,7 @@ const goBack = () => {
   router.back()
 }
 
-
 // 页面加载时获取数据
-// MaintenanceRecord.vue
 onMounted(() => {
   const repairmanId = route.params.id as string
   if (!repairmanId) {
@@ -331,7 +488,6 @@ onMounted(() => {
 
   fetchRepairmanData()
 })
-
 </script>
 
 <style scoped>
@@ -433,11 +589,6 @@ onMounted(() => {
   transition: all 0.3s;
 }
 
-.order-tabs button.active {
-  background: #42b983;
-  color: white;
-}
-
 .order-table {
   width: 100%;
   border-collapse: collapse;
@@ -466,54 +617,6 @@ onMounted(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.status-tag {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.status-tag.pending {
-  background-color: #fff7e6;
-  color: #d48806;
-}
-
-.status-tag.processing {
-  background-color: #e6f7ff;
-  color: #1890ff;
-}
-
-.status-tag.reviewing {
-  background-color: #f6f7ff;
-  color: #667eea;
-}
-
-.status-tag.completed {
-  background-color: #e6f7ee;
-  color: #00875a;
-}
-
-.status-tag.timeout {
-  background-color: #ffebe6;
-  color: #cf1322;
-}
-
-.status-tag.idle {
-  background-color: #e6f7ee;
-  color: #00875a;
-}
-
-.status-tag.busy {
-  background-color: #fffbe6;
-  color: #d48806;
-}
-
-.status-tag.vacation {
-  background-color: #f0f0f0;
-  color: #8c8c8c;
 }
 
 .operation-buttons {
@@ -565,6 +668,183 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
+/* 弹窗样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 8px;
+  width: 600px;
+  max-width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+  padding: 4px;
+}
+
+.close-btn:hover {
+  color: #333;
+}
+
+.modal-body {
+  padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.modal-footer {
+  padding: 16px 20px;
+  border-top: 1px solid #eee;
+  text-align: right;
+}
+
+.btn-close {
+  background: #f0f0f0;
+  color: #333;
+  border: 1px solid #ddd;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn-close:hover {
+  background: #e0e0e0;
+}
+
+.order-detail-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.info-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.info-label {
+  font-weight: 500;
+  color: #666;
+  min-width: 100px;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.description-content,
+.deal-note-content {
+  flex: 1;
+  padding: 8px;
+  background-color: #fafafa;
+  border-radius: 4px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.priority-tag,
+.status-tag {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.priority-tag.low {
+  background-color: #f6ffed;
+  color: #52c41a;
+}
+
+.priority-tag.medium {
+  background-color: #e6f7ff;
+  color: #1890ff;
+}
+
+.priority-tag.high {
+  background-color: #fffbe6;
+  color: #d48806;
+}
+
+.priority-tag.urgent {
+  background-color: #fff2f0;
+  color: #ff4d4f;
+}
+
+.status-tag.pending {
+  background-color: #e6f7ff;
+  color: #1890ff;
+}
+
+.status-tag.processing {
+  background-color: #fffbe6;
+  color: #d48806;
+}
+
+.status-tag.reviewing {
+  background-color: #f6ffed;
+  color: #52c41a;
+}
+
+.status-tag.completed {
+  background-color: #f0f0f0;
+  color: #8c8c8c;
+}
+
+.status-tag.timeout {
+  background-color: #fff2f0;
+  color: #ff4d4f;
+}
+
+.image-container {
+  margin-top: 8px;
+  flex: 1;
+}
+
+.work-image {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
 /* 响应式调整 */
 @media (max-width: 768px) {
   .order-stats {
@@ -581,21 +861,33 @@ onMounted(() => {
   }
 
   .btn-back {
-  background: #f0f0f0;
-  color: #333;
-  border: 1px solid #ddd;
-  padding: 8px 16px;
-  border-radius: 4px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.3s;
-}
+    background: #f0f0f0;
+    color: #333;
+    border: 1px solid #ddd;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
 
-.btn-back:hover {
-  background: #e0e0e0;
-  border-color: #bbb;
-}
+  .btn-back:hover {
+    background: #e0e0e0;
+    border-color: #bbb;
+  }
 
+  .modal-content {
+    width: 95%;
+    margin: 20px;
+  }
 
+  .info-row {
+    flex-direction: column;
+  }
+
+  .info-label {
+    min-width: auto;
+    margin-bottom: 4px;
+  }
 }
 </style>

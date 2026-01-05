@@ -31,5 +31,20 @@ export default defineConfig({
         port: 5173, // Vite默认端口
         // 可选：自动打开浏览器
         open: true
+    },
+        // ✅ 添加生产配置
+    base: './', // 使用相对路径，重要！
+    build: {
+        outDir: 'dist',
+        assetsDir: 'assets',
+        sourcemap: false, // 生产环境关闭sourcemap
+        rollupOptions: {
+            output: {
+                // 代码分割配置
+                manualChunks: {
+                    vendor: ['vue', 'vue-router'], // 第三方库
+                }
+            }
+        }
     }
 })

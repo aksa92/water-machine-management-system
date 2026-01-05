@@ -20,37 +20,48 @@ export const useAuthStore = defineStore('auth', () => {
 
     // 真实登录接口调用
     const login = async (loginData: LoginRequest) => {
-        try {
-            // 调用真实后端接口
-            const response: ResultVO<LoginVO> = await authApi.login(loginData)
+    try {
+        const response: ResultVO<LoginVO> = await authApi.login(loginData)
 
-            // 检查响应状态
-            if (response.code !== 200) {
-                throw new Error(response.message || '登录失败')
-            }
-
-            // 保存 token 和用户信息
-            token.value = response.data.token
-            userInfo.value = response.data.userInfo
-            isLoggedIn.value = true
-
-            // 存储到 localStorage（如果用户选择记住我）
-            if (loginData.rememberMe) {
-                localStorage.setItem('token', response.data.token)
-                localStorage.setItem('userInfo', JSON.stringify(response.data.userInfo))
-                localStorage.setItem('rememberMe', 'true')
-            } else {
-                sessionStorage.setItem('token', response.data.token)
-                sessionStorage.setItem('userInfo', JSON.stringify(response.data.userInfo))
-                localStorage.removeItem('rememberMe')
-            }
-
-            return response
-        } catch (error: any) {
-            console.error('登录失败:', error)
-            throw error
+        if (response.code !== 200 || !response.data) {
+            throw new Error(response.message || '登录失败')
         }
+
+        // 直接使用后端返回的数据结构
+        const responseData = response.data
+
+        if (!responseData.token) {
+            throw new Error('登录响应数据不完整')
+        }
+
+        // 转换后端数据结构为前端期望的格式
+        token.value = responseData.token
+        userInfo.value = {
+            id: parseInt(responseData.userId) || 0,
+            username: responseData.username,
+            role: responseData.userType,
+            areaId: responseData.areaId
+        }
+        isLoggedIn.value = true
+
+        // 存储到 localStorage（如果用户选择记住我）
+        if (loginData.rememberMe) {
+            localStorage.setItem('token', responseData.token)
+            localStorage.setItem('userInfo', JSON.stringify(userInfo.value))
+            localStorage.setItem('rememberMe', 'true')
+        } else {
+            sessionStorage.setItem('token', responseData.token)
+            sessionStorage.setItem('userInfo', JSON.stringify(userInfo.value))
+            localStorage.removeItem('rememberMe')
+        }
+
+        return response
+    } catch (error: any) {
+        console.error('登录失败:', error)
+        throw error
     }
+}
+
 
     // 退出登录
     const logout = () => {

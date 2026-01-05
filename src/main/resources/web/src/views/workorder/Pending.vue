@@ -20,15 +20,18 @@
         >
       </div>
 
-      <!-- 片区筛选 -->
+      <!-- 校区筛选 -->
       <div class="filter-item">
-        <label>所属片区：</label>
+        <label>所属校区：</label>
         <select v-model="filterForm.area" class="filter-select" @change="handleFilter">
-          <option value="">全部片区</option>
-          <option value="A">A</option>
-          <option value="B">B</option>
-          <option value="C">C</option>
-          <option value="D">D</option>
+          <option value="">全部校区</option>
+          <option
+            v-for="areaOption in areaOptions"
+            :key="areaOption"
+            :value="areaOption"
+          >
+            {{ areaOption }}
+          </option>
         </select>
       </div>
 
@@ -54,7 +57,7 @@
         <tr>
           <th>工单号</th>
           <th>设备</th>
-          <th>片区</th>
+          <th>校区</th>
           <th>问题描述</th>
           <th>状态</th>
           <th>创建时间</th>
@@ -66,7 +69,6 @@
           <td>{{ order.orderNo }}</td>
           <td>
             <div class="device-info">
-              <div class="device-type">{{ order.deviceType }}</div>
               <div class="device-id">{{ order.deviceId }}</div>
             </div>
           </td>
@@ -183,7 +185,7 @@ interface ToClaimOrder {
   orderNo: string
   deviceType: string // 设备机型（制水机/供水机）
   deviceId: string // 设备ID
-  area: string // 所属片区
+  area: string // 所属校区
   problemDesc: string // 问题描述（警告内容）
   status: OrderStatus // 工单状态
   createTime: string // 创建时间（建单时间）
@@ -204,13 +206,24 @@ const searchKeyword = ref('')
 
 // 筛选表单数据
 const filterForm = ref({
-  area: '', // 片区筛选
+  area: '', // 校区筛选
   createDate: '' // 日期筛选
 })
 
 // 弹窗相关状态
 const showDetailModal = ref(false)
 const currentOrder = ref<ToClaimOrder | null>(null)
+
+// 计算所有唯一的校区选项
+const areaOptions = computed(() => {
+  const areas = new Set<string>()
+  orders.value.forEach(order => {
+    if (order.area) {
+      areas.add(order.area)
+    }
+  })
+  return Array.from(areas).sort()
+})
 
 // 格式化状态显示 - 适配后端状态枚举
 const formatStatus = (status: OrderStatus): string => {
@@ -241,10 +254,6 @@ const loadAvailableOrders = async () => {
     let url = ''
     const params = new URLSearchParams()
 
-    // 获取用户信息中的 areaId
-    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
-    const areaId = filterForm.value.area || userInfo.areaId || ''
-
     // 判断是否启用时间筛选
     if (filterForm.value.createDate) {
       // 使用 by-time-range 接口进行更精确的时间筛选
@@ -257,16 +266,11 @@ const loadAvailableOrders = async () => {
 
       params.append('startTime', startDate.toISOString())
       params.append('endTime', endDate.toISOString())
-
-      if (areaId) {
-        params.append('areaId', areaId)
-      }
+      params.append('status', 'pending') // 添加状态筛选
     } else {
-      // 默认使用 available 接口
+      // 默认使用 available 接口，不传递校区参数
       url = '/api/work-orders/available'
-      if (areaId) {
-        params.append('areaId', areaId)
-      }
+      params.append('status', 'pending')
     }
 
     const queryString = params.toString()
@@ -288,7 +292,7 @@ const loadAvailableOrders = async () => {
         orderNo: order.orderId || '',
         deviceType: '未知设备',
         deviceId: order.deviceId || '',
-        area: order.areaId || '',
+        area: order.areaName || order.areaId || '', // 使用 areaName，如果不存在则使用 areaId
         problemDesc: order.description || '暂无描述',
         status: order.status || 'pending',
         createTime: order.createdTime ? new Date(order.createdTime).toLocaleString('zh-CN') : '未知时间',
@@ -324,12 +328,8 @@ const filteredOrders = computed(() => {
         order.orderNo.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
         order.deviceId.toLowerCase().includes(searchKeyword.value.toLowerCase())
 
-    // 片区筛选
+    // 校区筛选（现在是校区名筛选）
     const areaMatch = filterForm.value.area === '' || order.area === filterForm.value.area
-
-    // 日期筛选（匹配日期部分，忽略时间）
-   // const dateMatch = filterForm.value.createDate === '' ||
-     //   order.createTime.split(' ')[0] === filterForm.value.createDate
 
     return keywordMatch && areaMatch
   })
@@ -354,10 +354,14 @@ const handleSearch = () => {
   // 目前是前端筛选，如果数据量大，建议调用后端搜索接口
 }
 
-// 处理筛选（片区/日期）
+// 处理筛选（校区/日期）
 const handleFilter = () => {
   currentPage.value = 1 // 筛选后重置到第一页
-  loadAvailableOrders() // 重新加载数据
+  // 如果是日期筛选，需要重新加载数据；如果是校区筛选，只需重新计算筛选结果
+  if (filterForm.value.createDate) {
+    loadAvailableOrders() // 日期筛选需要重新加载数据
+  }
+  // 校区筛选不需要重新加载数据，因为是在前端筛选
 }
 
 // 重置筛选条件
@@ -368,7 +372,7 @@ const resetFilter = () => {
     createDate: ''
   }
   currentPage.value = 1
-  loadAvailableOrders()
+  loadAvailableOrders() // 重置后重新加载所有数据
 }
 
 // 查看工单详情（打开弹窗）

@@ -1,4 +1,3 @@
-<!-- src/views/workorder/Completed.vue -->
 <template>
   <div class="order-completed-page">
     <!-- 页面标题和面包屑 -->
@@ -21,15 +20,25 @@
         >
       </div>
 
-      <!-- 片区筛选 -->
+      <!-- 市区筛选 -->
       <div class="filter-item">
-        <label>所属片区：</label>
-        <select v-model="filterForm.area" class="filter-select" @change="handleFilter">
-          <option value="">全部片区</option>
-          <option value="A">A</option>
-          <option value="B">B</option>
-          <option value="C">C</option>
-          <option value="D">D</option>
+        <label>所属市区：</label>
+        <select v-model="filterForm.cityId" class="filter-select" @change="onCityChange">
+          <option value="">全部市区</option>
+          <option v-for="city in cityList" :key="city.areaId" :value="city.areaId">
+            {{ city.areaName }}
+          </option>
+        </select>
+      </div>
+
+      <!-- 校区筛选 -->
+      <div class="filter-item" v-if="filterForm.cityId">
+        <label>所属校区：</label>
+        <select v-model="filterForm.campusId" class="filter-select" @change="handleFilter">
+          <option value="">全部校区</option>
+          <option v-for="campus in campusList" :key="campus.areaId" :value="campus.areaId">
+            {{ campus.areaName }}
+          </option>
         </select>
       </div>
 
@@ -55,7 +64,7 @@
           <tr>
             <th>工单号</th>
             <th>设备</th>
-            <th>片区</th>
+            <th>校区</th>
             <th>问题描述</th>
             <th>状态</th>
             <th>创建时间</th>
@@ -67,11 +76,10 @@
             <td>{{ order.orderNo }}</td>
             <td>
               <div class="device-info">
-                <div class="device-type">{{ order.deviceType }}</div>
                 <div class="device-id">{{ order.deviceId }}</div>
               </div>
             </td>
-            <td>{{ order.area }}</td>
+            <td>{{ order.campusName }}</td>
             <td class="desc-cell">{{ order.problemDesc }}</td>
             <td>
               <span :class="`status-tag ${order.status}`">
@@ -116,7 +124,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { request } from '@/api/request'
 import { useAuthStore } from '@/stores/auth'
@@ -125,19 +133,30 @@ import { useAuthStore } from '@/stores/auth'
 type OrderStatus = 'timeout' | 'pending' | 'processing' | 'reviewing' | 'completed'
 
 // 工单数据接口
-interface CompletedOrder {
+interface WorkOrder {
   id: string
   orderNo: string
   deviceType: string // 设备机型（制水机/供水机）
   deviceId: string // 设备ID
-  area: string // 所属片区
+  areaId: string // 工单所属区域ID（实际上为校区名称）
+  campusName?: string // 校区名称
   problemDesc: string // 问题描述
   status: OrderStatus // 工单状态
   createTime: string // 创建时间
 }
 
+// 片区数据接口
+interface Area {
+  areaId: string
+  areaName: string
+  areaType: 'zone' | 'campus' // 片区类型：zone=市区，campus=校园
+  parentAreaId?: string // 父级片区ID
+}
+
 // 响应式数据
-const orders = ref<CompletedOrder[]>([])
+const orders = ref<WorkOrder[]>([])
+const cityList = ref<Area[]>([]) // 市区列表
+const campusList = ref<Area[]>([]) // 校区列表
 const currentPage = ref(1)
 const pageSize = 10 // 每页显示数量
 const router = useRouter()
@@ -149,15 +168,120 @@ const searchKeyword = ref('')
 
 // 筛选表单数据
 const filterForm = ref({
-  area: '', // 片区筛选
+  cityId: '', // 市区选择（仅用于加载校区列表）
+  campusId: '', // 校区筛选
   createDate: '' // 日期筛选
 })
+
+// 加载市区列表
+const loadCityList = async () => {
+  try {
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
+    }
+
+    console.log('正在加载市区列表...')
+
+    const response = await request<{
+      code: number
+      msg: string
+      data: Area[]
+    }>('/api/web/area/cities', {
+      method: 'GET',
+    })
+
+    if (response.code === 200) {
+      cityList.value = response.data || []
+      console.log('成功加载市区列表:', cityList.value)
+    } else {
+      const errorMsg = response.msg || `获取市区失败（错误码：${response.code}）`
+      console.error('获取市区列表失败:', errorMsg)
+      alert(`获取市区列表失败：${errorMsg}`)
+    }
+  } catch (error: any) {
+    console.error('请求市区列表异常:', error)
+    console.error('错误详情:', {
+      message: error.message,
+      status: error.status,
+      response: error.response
+    })
+
+    const errorMsg = error.message.includes('401') || error.message.includes('403')
+        ? '权限不足或登录已过期，请重新登录'
+        : error.message.includes('Network')
+            ? '网络连接失败，请检查网络'
+            : error.message || '获取市区列表失败，请稍后重试'
+    alert(`获取市区列表失败：${errorMsg}`)
+
+    if (error.message.includes('401') || error.message.includes('403')) {
+      authStore.logout()
+      router.push('/login')
+    }
+  }
+}
+
+// 根据市区ID加载校区列表
+const loadCampusList = async (cityId: string) => {
+  if (!cityId) {
+    campusList.value = []
+    return
+  }
+
+  try {
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      router.push('/login')
+      return
+    }
+
+    console.log('正在加载校区列表...', cityId)
+
+    const response = await request<{
+      code: number
+      msg: string
+      data: Area[]
+    }>(`/api/web/area/campuses/${cityId}`, {
+      method: 'GET',
+    })
+
+    if (response.code === 200) {
+      campusList.value = response.data || []
+      console.log('成功加载校区列表:', campusList.value)
+    } else {
+      const errorMsg = response.msg || `获取校区失败（错误码：${response.code}）`
+      console.error('获取校区列表失败:', errorMsg)
+      alert(`获取校区列表失败：${errorMsg}`)
+    }
+  } catch (error: any) {
+    console.error('请求校区列表异常:', error)
+    console.error('错误详情:', {
+      message: error.message,
+      status: error.status,
+      response: error.response
+    })
+
+    const errorMsg = error.message.includes('401') || error.message.includes('403')
+        ? '权限不足或登录已过期，请重新登录'
+        : error.message.includes('Network')
+            ? '网络连接失败，请检查网络'
+            : error.message || '获取校区列表失败，请稍后重试'
+    alert(`获取校区列表失败：${errorMsg}`)
+
+    if (error.message.includes('401') || error.message.includes('403')) {
+      authStore.logout()
+      router.push('/login')
+    }
+  }
+}
 
 // 加载已结单工单数据
 const loadCompletedOrders = async () => {
   loading.value = true
   try {
-    // 检查 Token 是否存在
     const token = authStore.token
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
@@ -167,39 +291,10 @@ const loadCompletedOrders = async () => {
 
     console.log('当前 Token:', token.substring(0, 20) + '...')
 
-    // 判断是否启用时间筛选
-    let url = ''
+    // 构建请求参数
+    let url = '/api/work-orders/by-status'
     const params = new URLSearchParams()
-
-    if (filterForm.value.createDate) {
-      // 使用 by-time-range 接口进行时间筛选
-      url = '/api/work-orders/by-time-range'
-
-      // 设置起止时间为一天的开始和结束
-      const startDate = new Date(filterForm.value.createDate)
-      const endDate = new Date(startDate)
-      endDate.setDate(endDate.getDate() + 1)
-
-      params.append('startTime', startDate.toISOString())
-      params.append('endTime', endDate.toISOString())
-      params.append('status', 'completed') // 添加状态筛选
-
-      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
-      const areaId = filterForm.value.area || userInfo.areaId || ''
-      if (areaId) {
-        params.append('areaId', areaId)
-      }
-    } else {
-      // 默认使用 by-status 接口
-      url = '/api/work-orders/by-status'
-      params.append('status', 'completed')
-
-      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}')
-      const areaId = filterForm.value.area || userInfo.areaId || ''
-      if (areaId) {
-        params.append('areaId', areaId)
-      }
-    }
+    params.append('status', 'completed')
 
     const queryString = params.toString()
     if (queryString) {
@@ -217,16 +312,23 @@ const loadCompletedOrders = async () => {
 
     // 处理响应
     if (response.code === 200) {
-      orders.value = (response.data || []).map((order: any) => ({
-        id: order.orderId || '',
-        orderNo: order.orderId || '',
-        deviceType: order.deviceType || '未知设备',
-        deviceId: order.deviceId || '',
-        area: order.areaId || '',
-        problemDesc: order.description || '暂无描述',
-        status: order.status || 'completed',
-        createTime: order.createdTime ? new Date(order.createdTime).toLocaleString('zh-CN') : '未知时间'
-      }))
+      orders.value = (response.data || []).map((order: any) => {
+        // 根据后端返回的areaId（实际上是校区名称）查找对应的校区信息
+        const campus = campusList.value.find(campus => campus.areaName === order.areaId);
+        const areaId = campus ? campus.areaId : order.areaId; // 如果找到对应校区，则使用实际的校区ID，否则使用原始值
+
+        return {
+          id: order.orderId || '',
+          orderNo: order.orderId || '',
+          deviceType: order.deviceType || '未知设备',
+          deviceId: order.deviceId || '',
+          areaId: areaId,
+          campusName: order.areaId || order.areaId || '',
+          problemDesc: order.description || '暂无描述',
+          status: order.status || 'completed',
+          createTime: order.createdTime ? new Date(order.createdTime).toLocaleString('zh-CN') : '未知时间'
+        }
+      })
     } else {
       const errorMsg = response.msg || `获取失败（错误码：${response.code}）`
       console.error('获取已结单工单失败:', errorMsg)
@@ -256,6 +358,20 @@ const loadCompletedOrders = async () => {
   }
 }
 
+// 当市区改变时加载校区列表
+const onCityChange = async () => {
+  console.log('市区选择改变:', filterForm.value.cityId)
+
+  // 重置校区选择
+  filterForm.value.campusId = ''
+
+  // 加载对应校区列表
+  if (filterForm.value.cityId) {
+    await loadCampusList(filterForm.value.cityId)
+  }
+  // 不重新加载数据，因为市区本身不参与筛选
+}
+
 // 格式化状态显示
 const formatStatus = (status: OrderStatus): string => {
   const statusMap = {
@@ -268,7 +384,7 @@ const formatStatus = (status: OrderStatus): string => {
   return statusMap[status] || status
 }
 
-// 筛选后的工单列表 - 移除前端日期筛选逻辑
+// 筛选后的工单列表
 const filteredOrders = computed(() => {
   return orders.value.filter(order => {
     // 工单号/设备ID搜索匹配
@@ -276,15 +392,15 @@ const filteredOrders = computed(() => {
       order.orderNo.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
       order.deviceId.toLowerCase().includes(searchKeyword.value.toLowerCase())
 
-    // 片区筛选
-    const areaMatch = filterForm.value.area === '' || order.area === filterForm.value.area
+    // 校区筛选（基于用户选择的校区ID，与工单中的校区名称匹配）
+    const campusMatch = filterForm.value.campusId === '' ||
+      campusList.value.find(campus => campus.areaId === filterForm.value.campusId)?.areaName === order.campusName
 
-    // 移除日期筛选逻辑，因为已在后端处理
-    // const dateMatch = filterForm.value.createDate === '' ||
-    //   order.createTime.split(' ')[0] === filterForm.value.createDate
+    // 日期筛选（前端静态筛选）
+    const dateMatch = filterForm.value.createDate === '' ||
+      order.createTime.split(' ')[0] === filterForm.value.createDate
 
-    // 返回时不包含 dateMatch
-    return keywordMatch && areaMatch
+    return keywordMatch && campusMatch && dateMatch
   })
 })
 
@@ -305,21 +421,23 @@ const handleSearch = () => {
   currentPage.value = 1 // 搜索后重置到第一页
 }
 
-// 处理筛选（片区/日期）
+// 处理筛选（校区/日期）
 const handleFilter = () => {
   currentPage.value = 1 // 筛选后重置到第一页
-  loadCompletedOrders() // 重新加载数据
+  // 不重新加载数据，只进行前端筛选
 }
 
 // 重置筛选条件
 const resetFilter = () => {
   searchKeyword.value = '' // 清空搜索关键词
   filterForm.value = {
-    area: '',
+    cityId: '',
+    campusId: '',
     createDate: ''
   }
+  campusList.value = [] // 清空校区列表
   currentPage.value = 1
-  loadCompletedOrders()
+  // 不重新加载数据，只重置筛选条件
 }
 
 // 查看工单详情
@@ -327,10 +445,24 @@ const viewOrderDetail = (id: string) => {
    router.push(`/home/work-order/completed/${id}`)
 }
 
+// 监听校区选择变化
+watch(() => filterForm.value.campusId, () => {
+  handleFilter()
+})
+
 // 页面加载时获取数据
-onMounted(() => {
+onMounted(async () => {
+  console.log('页面加载开始')
   console.log('Token:', authStore.token)
-  loadCompletedOrders()
+
+  try {
+    await loadCityList()
+    console.log('市区列表加载完成:', cityList.value)
+
+    await loadCompletedOrders()
+  } catch (error) {
+    console.error('页面加载失败:', error)
+  }
 })
 </script>
 

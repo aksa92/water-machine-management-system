@@ -13,7 +13,7 @@
       <div class="search-box">
         <input
             type="text"
-            placeholder="搜索姓名或账号..."
+            placeholder="搜索姓名..."
             v-model="searchKeyword"
             @input="handleSearch"
         >
@@ -31,7 +31,6 @@
           <th>联系电话</th>
           <th>身份</th>
           <th>关联区域</th>
-          <th>状态</th>
           <th>操作</th>
         </tr>
         </thead>
@@ -47,11 +46,6 @@
             </span>
             <span v-else>-</span>
           </td>
-          <td>
-              <span :class="`status-tag ${admin.status}`">
-                {{ admin.status === 'active' ? '启用' : '禁用' }}
-              </span>
-          </td>
           <td class="operation-buttons">
             <button
                 class="btn-edit"
@@ -65,17 +59,10 @@
             >
               删除
             </button>
-            <button
-                class="btn-status"
-                :class="admin.status === 'active' ? 'btn-disable' : 'btn-enable'"
-                @click="handleStatusChange(admin.adminId, admin.status)"
-            >
-              {{ admin.status === 'active' ? '禁用' : '启用' }}
-            </button>
           </td>
         </tr>
         <tr v-if="paginatedAdmins.length === 0">
-          <td colspan="7" class="no-data">暂无管理员数据</td>
+          <td colspan="6" class="no-data">暂无管理员数据</td>
         </tr>
         </tbody>
       </table>
@@ -220,14 +207,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import { request } from '@/api/request'
-import { useAuthStore } from '@/stores/auth'
-import type { ResultVO } from '@/api/types/auth'
-
-// 管理员状态类型
-type AdminStatus = 'active' | 'disabled'
+import {computed, onMounted, ref} from 'vue'
+import {useRouter} from 'vue-router'
+import {request} from '@/api/request'
+import {useAuthStore} from '@/stores/auth'
+import type {ResultVO} from '@/api/types/auth'
 
 // 区域信息接口
 interface Area {
@@ -247,7 +231,6 @@ interface Admin {
   account: string
   phone: string
   role: string
-  status: AdminStatus
   areaId?: string
   areaName?: string
 }
@@ -322,7 +305,7 @@ const loadUnassignedAreas = async () => {
 
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -339,7 +322,7 @@ const loadUnassignedAreas = async () => {
     console.error('请求未设置负责人片区列表异常:', error)
     if (error.message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
@@ -352,7 +335,7 @@ const fetchAdminList = async () => {
 
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -372,7 +355,6 @@ const fetchAdminList = async () => {
         account: admin.adminId || '',
         phone: admin.phone || '未知电话',
         role: admin.role || '未知角色',
-        status: 'active' as AdminStatus,
         areaId: admin.areaId,
         areaName: admin.areaName || undefined // 添加区域名称
       }))
@@ -392,7 +374,7 @@ const fetchAdminList = async () => {
 
     if (error.message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   } finally {
     loading.value = false
@@ -421,10 +403,9 @@ const getAreaNameById = (areaId: string | undefined): string => {
 // 筛选后的管理员列表
 const filteredAdmins = computed(() => {
   return admins.value.filter(admin => {
-    const keywordMatch = searchKeyword.value.trim() === '' ||
+    return searchKeyword.value.trim() === '' ||
         admin.name.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
         admin.account.toLowerCase().includes(searchKeyword.value.toLowerCase())
-    return keywordMatch
   })
 })
 
@@ -463,33 +444,8 @@ const handleEditRoleChange = () => {
 // 页面加载时获取数据
 onMounted(async () => {
   await loadUnassignedAreas()
-  fetchAdminList()
+  await fetchAdminList()
 })
-
-// 状态变更处理
-const handleStatusChange = async (id: string, currentStatus: AdminStatus) => {
-  try {
-    const newStatus: AdminStatus = currentStatus === 'active' ? 'disabled' : 'active'
-
-    // 调用API更新状态
-    const response = await request<ResultVO>(`/api/web/admin/status/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ status: newStatus })
-    })
-
-    if (response.code === 200) {
-      // 更新本地数据
-      admins.value = admins.value.map(admin =>
-          admin.adminId === id ? { ...admin, status: newStatus } : admin
-      )
-    } else {
-      alert(`状态更新失败: ${response.message}`)
-    }
-  } catch (error: any) {
-    console.error('更新状态失败:', error)
-    alert(`更新状态失败: ${error.message}`)
-  }
-}
 
 // 编辑处理
 const handleEdit = async (id: string) => {
@@ -553,7 +509,7 @@ const handleEditSubmit = async () => {
       };
       originalAdminData.value = null;
       // 重新获取列表
-      fetchAdminList();
+      await fetchAdminList();
     } else {
       alert(`更新失败：${response.message}`);
     }
@@ -577,7 +533,7 @@ const performDelete = async (id: string) => {
 
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页');
-      router.push('/login');
+      await router.push('/login');
       return;
     }
 
@@ -588,7 +544,7 @@ const performDelete = async (id: string) => {
     if (response.code === 200) {
       alert('管理员删除成功');
       // 重新获取列表
-      fetchAdminList();
+      await fetchAdminList();
     } else {
       const errorMsg = response.message || `删除失败（错误码：${response.code}）`;
       console.error('删除管理员失败:', errorMsg);
@@ -605,16 +561,15 @@ const performDelete = async (id: string) => {
 
     if (error.message.includes('401')) {
       authStore.logout();
-      router.push('/login');
+      await router.push('/login');
     }
   }
 }
 
 // 添加区域过滤方法
-const campusAreas = computed(() => {
+computed(() => {
   return unassignedAreas.value.filter(area => area.areaType === '校园')
-})
-
+});
 // 提交新增管理员表单
 const handleSubmit = async () => {
   try {
@@ -654,7 +609,7 @@ const handleSubmit = async () => {
       }
       selectedAreaId.value = '' // 重置区域选择
       // 重新获取列表
-      fetchAdminList()
+      await fetchAdminList()
     } else {
       alert(`添加失败：${response.message}`)
     }
@@ -755,24 +710,6 @@ const handleSubmit = async () => {
   background-color: #f8f9fa;
 }
 
-.status-tag {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.status-tag.active {
-  background-color: #e6f7ee;
-  color: #00875a;
-}
-
-.status-tag.disabled {
-  background-color: #f5f5f5;
-  color: #8c8c8c;
-}
-
 .area-list {
   color: #666;
   font-size: 12px;
@@ -808,16 +745,6 @@ const handleSubmit = async () => {
 
 .btn-delete:hover {
   background-color: #ffccc7;
-}
-
-.btn-enable {
-  background-color: #e6f7ee;
-  color: #00875a;
-}
-
-.btn-disable {
-  background-color: #ffebe6;
-  color: #cf1322;
 }
 
 .no-data {
@@ -938,13 +865,6 @@ const handleSubmit = async () => {
   border-radius: 4px;
   background-color: #f5f5f5;
   font-size: 14px;
-}
-
-.error-message {
-  color: #cf1322;
-  font-size: 12px;
-  margin-top: 4px;
-  margin-bottom: 0;
 }
 
 .form-actions {

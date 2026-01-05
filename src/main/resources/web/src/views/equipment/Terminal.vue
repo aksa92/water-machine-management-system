@@ -49,6 +49,7 @@
           <th>状态</th>
           <th>安装日期</th>
           <th>关联设备ID</th>
+          <th>所属片区</th>
           <th>操作</th>
         </tr>
         </thead>
@@ -65,6 +66,7 @@
           </td>
           <td>{{ formatDate(terminal.installDate) }}</td>
           <td>{{ terminal.deviceId || '-' }}</td>
+          <td>{{ terminal.areaId || '-' }}</td>
           <td class="operation-buttons">
             <button class="btn-view" @click="viewTerminal(terminal.terminalId)">查看详情</button>
             <button
@@ -82,7 +84,7 @@
           </td>
         </tr>
         <tr v-if="paginatedTerminals.length === 0">
-          <td colspan="8" class="no-data">暂无终端数据</td>
+          <td colspan="9" class="no-data">暂无终端数据</td>
         </tr>
         </tbody>
       </table>
@@ -145,12 +147,13 @@
           </div>
 
           <!-- 市区选择 -->
-          <div class="form-group" v-if="!isEditing">
+          <div class="form-group">
             <label>选择市区:</label>
             <select
               v-model="selectedCityId"
               @change="onCityChange"
               class="select-input"
+              :disabled="isEditing"
             >
               <option value="">请选择市区</option>
               <option
@@ -164,13 +167,13 @@
           </div>
 
           <!-- 校区选择 -->
-          <div class="form-group" v-if="!isEditing && selectedCityId">
+          <div class="form-group" v-if="selectedCityId">
             <label>选择校区:</label>
             <select
               v-model="selectedCampusId"
               @change="onCampusChange"
               class="select-input"
-              :disabled="!campusList.length"
+              :disabled="!campusList.length || isEditing"
             >
               <option value="">请选择校区</option>
               <option
@@ -193,7 +196,7 @@
               class="select-input"
               :disabled="!filteredSupplyDevices.length"
             >
-              <option value="">请选择供水机</option>
+              <option value="">无关联设备</option>
               <option
                   v-for="device in filteredSupplyDevices"
                   :key="device.deviceId"
@@ -310,7 +313,7 @@ const loadTerminals = async (): Promise<void> => {
     const token = authStore.token
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -334,7 +337,8 @@ const loadTerminals = async (): Promise<void> => {
           latitude: item.latitude,
           terminalStatus: item.terminalStatus,
           installDate: item.installDate,
-          deviceId: item.deviceId
+          deviceId: item.deviceId,
+          areaId: item.areaId
         }))
       } else {
         console.warn('API响应非成功状态或数据格式错误:', result)
@@ -351,7 +355,8 @@ const loadTerminals = async (): Promise<void> => {
           latitude: item.latitude,
           terminalStatus: item.terminalStatus,
           installDate: item.installDate,
-          deviceId: item.deviceId
+          deviceId: item.deviceId,
+          areaId: item.areaId
         }))
       } else {
         console.warn('API响应数据格式错误:', result)
@@ -367,7 +372,7 @@ const loadTerminals = async (): Promise<void> => {
     terminals.value = []
     if ((error as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
@@ -378,7 +383,7 @@ const loadCityList = async (): Promise<void> => {
     const token = authStore.token
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -405,7 +410,7 @@ const loadCityList = async (): Promise<void> => {
     cityList.value = []
     if ((error as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
@@ -416,7 +421,7 @@ const loadCampusListByCity = async (cityId: string): Promise<void> => {
     const token = authStore.token
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -443,7 +448,7 @@ const loadCampusListByCity = async (cityId: string): Promise<void> => {
     campusList.value = []
     if ((error as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
@@ -454,7 +459,7 @@ const loadAvailableSupplyDevices = async (): Promise<void> => {
     const token = authStore.token
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -474,14 +479,14 @@ const loadAvailableSupplyDevices = async (): Promise<void> => {
       if (result.code === 200 && result.data && Array.isArray(result.data)) {
         // 直接使用返回的供水机设备数据
         // 在 loadAvailableSupplyDevices 方法中添加数据转换
-availableSupplyDevices.value = result.data.map((device: any) => ({
-  deviceId: device.deviceId,
-  deviceName: device.deviceName,
-  installLocation: device.installLocation,
-  deviceType: device.deviceType,
-  status: device.status,
-  areaId: device.areaId ? device.areaId.split('-')[0] : '' // 提取简单的片区标识符
-}))
+        availableSupplyDevices.value = result.data.map((device: any) => ({
+          deviceId: device.deviceId,
+          deviceName: device.deviceName,
+          installLocation: device.installLocation,
+          deviceType: device.deviceType,
+          status: device.status,
+          areaId: device.areaId ? device.areaId.split('-')[0] : '' // 提取简单的片区标识符
+        }))
 
         console.log(`获取到${availableSupplyDevices.value.length}个可用供水机`)
       } else {
@@ -507,7 +512,7 @@ availableSupplyDevices.value = result.data.map((device: any) => ({
     availableSupplyDevices.value = []
     if ((error as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
@@ -612,19 +617,40 @@ const viewTerminal = (id: string) => {
 }
 
 // 编辑终端
-const editTerminal = (terminal: TerminalManageVO) => {
+const editTerminal = async (terminal: TerminalManageVO) => {
+  // 复制终端数据
   currentTerminal.value = { ...terminal }
   isEditing.value = true
   showAddModal.value = true
 
   // 确保设备列表已加载
   if (availableSupplyDevices.value.length === 0) {
-    loadAvailableSupplyDevices()
+    await loadAvailableSupplyDevices()
   }
 
   // 确保市区列表已加载
   if (cityList.value.length === 0) {
-    loadCityList()
+    await loadCityList()
+  }
+
+  // 如果终端有areaId，尝试自动匹配对应的校区信息
+  if (terminal.areaId) {
+    // 加载所有城市
+    if (cityList.value.length > 0) {
+      for (const city of cityList.value) {
+        // 加载该城市的校区列表
+        await loadCampusListByCity(city.areaId)
+
+        // 在校区列表中查找匹配的areaId（实际存储的是areaName）
+        const matchedCampus = campusList.value.find(campus => campus.areaName === terminal.areaId)
+        if (matchedCampus) {
+          // 找到匹配的校区，设置城市和校区选择
+          selectedCityId.value = city.areaId
+          selectedCampusId.value = matchedCampus.areaId
+          break
+        }
+      }
+    }
   }
 }
 
@@ -635,11 +661,10 @@ const deleteTerminal = async (terminalId: string) => {
   }
 
   try {
-    // 显式检查token
     const token = authStore.token
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -647,18 +672,18 @@ const deleteTerminal = async (terminalId: string) => {
       method: 'DELETE'
     })
 
-    // 检查是否为Map格式的响应（后端返回的格式）
-    if (result && typeof result === 'object' && result.message) {
-      if (result.message.includes('成功')) {
+    // 检查是否为ResultVO格式的响应
+    if (result && typeof result === 'object' && 'code' in result) {
+      // ResultVO格式
+      if (result.code === 200) {
         // 从本地数据中移除
         terminals.value = terminals.value.filter(t => t.terminalId !== terminalId)
         alert('终端删除成功')
       } else {
-        alert(`删除终端失败: ${result.message}`)
+        alert(`删除终端失败: ${result.message || '未知错误'}`)
       }
     } else {
-      // 如果响应格式不符合预期，尝试其他处理方式
-      // 从本地数据中移除
+      // 直接成功响应
       terminals.value = terminals.value.filter(t => t.terminalId !== terminalId)
       alert('终端删除成功')
     }
@@ -667,10 +692,11 @@ const deleteTerminal = async (terminalId: string) => {
     alert('删除终端失败')
     if ((error as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
+
 
 // 保存终端（新增或更新）
 const saveTerminal = async () => {
@@ -679,7 +705,7 @@ const saveTerminal = async () => {
     const token = authStore.token
     if (!token) {
       console.warn('未获取到 Token，跳转到登录页')
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -695,11 +721,12 @@ const saveTerminal = async () => {
       return
     }
 
-    // 验证是否选择了关联设备
-    if (!currentTerminal.value.deviceId) {
-      alert('请选择关联的供水机')
-      return
-    }
+    // 修改：关联设备不再是必选项
+    // 原来的验证逻辑已移除
+    // if (!currentTerminal.value.deviceId) {
+    //   alert('请选择关联的供水机')
+    //   return
+    // }
 
     let result: ResultVO<TerminalManageVO> | TerminalManageVO
     if (isEditing.value) {
@@ -713,12 +740,6 @@ const saveTerminal = async () => {
       // 验证是否选择了校区（新增终端时）
       if (!selectedCampusId.value) {
         alert('请选择校区')
-        return
-      }
-
-      // 验证是否选择了关联设备
-      if (!currentTerminal.value.deviceId) {
-        alert('请选择关联的供水机')
         return
       }
 
@@ -825,7 +846,7 @@ const saveTerminal = async () => {
     alert(`${isEditing.value ? '更新' : '添加'}终端失败`)
     if ((error as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
@@ -941,34 +962,6 @@ onMounted(async () => {
 
 .equipment-table tbody tr:hover {
   background-color: #f8f9fa;
-}
-
-.status-tag {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.status-tag.active {
-  background-color: #e6f7ee;
-  color: #00875a;
-}
-
-.status-tag.inactive {
-  background-color: #f5f5f5;
-  color: #8c8c8c;
-}
-
-.status-tag.warning {
-  background-color: #fff7e6;
-  color: #d48806;
-}
-
-.status-tag.fault {
-  background-color: #ffebe6;
-  color: #cf1322;
 }
 
 .operation-buttons {

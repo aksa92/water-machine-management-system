@@ -2,6 +2,8 @@
 export interface LoginRequest {
   username: string
   password: string
+  userType?: string
+  rememberMe?: boolean
 }
 
 export interface LoginVO {

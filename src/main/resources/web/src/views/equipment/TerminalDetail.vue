@@ -51,6 +51,41 @@
         </div>
       </div>
 
+      <!-- 关联设备信息卡片 -->
+      <div v-if="terminal?.deviceId" class="card">
+        <h3>关联设备信息</h3>
+        <div v-if="deviceLoading" class="loading">加载设备信息中...</div>
+        <div v-else-if="relatedDevice" class="detail-grid">
+          <div class="detail-item">
+            <label>设备ID:</label>
+            <span>{{ relatedDevice.deviceId }}</span>
+          </div>
+          <div class="detail-item">
+            <label>设备名称:</label>
+            <span>{{ relatedDevice.deviceName }}</span>
+          </div>
+          <div class="detail-item">
+            <label>设备类型:</label>
+            <span>{{ relatedDevice.deviceType }}</span>
+          </div>
+          <div class="detail-item">
+            <label>设备状态:</label>
+            <span :class="`status-tag ${relatedDevice.status}`">
+              {{ formatDeviceStatus(relatedDevice.status) }}
+            </span>
+          </div>
+          <div class="detail-item" v-if="relatedDevice.installLocation">
+            <label>安装位置:</label>
+            <span>{{ relatedDevice.installLocation }}</span>
+          </div>
+          <div class="detail-item" v-if="relatedDevice.areaId">
+            <label>所属片区:</label>
+            <span>{{ relatedDevice.areaId }}</span>
+          </div>
+        </div>
+        <div v-else class="no-data">未关联设备或设备信息不存在</div>
+      </div>
+
       <!-- 操作按钮 -->
       <div class="action-buttons">
         <button class="btn-back" @click="goBack">返回列表</button>
@@ -129,6 +164,16 @@ interface TerminalManageVO {
   deviceId?: string
 }
 
+// 设备类型定义
+interface Device {
+  deviceId: string
+  deviceName: string
+  deviceType: string
+  status: string
+  installLocation?: string
+  areaId?: string
+}
+
 // 检查是否为终端对象的类型守卫
 function isTerminalManageVO(obj: any): obj is TerminalManageVO {
   return obj &&
@@ -156,6 +201,10 @@ const editingTerminal = ref<TerminalManageVO>({
   terminalStatus: 'active'
 })
 
+// 添加响应式数据
+const relatedDevice = ref<Device | null>(null)
+const deviceLoading = ref(false)
+
 // 获取终端ID
 const terminalId = route.params.id as string
 
@@ -170,11 +219,70 @@ const formatStatus = (status: TerminalStatus): string => {
   return statusMap[status] || status
 }
 
+// 格式化设备状态
+const formatDeviceStatus = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    'online': '在线',
+    'offline': '离线',
+    'fault': '故障',
+    'warning': '警告',
+    'active': '运行中',
+    'inactive': '停止'
+  }
+  return statusMap[status] || status
+}
+
 // 时间格式化
 const formatDate = (dateString?: string): string => {
   if (!dateString) return '-'
   // 如果是日期字符串，直接返回，否则格式化
   return dateString
+}
+
+// 获取关联设备信息的方法
+const loadRelatedDevice = async (deviceId: string) => {
+  if (!deviceId) {
+    return
+  }
+
+  try {
+    deviceLoading.value = true
+
+    const token = authStore.token
+    if (!token) {
+      await router.push('/login')
+      return
+    }
+
+    const result = await request<any>(`/api/web/device/${deviceId}`, {
+      method: 'GET'
+    })
+
+    if (result && typeof result === 'object' && 'code' in result) {
+      if (result.code === 200 && result.data) {
+        // 从返回的Map中提取deviceInfo部分
+        if (result.data.deviceInfo) {
+          relatedDevice.value = result.data.deviceInfo as Device
+        } else {
+          // 如果直接返回设备信息
+          relatedDevice.value = result.data as Device
+        }
+      } else {
+        console.warn('获取关联设备失败:', result.message)
+      }
+    } else {
+      // 直接返回数据的情况
+      if (result && typeof result === 'object' && result.deviceInfo) {
+        relatedDevice.value = result.deviceInfo as Device
+      } else if (result && typeof result === 'object') {
+        relatedDevice.value = result as Device
+      }
+    }
+  } catch (err) {
+    console.error('获取关联设备失败:', err)
+  } finally {
+    deviceLoading.value = false
+  }
 }
 
 // 加载终端详情
@@ -190,7 +298,7 @@ const loadTerminal = async () => {
 
     const token = authStore.token
     if (!token) {
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -216,6 +324,11 @@ const loadTerminal = async () => {
         }
         // 初始化编辑终端数据
         editingTerminal.value = { ...terminal.value }
+
+        // 加载关联设备信息
+        if (terminal.value.deviceId) {
+          await loadRelatedDevice(terminal.value.deviceId)
+        }
       } else {
         error.value = result.message || '获取终端信息失败'
         console.warn('API响应非成功状态或数据格式错误:', result)
@@ -233,6 +346,11 @@ const loadTerminal = async () => {
       }
       // 初始化编辑终端数据
       editingTerminal.value = { ...terminal.value }
+
+      // 加载关联设备信息
+      if (terminal.value.deviceId) {
+        await loadRelatedDevice(terminal.value.deviceId)
+      }
     } else {
       error.value = '获取终端信息失败'
       console.warn('API响应数据格式错误:', result)
@@ -242,7 +360,7 @@ const loadTerminal = async () => {
     error.value = '加载终端详情失败'
     if ((err as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   } finally {
     loading.value = false
@@ -250,20 +368,13 @@ const loadTerminal = async () => {
 }
 
 // 编辑终端
-const editTerminal = () => {
-  if (terminal.value) {
-    editingTerminal.value = { ...terminal.value }
-    showEditModal.value = true
-  }
-}
-
 // 保存终端修改
 // 保存终端修改
 const saveTerminal = async () => {
   try {
     const token = authStore.token
     if (!token) {
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -317,46 +428,13 @@ const saveTerminal = async () => {
     alert('更新终端信息失败')
     if ((err as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   }
 }
 
 
 // 删除终端
-const deleteTerminal = async () => {
-  if (!confirm(`确定要删除终端 ${terminal.value?.terminalId} 吗？`)) {
-    return
-  }
-
-  try {
-    const token = authStore.token
-    if (!token) {
-      router.push('/login')
-      return
-    }
-
-    const result = await request<ResultVO<boolean>>(`/api/web/terminal/delete/${terminal.value?.terminalId}`, {
-      method: 'DELETE'
-    })
-
-    if (result.code === 200 || result.code === 201 || result.code === 204) {
-      alert('终端删除成功')
-      router.push('/home/equipment/terminal')
-    } else {
-      alert(`删除终端失败: ${result.message}`)
-    }
-  } catch (err) {
-    console.error('删除终端失败:', err)
-    alert('删除终端失败')
-    if ((err as Error).message.includes('401')) {
-      authStore.logout()
-      router.push('/login')
-    }
-  }
-}
-
-
 // 返回列表
 const goBack = () => {
   router.push('/home/equipment/terminal')
@@ -439,36 +517,6 @@ onMounted(() => {
   font-size: 15px;
 }
 
-.status-tag {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  align-self: flex-start;
-  max-width: fit-content;
-}
-
-.status-tag.active {
-  background-color: #e6f7ee;
-  color: #00875a;
-}
-
-.status-tag.inactive {
-  background-color: #f5f5f5;
-  color: #8c8c8c;
-}
-
-.status-tag.warning {
-  background-color: #fff7e6;
-  color: #d48806;
-}
-
-.status-tag.fault {
-  background-color: #ffebe6;
-  color: #cf1322;
-}
-
 .action-buttons {
   display: flex;
   gap: 12px;
@@ -481,18 +529,6 @@ onMounted(() => {
   cursor: pointer;
   border: 1px solid #ddd;
   font-size: 14px;
-}
-
-.btn-edit {
-  background: #42b983;
-  color: white;
-  border: none;
-}
-
-.btn-delete {
-  background: #ff4d4f;
-  color: white;
-  border: none;
 }
 
 .btn-back {
@@ -569,4 +605,5 @@ onMounted(() => {
   color: white;
   border: none;
 }
+
 </style>

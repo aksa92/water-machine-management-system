@@ -200,20 +200,32 @@
               >
                 {{ campus.areaName }}
               </option>
+              <p v-if="selectedCityId && !campusList.length" class="no-data-message">
+                该市区暂无校区
+              </p>
             </select>
-            <p v-if="selectedCityId && !campusList.length" class="no-data-message">
-              该市区暂无校区
-            </p>
           </div>
 
-          <div class="form-group">
-            <label>所属片区:</label>
-            <input
-              v-model="currentDevice.areaId"
-              type="text"
-              :disabled="true"
-              placeholder="选择校区后自动填充"
+          <!-- 制水机选择（仅供水机时显示，可选） -->
+          <div class="form-group" v-if="!isEditing && currentDevice.deviceType === 'water_supply'">
+            <label>选择制水机:</label>
+            <select
+              v-model="selectedMakerId"
+              class="select-input"
+              :disabled="!makerList.length"
             >
+              <option value="">不关联制水机（可选）</option>
+              <option
+                v-for="maker in makerList"
+                :key="maker.deviceId"
+                :value="maker.deviceId"
+              >
+                {{ maker.deviceName }} ({{ maker.deviceId }})
+              </option>
+            </select>
+            <p v-if="selectedCampusId && !makerList.length" class="no-data-message">
+              该校区暂无制水机
+            </p>
           </div>
 
           <div class="form-actions">
@@ -225,7 +237,6 @@
     </div>
   </div>
 </template>
-
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
@@ -256,6 +267,7 @@ interface DeviceManageVO {
   deviceType: string
   status: DeviceStatus
   areaId?: string
+  parentMakerId?: string  // 添加父级制水机ID字段
 }
 
 // 区域类型定义
@@ -291,7 +303,8 @@ const currentDevice = ref<DeviceManageVO>({
   installLocation: '',
   deviceType: 'water_supply',
   status: 'online',
-  areaId: undefined
+  areaId: undefined,
+  parentMakerId: undefined  // 添加父级制水机ID
 })
 
 // 片区相关数据
@@ -299,6 +312,10 @@ const cityList = ref<Area[]>([]) // 市区列表
 const campusList = ref<Area[]>([]) // 校区列表
 const selectedCityId = ref('') // 选择的市区ID
 const selectedCampusId = ref('') // 选择的校区ID
+
+// 制水机列表
+const makerList = ref<DeviceManageVO[]>([]) // 制水机列表
+const selectedMakerId = ref('') // 选择的制水机ID
 
 // 加载设备数据
 const loadDevices = async (): Promise<void> => {
@@ -318,11 +335,9 @@ const loadDevices = async (): Promise<void> => {
     if (selectedStatus.value && selectedStatus.value !== '') {
       params.append('status', selectedStatus.value)
     }
-    // 如果选择了校区，则按校区筛选；如果只选择了市区，则按市区筛选；否则不筛选
+    // 如果选择了校区，则按校区筛选；否则不筛选
     if (selectedCampus.value && selectedCampus.value !== '') {
       params.append('areaId', selectedCampus.value)
-    } else if (selectedCity.value && selectedCity.value !== '') {
-      params.append('areaId', selectedCity.value)
     }
     params.append('deviceType', 'water_supply')
 
@@ -345,7 +360,8 @@ const loadDevices = async (): Promise<void> => {
         deviceType: item.deviceType,
         areaId: item.areaId,
         installLocation: item.installLocation,
-        status: item.status
+        status: item.status,
+        parentMakerId: item.parentMakerId  // 添加父级制水机ID
       }))
     }
 
@@ -437,26 +453,76 @@ const loadCampusListByCity = async (cityId: string): Promise<void> => {
   }
 }
 
+// 根据片区名称获取制水机列表
+const loadMakersByAreaName = async (areaName: string): Promise<void> => {
+  try {
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      await router.push('/login')
+      return
+    }
+
+    console.log(`开始加载区域 ${areaName} 的制水机列表...`)
+
+    const result = await request<ResultVO<DeviceManageVO[]>>(
+      `/api/web/device-status/by-type?deviceType=water_maker&areaId=${encodeURIComponent(areaName)}`,
+      { method: 'GET' }
+    )
+
+    if (result.code === 200 && result.data && Array.isArray(result.data)) {
+      makerList.value = result.data.map((item: any) => ({
+        deviceId: item.deviceId,
+        deviceName: item.deviceName,
+        deviceType: item.deviceType,
+        areaId: item.areaId,
+        installLocation: item.installLocation,
+        status: item.status
+      }))
+      console.log(`获取到${makerList.value.length}个制水机`)
+    } else {
+      console.warn('API响应非成功状态或数据格式错误:', result)
+      makerList.value = []
+    }
+  } catch (error) {
+    console.error('加载制水机列表失败:', error)
+    makerList.value = []
+    if ((error as Error).message.includes('401')) {
+      authStore.logout()
+      await router.push('/login')
+    }
+  }
+}
+
 // 市区选择变化时的处理
 const onCityChange = async () => {
-  // 清空校区选择和设备片区信息
   selectedCampus.value = ''
-  currentDevice.value.areaId = undefined
   campusList.value = []
+  makerList.value = []
 
-  if (selectedCityId.value) {
+  if (selectedCityId.value) {  // ✅ 应该监听 selectedCityId
     await loadCampusListByCity(selectedCityId.value)
   }
 }
 
 // 校区选择变化时的处理
-const onCampusChange = () => {
-  // 设置areaId为选中校区的areaName
-  const selectedCampus = campusList.value.find(campus => campus.areaId === selectedCampusId.value)
-  if (selectedCampus) {
-    currentDevice.value.areaId = selectedCampus.areaName // 使用areaName作为areaId
+const onCampusChange = async () => {
+  currentPage.value = 1 // 选择校区后重置到第一页
+
+  // 根据 selectedCampusId 获取对应的校区对象，然后提取 areaName
+  if (selectedCampusId.value) {
+    const selectedCampus = campusList.value.find(campus => campus.areaId === selectedCampusId.value)
+    if (selectedCampus) {
+      currentDevice.value.areaId = selectedCampus.areaName // 将 areaName 赋值给 areaId
+      // 使用 areaName 加载该校区下的制水机列表
+      await loadMakersByAreaName(selectedCampus.areaName)
+    } else {
+      currentDevice.value.areaId = undefined
+      makerList.value = []
+    }
   } else {
     currentDevice.value.areaId = undefined
+    makerList.value = []
   }
 }
 
@@ -467,16 +533,11 @@ const filteredDevices = computed(() => {
         device.deviceId.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
         device.installLocation.toLowerCase().includes(searchKeyword.value.toLowerCase())
 
-    // 如果选择了校区，则匹配校区；如果只选择了市区，则匹配市区；否则不过滤片区
+    // 如果选择了校区，则匹配校区；否则不过滤片区
     let areaMatch = true
     if (selectedCampus.value && selectedCampus.value !== '') {
       areaMatch = device.areaId === selectedCampus.value ||
                  device.areaId === campusList.value.find(c => c.areaId === selectedCampus.value)?.areaName
-    } else if (selectedCity.value && selectedCity.value !== '') {
-      // 检查设备的片区是否属于所选市区的校区
-      areaMatch = campusList.value.some(campus =>
-        device.areaId === campus.areaId || device.areaId === campus.areaName
-      ) || device.areaId === selectedCity.value
     }
 
     const statusMatch = selectedStatus.value === '' || device.status === selectedStatus.value
@@ -521,6 +582,8 @@ const viewDevice = (id: string) => {
 // 编辑设备
 const openEditModal = (device: DeviceManageVO) => {
   currentDevice.value = { ...device }
+  // 设置选择的制水机ID
+  selectedMakerId.value = device.parentMakerId || ''
   isEditing.value = true
   showAddModal.value = true
 
@@ -587,6 +650,17 @@ const saveDevice = async () => {
       return
     }
 
+    // 如果是供水机，制水机是可选的，只有在选择了制水机时才关联
+    if (currentDevice.value.deviceType === 'water_supply') {
+      // 只有当用户选择了制水机时才设置parentMakerId
+      if (selectedMakerId.value) {
+        currentDevice.value.parentMakerId = selectedMakerId.value
+      } else {
+        // 如果没有选择制水机，显式设置为null或undefined
+        currentDevice.value.parentMakerId = undefined
+      }
+    }
+
     let result: ResultVO<DeviceManageVO> | DeviceManageVO
     if (isEditing.value) {
       // 更新设备
@@ -630,11 +704,14 @@ const saveDevice = async () => {
           installLocation: '',
           deviceType: 'water_supply',
           status: 'online',
-          areaId: undefined
+          areaId: undefined,
+          parentMakerId: undefined
         }
         selectedCityId.value = ''
         selectedCampusId.value = ''
+        selectedMakerId.value = ''
         campusList.value = []
+        makerList.value = []
 
         alert(isEditing.value ? '设备更新成功' : '设备添加成功')
       } else if (result.code === 200) {
@@ -651,11 +728,14 @@ const saveDevice = async () => {
           installLocation: '',
           deviceType: 'water_supply',
           status: 'online',
-          areaId: undefined
+          areaId: undefined,
+          parentMakerId: undefined
         }
         selectedCityId.value = ''
         selectedCampusId.value = ''
+        selectedMakerId.value = ''
         campusList.value = []
+        makerList.value = []
 
         alert(isEditing.value ? '设备更新成功' : '设备添加成功')
       } else {
@@ -676,11 +756,14 @@ const saveDevice = async () => {
         installLocation: '',
         deviceType: 'water_supply',
         status: 'online',
-        areaId: undefined
+        areaId: undefined,
+        parentMakerId: undefined
       }
       selectedCityId.value = ''
       selectedCampusId.value = ''
+      selectedMakerId.value = ''
       campusList.value = []
+      makerList.value = []
 
       alert(isEditing.value ? '设备更新成功' : '设备添加成功')
     }
@@ -698,11 +781,14 @@ const saveDevice = async () => {
         installLocation: '',
         deviceType: 'water_supply',
         status: 'online',
-        areaId: undefined
+        areaId: undefined,
+        parentMakerId: undefined
       }
       selectedCityId.value = ''
       selectedCampusId.value = ''
+      selectedMakerId.value = ''
       campusList.value = []
+      makerList.value = []
 
       alert(isEditing.value ? '设备更新成功' : '设备添加成功')
     }
@@ -723,7 +809,6 @@ onMounted(async () => {
   await loadDevices() // 加载设备数据
 })
 </script>
-
 
 <style scoped>
 /* 样式与终端机页面保持一致 */
@@ -827,34 +912,6 @@ onMounted(async () => {
 
 .equipment-table tbody tr:hover {
   background-color: #f8f9fa;
-}
-
-.status-tag {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.status-tag.online {
-  background-color: #e6f7ee;
-  color: #00875a;
-}
-
-.status-tag.offline {
-  background-color: #f5f5f5;
-  color: #8c8c8c;
-}
-
-.status-tag.maintenance {
-  background-color: #fff7e6;
-  color: #d48806;
-}
-
-.status-tag.fault {
-  background-color: #ffebe6;
-  color: #cf1322;
 }
 
 .operation-buttons {

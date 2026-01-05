@@ -2,14 +2,16 @@
 import type { LoginRequest, LoginResponse, LoginVO } from './types/auth'
 
 // 真实的登录API调用
+// auth.ts
 export const realLoginApi = async (data: LoginRequest): Promise<LoginResponse> => {
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://120.46.151.248:8081'
+    // 使用相对路径，让Vite代理处理
+    const apiUrl = '/api/common/login'
 
-    console.log('🌐 调用登录接口:', `${API_BASE_URL}/api/common/login`)
+    console.log('🌐 调用登录接口:', apiUrl)
     console.log('📤 请求数据:', data)
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/common/login`, {
+        const response = await fetch(apiUrl, {  // ✅ 使用相对路径
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -22,7 +24,7 @@ export const realLoginApi = async (data: LoginRequest): Promise<LoginResponse> =
         if (!response.ok) {
             const errorText = await response.text()
             console.error('❌ 响应内容:', errorText)
-            throw new Error(`网络请求失败: ${response.status} ${response.statusText}`)
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
         }
 
         const result: LoginResponse = await response.json()
@@ -32,7 +34,7 @@ export const realLoginApi = async (data: LoginRequest): Promise<LoginResponse> =
 
     } catch (error: any) {
         console.error('❌ 登录接口调用失败:', error)
-        throw new Error(`登录失败: ${error.message}`)
+        throw error // 直接抛出原错误
     }
 }
 

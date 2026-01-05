@@ -1,12 +1,9 @@
 // src/api/request.ts
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://120.46.151.248:8081'
-
-// 统一的 fetch 封装
 export async function request<T>(
     url: string,
     options: RequestInit = {}
 ): Promise<T> {
-    // 处理日志数据，GET/HEAD 方法不显示 body
+    // 处理日志数据
     const method = options.method?.toUpperCase() || 'GET';
     const logData: Record<string, any> = {
         method,
@@ -18,7 +15,7 @@ export async function request<T>(
         logData.body = options.body ? JSON.parse(options.body as string) : undefined;
     }
 
-    console.log(`🌐 发送请求: ${API_BASE_URL}${url}`, logData)
+    console.log(`🌐 发送请求: ${url}`, logData)  // ✅ 改为相对路径
 
     const defaultOptions: RequestInit = {
         headers: {
@@ -53,15 +50,15 @@ export async function request<T>(
             delete fetchOptions.body;
         }
 
-        const response = await fetch(`${API_BASE_URL}${url}`, fetchOptions)
+        // ✅ 使用相对路径，让 Vite 代理处理
+        const response = await fetch(url, fetchOptions)
 
         console.log('📥 响应状态:', response.status, response.statusText)
 
-        // 尝试读取响应文本（无论成功与否）
+        // 尝试读取响应文本
         let responseText = ''
         try {
             responseText = await response.text()
-            //console.log('📥 响应内容:', responseText)
         } catch (e) {
             console.log('📥 无法读取响应文本')
         }
@@ -92,7 +89,6 @@ export async function request<T>(
                 throw new Error(`响应不是有效的 JSON: ${responseText}`)
             }
         } else {
-            // 没有响应体的情况（如 204 No Content）
             return {} as T
         }
     } catch (error: any) {

@@ -196,26 +196,6 @@
               <option value="other">其他</option>
             </select>
           </div>
-          <div class="form-group">
-            <label>状态:</label>
-            <select v-model="currentDevice.status">
-              <option value="online">在线</option>
-              <option value="offline">离线</option>
-              <option value="warning">警告</option>
-              <option value="fault">故障</option>
-            </select>
-          </div>
-
-          <!-- 片区选择 -->
-          <div class="form-group">
-            <label>所属片区:</label>
-            <input
-              v-model="currentDevice.areaId"
-              type="text"
-              :disabled="true"
-              placeholder="选择校区后自动填充"
-            >
-          </div>
 
           <div class="form-actions">
             <button type="button" @click="showAddModal = false">取消</button>
@@ -517,16 +497,15 @@ const filteredDevices = computed(() => {
         device.deviceId.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
         device.installLocation.toLowerCase().includes(searchKeyword.value.toLowerCase())
 
-    // 如果选择了校区，则匹配校区；如果只选择了市区，则匹配市区；否则不过滤片区
-    let areaMatch = true
+    // 只有当选择了校区时才进行片区匹配筛选
+    let areaMatch = true;
     if (selectedCampus.value && selectedCampus.value !== '') {
-      areaMatch = device.areaId === selectedCampus.value ||
-                 device.areaId === campusList.value.find(c => c.areaId === selectedCampus.value)?.areaName
-    } else if (selectedCity.value && selectedCity.value !== '') {
-      // 检查设备的片区是否属于所选市区的校区
-      areaMatch = campusList.value.some(campus =>
-        device.areaId === campus.areaId || device.areaId === campus.areaName
-      ) || device.areaId === selectedCity.value
+      // 找到选中的校区对象
+      const selectedCampusObj = campusList.value.find(c => c.areaId === selectedCampus.value);
+      if (selectedCampusObj) {
+        // 使用 areaName 进行匹配，因为设备的 areaId 存储的是校区名称
+        areaMatch = device.areaId === selectedCampusObj.areaName;
+      }
     }
 
     const statusMatch = selectedStatus.value === '' || device.status === selectedStatus.value
@@ -958,34 +937,6 @@ onMounted(async () => {
 
 .equipment-table tbody tr:hover {
   background-color: #f8f9fa;
-}
-
-.status-tag {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.status-tag.online {
-  background-color: #e6f7ee;
-  color: #00875a;
-}
-
-.status-tag.offline {
-  background-color: #f5f5f5;
-  color: #8c8c8c;
-}
-
-.status-tag.warning {
-  background-color: #fff7e6;
-  color: #d48806;
-}
-
-.status-tag.fault {
-  background-color: #ffebe6;
-  color: #cf1322;
 }
 
 .operation-buttons {

@@ -311,7 +311,7 @@ const loadSupplierDevices = async (makerId: string) => {
     // 检查token
     const token = authStore.token
     if (!token) {
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -333,7 +333,7 @@ const loadSupplierDevices = async (makerId: string) => {
     supplierDevices.value = []
     if ((err as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   } finally {
     loadingSuppliers.value = false
@@ -415,7 +415,7 @@ const loadDeviceDetail = async () => {
     // 检查token
     const token = authStore.token
     if (!token) {
-      router.push('/login')
+      await router.push('/login')
       return
     }
 
@@ -435,7 +435,7 @@ const loadDeviceDetail = async () => {
       }
 
       // 初始化图表
-      nextTick(() => {
+      await nextTick(() => {
         initTDSChart()
       })
     } else {
@@ -446,7 +446,7 @@ const loadDeviceDetail = async () => {
     error.value = '加载设备详情失败'
     if ((err as Error).message.includes('401')) {
       authStore.logout()
-      router.push('/login')
+      await router.push('/login')
     }
   } finally {
     loading.value = false
@@ -568,38 +568,6 @@ onUnmounted(() => {
   font-size: 16px;
   color: #333;
   min-height: 24px;
-}
-
-.status-tag {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  min-width: 60px;
-  text-align: center;
-}
-
-.status-tag.online,
-.status-tag.normal {
-  background-color: #e6f7ee;
-  color: #00875a;
-}
-
-.status-tag.offline {
-  background-color: #f5f5f5;
-  color: #8c8c8c;
-}
-
-.status-tag.warning {
-  background-color: #fff7e6;
-  color: #d48806;
-}
-
-.status-tag.fault,
-.status-tag.error {
-  background-color: #ffebe6;
-  color: #cf1322;
 }
 
 .loading, .error-message {
