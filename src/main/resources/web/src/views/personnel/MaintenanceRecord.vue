@@ -259,9 +259,9 @@ const currentOrder = ref<WorkOrder>({
   orderId: '',
   deviceId: '',
   areaId: '',
-  orderType: 'repair',
+  orderType: 'repair', // 已存在，保持不变
   description: '',
-  priority: 'medium',
+  priority: 'medium', // 已存在，保持不变
   status: 'pending',
   assignedRepairmanId: '',
   createdTime: undefined,
@@ -860,21 +860,22 @@ onMounted(() => {
     flex-direction: column;
   }
 
-  .btn-back {
-    background: #f0f0f0;
-    color: #333;
-    border: 1px solid #ddd;
-    padding: 8px 16px;
-    border-radius: 4px;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.3s;
-  }
+/* 在 MaintenanceRecord.vue 中更新按钮样式 */
+.btn-back {
+  background: #f0f0f0;
+  color: #333;
+  border: none;  /* 移除边框 */
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.3s;
+}
 
-  .btn-back:hover {
-    background: #e0e0e0;
-    border-color: #bbb;
-  }
+.btn-back:hover {
+  background: #e0e0e0;
+}
+
 
   .modal-content {
     width: 95%;
