@@ -42,7 +42,7 @@
           <td>{{ formatRole(admin.role) }}</td>
           <td>
             <span v-if="admin.role === 'ROLE_AREA_ADMIN'" class="area-list">
-              {{ admin.areaName || (admin.areaId ? getAreaNameById(admin.areaId) : '') || '未关联区域' }}
+              {{ getAreaNameFromCache(admin.areaId) || admin.areaName || '未关联区域' }}
             </span>
             <span v-else>-</span>
           </td>
@@ -182,7 +182,7 @@
             <div class="form-group" v-if="editFormData.role === 'ROLE_AREA_ADMIN' && originalAdminData?.areaId">
               <label class="form-label">关联区域：</label>
               <div class="readonly-area">
-                {{ getAreaNameById(originalAdminData.areaId) }}
+                {{ getAreaNameFromCache(originalAdminData.areaId) || originalAdminData.areaName || '未关联区域' }}
               </div>
             </div>
 
@@ -268,6 +268,9 @@ const loading = ref(false)
 const showAddModal = ref(false)
 const showEditModal = ref(false)
 
+// 区域名称缓存
+const areaNameCache = ref<Record<string, string>>({})
+
 // 未分配的区域列表（未设置负责人的片区）
 const unassignedAreas = ref<Area[]>([])
 
@@ -327,6 +330,54 @@ const loadUnassignedAreas = async () => {
   }
 }
 
+// 根据区域ID获取区域名称 - 调用后端接口
+const getAreaNameById = async (areaId: string | undefined): Promise<string> => {
+  if (!areaId) return '未知区域'
+
+  try {
+    const token = authStore.token
+    if (!token) {
+      console.warn('未获取到 Token，跳转到登录页')
+      await router.push('/login')
+      return '未知区域'
+    }
+
+    const response = await request<ResultVO<Area>>(`/api/web/area/${areaId}`, {
+      method: 'GET',
+    })
+
+    if (response.code === 200 && response.data) {
+      const areaName = response.data.areaName || '未知区域'
+      // 缓存区域名称
+      areaNameCache.value[areaId] = areaName
+      return areaName
+    } else {
+      console.error('获取区域信息失败:', response.message)
+      return '未知区域'
+    }
+  } catch (error: any) {
+    console.error('请求区域信息异常:', error)
+    return '未知区域'
+  }
+}
+
+// 从缓存获取区域名称（同步）
+const getAreaNameFromCache = (areaId: string | undefined): string => {
+  if (!areaId) return '未知区域'
+  return areaNameCache.value[areaId] || ''
+}
+
+// 预加载区域名称到缓存
+const preloadAreaNames = async (adminList: Admin[]) => {
+  const areaIds = adminList
+    .filter(admin => admin.role === 'ROLE_AREA_ADMIN' && admin.areaId && !areaNameCache.value[admin.areaId])
+    .map(admin => admin.areaId!)
+
+  for (const areaId of areaIds) {
+    await getAreaNameById(areaId)
+  }
+}
+
 // 获取管理员列表
 const fetchAdminList = async () => {
   loading.value = true
@@ -349,15 +400,20 @@ const fetchAdminList = async () => {
     })
 
     if (response.code === 200) {
-      admins.value = (response.data || []).map((admin: any) => ({
+      const adminList = (response.data || []).map((admin: any) => ({
         adminId: admin.adminId || '',
-        name: admin.adminName || '未知姓名', // 正确映射
+        name: admin.adminName || '未知姓名',
         account: admin.adminId || '',
         phone: admin.phone || '未知电话',
         role: admin.role || '未知角色',
         areaId: admin.areaId,
-        areaName: admin.areaName || undefined // 添加区域名称
+        areaName: admin.areaName || undefined
       }))
+
+      admins.value = adminList
+
+      // 预加载区域名称
+      await preloadAreaNames(adminList)
     } else {
       const errorMsg = response.message || `获取失败（错误码：${response.code}）`
       console.error('获取管理员列表失败:', errorMsg)
@@ -390,15 +446,6 @@ const formatRole = (role: string): string => {
   }
   return roleMap[role] || role
 }
-
-// 根据区域ID获取区域名称
-// 在script部分添加类型安全的函数
-const getAreaNameById = (areaId: string | undefined): string => {
-  if (!areaId) return '未知区域'
-  const area = unassignedAreas.value.find(a => a.areaId === areaId)
-  return area ? area.areaName : '未知区域'
-}
-
 
 // 筛选后的管理员列表
 const filteredAdmins = computed(() => {
