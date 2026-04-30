@@ -37,14 +37,19 @@ public class MqttConfig {
         options.setServerURIs(new String[]{BROKER});
         options.setUserName(USERNAME);
         options.setPassword(PASSWORD.toCharArray());
-        options.setConnectionTimeout(CONNECTION_TIMEOUT / 1000); // 转换为秒
+        options.setConnectionTimeout(CONNECTION_TIMEOUT / 1000);
         options.setKeepAliveInterval(KEEP_ALIVE_INTERVAL);
-        options.setAutomaticReconnect(true); // 断线自动重连
-        options.setCleanSession(true); // 断开后清除会话
+        options.setAutomaticReconnect(true);
+
+        // 改进1: 改为持久会话，断线重连后保留未确认消息
+        options.setCleanSession(false);
+
+        // 改进2: 设置最大飞行窗口（允许最多100条未确认消息）
+        options.setMaxInflight(100);
 
         // 在 MqttConfig 的 mqttClientFactory() 中增强连接选项
-        options.setAutomaticReconnect(true); // 启用自动重连
-        options.setMaxReconnectDelay(5000); // 重连间隔（毫秒，与原 5 秒一致）
+        options.setAutomaticReconnect(true);
+        options.setMaxReconnectDelay(5000);
 
         factory.setConnectionOptions(options);
         return factory;
@@ -63,13 +68,16 @@ public class MqttConfig {
      */
     @Bean
     public MqttPahoMessageHandler mqttOutbound() {
-        // 客户端ID：前缀+时间戳，避免重复
         String clientId = "sensor-sender-" + System.currentTimeMillis();
         MqttPahoMessageHandler handler = new MqttPahoMessageHandler(clientId, mqttClientFactory());
 
-        handler.setAsync(true); // 异步发送（不阻塞主线程）
-        handler.setDefaultQos(QOS); // 默认QOS等级
-        handler.setDefaultTopic(TOPIC_WATER_MAKER_STATE); // 默认主题（可在发送时覆盖）
+        handler.setAsync(true);
+        // 改进3: 启用异步事件回调，支持发送确认
+        handler.setAsyncEvents(true);
+        // 改进4: 设置超时时间（5秒）
+        handler.setCompletionTimeout(5000);
+        handler.setDefaultQos(QOS);
+        handler.setDefaultTopic(TOPIC_WATER_MAKER_STATE);
 
         return handler;
     }

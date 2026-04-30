@@ -1,7 +1,7 @@
 package com.campus.water.controller;
 
 import com.campus.water.entity.Alert;
-import com.campus.water.mapper.AlertRepository;
+import com.campus.water.Repository.AlertRepository;
 import com.campus.water.util.ResultVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

@@ -5,7 +5,7 @@ import com.campus.water.entity.RepairerAuth;
 import com.campus.water.entity.Repairman;
 import com.campus.water.entity.User;
 import com.campus.water.entity.dto.request.RegisterRequest;
-import com.campus.water.mapper.*;
+import com.campus.water.Repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -100,7 +100,7 @@ public class RegisterService {
         }
 
         User user = new User();
-        user.setPassword(password); // 使用BCrypt加密后的密码
+        user.setPassword(password);
         user.setStudentId(request.getStudentId());
         user.setStudentName(request.getStudentName());
         user.setPhone(request.getPhone());

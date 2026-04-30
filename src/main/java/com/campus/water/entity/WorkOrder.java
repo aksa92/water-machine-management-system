@@ -11,7 +11,14 @@ import java.time.LocalDateTime;
 
 @Data
 @Entity
-@Table(name = "work_order")
+@Table(name = "work_order", indexes = {
+        // 核心：运维高频查询 → 我负责的 + 工单状态
+        @Index(name = "idx_repairman_status", columnList = "assigned_repairman_id, status"),
+        // 业务接口：按区域+状态筛选
+        @Index(name = "idx_area_status", columnList = "area_id, status"),
+        // 辅助：单条件状态查询
+        @Index(name = "idx_status", columnList = "status")
+})
 public class WorkOrder {
     @Id
     @Column(name = "order_id", length = 30)

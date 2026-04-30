@@ -1,12 +1,11 @@
 package com.campus.water.service;
-import com.campus.water.service.AlertTriggerService;
 import com.campus.water.config.MqttConfig;
 import com.campus.water.entity.Alert;
 import com.campus.water.entity.WaterMakerRealtimeData;
 import com.campus.water.entity.WaterSupplyRealtimeData;
-import com.campus.water.mapper.AlertRepository;
-import com.campus.water.mapper.WaterMakerRealtimeDataRepository;
-import com.campus.water.mapper.WaterSupplyRealtimeDataRepository;
+import com.campus.water.Repository.AlertRepository;
+import com.campus.water.Repository.WaterMakerRealtimeDataRepository;
+import com.campus.water.Repository.WaterSupplyRealtimeDataRepository;
 import com.campus.water.model.WaterMakerSensorData;
 import com.campus.water.model.WaterSupplySensorData;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,7 +30,7 @@ public class MqttSensorReceiver {
     private final ObjectMapper objectMapper;
     private final MqttPahoMessageDrivenChannelAdapter mqttAdapter;
     private final AlertTriggerService alertTriggerService;
-
+    private final MqttRedisCacheService redisCacheService;
     @PostConstruct
     public void initMqttSubscription() {
         mqttAdapter.addTopic(MqttConfig.TOPIC_WATER_MAKER_STATE + "+");
@@ -57,12 +56,14 @@ public class MqttSensorReceiver {
             } else if (topic.startsWith(MqttConfig.TOPIC_WATER_SUPPLIER_STATE)) {
                 handleWaterSupplyState(payload);
             } else if (topic.startsWith(MqttConfig.TOPIC_WATER_SUPPLIER_WARN)) {
-                handleWaterSupplyWarning(payload); // 新增：处理供水机告警主题
+                handleWaterSupplyWarning(payload);
             } else {
                 log.warn("MQTT消息主题未匹配 | 未知主题：{} | 内容：{}", topic, payload);
             }
         } catch (Exception e) {
-            log.error("MQTT消息处理失败 | 主题：{} | 内容：{} | 异常：{}", topic, payload, e.getMessage());
+            log.error("MQTT消息处理失败，缓存到Redis | 主题：{} | 异常：{}", topic, e.getMessage());
+
+            redisCacheService.cacheMessage(topic, payload, MqttConfig.QOS);
         }
     }
 

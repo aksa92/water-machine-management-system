@@ -2,8 +2,8 @@ package com.campus.water.service;
 
 import com.campus.water.entity.Admin;
 import com.campus.water.entity.Area;
-import com.campus.water.mapper.AdminRepository;
-import com.campus.water.mapper.AreaRepository;
+import com.campus.water.Repository.AdminRepository;
+import com.campus.water.Repository.AreaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -69,41 +69,41 @@ public class AdminService {
     }
 
     /**
- * 新增/修改管理员（支持指定角色）
- * 重写保存方法，增加区域校验（区域管理员必须关联区域）
- */
-public Admin saveAdmin(Admin admin) {
-    admin.setUpdatedTime(LocalDateTime.now());
-    if (admin.getCreatedTime() == null) {
-        admin.setCreatedTime(LocalDateTime.now());
-    }
-
-    // 区域管理员（ROLE_AREA_ADMIN）的专属校验逻辑
-    if (admin.getRole() == Admin.AdminRole.ROLE_AREA_ADMIN) {
-        // 1. 若未填写区域ID（null或空字符串），直接放行（支持先创建管理员，后续补填）
-        if (admin.getAreaId() == null || admin.getAreaId().trim().isEmpty()) {
-            admin.setAreaId(null); // 统一置为null，避免空字符串冗余数据
-            // 无需校验，直接允许保存
-        } else {
-            // 2. 若填写了区域ID，进行严格校验：区域存在 + 类型为校区（禁止市区）
-            String areaId = admin.getAreaId().trim();
-            // 校验区域是否存在
-            Area targetArea = areaRepository.findById(areaId)
-                    .orElseThrow(() -> new RuntimeException("关联的区域不存在：" + areaId));
-            // 核心校验：仅允许关联校区，禁止关联市区
-            if (Area.AreaType.zone.equals(targetArea.getAreaType())) {
-                throw new RuntimeException("区域管理员仅允许关联校区，不能关联市区，请重新选择");
-            }
-            // 校验通过，保留填写的合法校区ID
-            admin.setAreaId(areaId);
+     * 新增/修改管理员（支持指定角色）
+     * 重写保存方法，增加区域校验（区域管理员必须关联区域）
+     */
+    public Admin saveAdmin(Admin admin) {
+        admin.setUpdatedTime(LocalDateTime.now());
+        if (admin.getCreatedTime() == null) {
+            admin.setCreatedTime(LocalDateTime.now());
         }
-    } else {
-        // 非区域管理员，清空区域ID，避免冗余数据
-        admin.setAreaId(null);
-    }
 
-    return adminRepository.save(admin);
-}
+        // 区域管理员（ROLE_AREA_ADMIN）的专属校验逻辑
+        if (admin.getRole() == Admin.AdminRole.ROLE_AREA_ADMIN) {
+            // 1. 若未填写区域ID（null或空字符串），直接放行（支持先创建管理员，后续补填）
+            if (admin.getAreaId() == null || admin.getAreaId().trim().isEmpty()) {
+                admin.setAreaId(null); // 统一置为null，避免空字符串冗余数据
+                // 无需校验，直接允许保存
+            } else {
+                // 2. 若填写了区域ID，进行严格校验：区域存在 + 类型为校区（禁止市区）
+                String areaId = admin.getAreaId().trim();
+                // 校验区域是否存在
+                Area targetArea = areaRepository.findById(areaId)
+                        .orElseThrow(() -> new RuntimeException("关联的区域不存在：" + areaId));
+                // 核心校验：仅允许关联校区，禁止关联市区
+                if (Area.AreaType.zone.equals(targetArea.getAreaType())) {
+                    throw new RuntimeException("区域管理员仅允许关联校区，不能关联市区，请重新选择");
+                }
+                // 校验通过，保留填写的合法校区ID
+                admin.setAreaId(areaId);
+            }
+        } else {
+            // 非区域管理员，清空区域ID，避免冗余数据
+            admin.setAreaId(null);
+        }
+
+        return adminRepository.save(admin);
+    }
 
 
     /**
@@ -118,7 +118,6 @@ public Admin saveAdmin(Admin admin) {
      */
     public Optional<Admin> login(String adminName, String password) {
         Optional<Admin> admin = adminRepository.findByAdminName(adminName);
-        // 使用MD5加密器验证密码
         return admin.filter(a -> passwordEncoder.matches(password, a.getPassword()));
     }
     /**

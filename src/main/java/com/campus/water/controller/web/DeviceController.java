@@ -1,10 +1,10 @@
 package com.campus.water.controller.web;
 
-import com.campus.water.mapper.RepairerAuthRepository;
-import com.campus.water.mapper.WaterMakerRealtimeDataRepository;
-import com.campus.water.mapper.WaterSupplyRealtimeDataRepository;
+import com.campus.water.Repository.RepairerAuthRepository;
+import com.campus.water.Repository.WaterMakerRealtimeDataRepository;
+import com.campus.water.Repository.WaterSupplyRealtimeDataRepository;
 import com.campus.water.service.DeviceService;
-import com.campus.water.mapper.RepairmanRepository;
+import com.campus.water.Repository.RepairmanRepository;
 import com.campus.water.service.DeviceStatusService;
 import com.campus.water.util.ResultVO;
 import io.swagger.v3.oas.annotations.Operation;

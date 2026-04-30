@@ -6,13 +6,11 @@ import com.campus.water.util.ResultVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/web/admin")
@@ -23,229 +21,147 @@ public class AdminController {
     private final AdminService adminService;
 
     /**
-     * 获取管理员列表（支持姓名/角色筛选）
+     * 获取管理员列表
      */
     @GetMapping("/list")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN')") // 超级/区域管理员可查看
-    @Operation(summary = "获取管理员列表", description = "支持按姓名模糊搜索、按角色筛选")
-    public ResponseEntity<ResultVO<List<Admin>>> getAdminList(
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN')")
+    @Operation(summary = "获取管理员列表")
+    public ResultVO<List<Admin>> getAdminList(
             @RequestParam(required = false) String name,
-            @RequestParam(required = false) Admin.AdminRole role // 角色筛选参数
+            @RequestParam(required = false) Admin.AdminRole role
     ) {
-        try {
-            List<Admin> adminList = adminService.getAdminList(name, role);
-            return ResponseEntity.ok(ResultVO.success(adminList));
-        } catch (Exception e) {
-            return ResponseEntity.ok(ResultVO.error(500, "查询失败：" + e.getMessage()));
-        }
+        List<Admin> adminList = adminService.getAdminList(name, role);
+        return ResultVO.success(adminList);
     }
 
-
     /**
-     * 按ID查询单个管理员信息
+     * 按ID查询管理员
      */
     @GetMapping("/{adminId}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN')") // 超级/区域管理员可查看
-    @Operation(summary = "按ID查询单个管理员", description = "根据管理员ID返回完整的管理员信息")
-    public ResponseEntity<ResultVO<Admin>> getAdminById(@PathVariable String adminId) {
-        try {
-            Optional<Admin> adminOpt = adminService.getAdminById(adminId);
-            if (adminOpt.isPresent()) {
-                return ResponseEntity.ok(ResultVO.success(adminOpt.get()));
-            } else {
-                return ResponseEntity.ok(ResultVO.error(404, "管理员不存在，ID：" + adminId));
-            }
-        } catch (Exception e) {
-            return ResponseEntity.ok(ResultVO.error(500, "查询管理员失败：" + e.getMessage()));
-        }
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN')")
+    @Operation(summary = "按ID查询单个管理员")
+    public ResultVO<Admin> getAdminById(@PathVariable String adminId) {
+        Admin admin = adminService.getAdminById(adminId)
+                .orElseThrow(() -> new RuntimeException("管理员不存在，ID：" + adminId));
+        return ResultVO.success(admin);
     }
 
     /**
-     * 新增：查询可分配校区的区域管理员（未负责任何片区）
+     * 获取可分配区域管理员
      */
     @GetMapping("/available-area-admins")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN')")
-    @Operation(summary = "获取可分配校区的区域管理员", description = "返回未负责任何片区的区域管理员，用于片区绑定负责人")
-    public ResponseEntity<ResultVO<List<Admin>>> getAvailableAreaAdmins() {
-        try {
-            List<Admin> availableAdmins = adminService.getAvailableAreaAdmins();
-            return ResponseEntity.ok(ResultVO.success(availableAdmins));
-        } catch (Exception e) {
-            return ResponseEntity.ok(ResultVO.error(500, "查询失败：" + e.getMessage()));
-        }
+    @Operation(summary = "获取可分配校区的区域管理员")
+    public ResultVO<List<Admin>> getAvailableAreaAdmins() {
+        List<Admin> availableAdmins = adminService.getAvailableAreaAdmins();
+        return ResultVO.success(availableAdmins);
     }
 
     /**
-     * 新增：获取指定区域的管理员列表
+     * 按区域查询管理员
      */
     @GetMapping("/by-area/{areaId}")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")  // 只有超级管理员可以查看
-    @Operation(summary = "按区域查询管理员", description = "查询指定区域下的所有管理员")
-    public ResponseEntity<ResultVO<List<Admin>>> getAdminsByArea(
-            @PathVariable String areaId
-    ) {
-        try {
-            List<Admin> admins = adminService.getAdminsByAreaId(areaId);
-            return ResponseEntity.ok(ResultVO.success(admins));
-        } catch (Exception e) {
-            return ResponseEntity.ok(ResultVO.error(500, "查询失败：" + e.getMessage()));
-        }
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Operation(summary = "按区域查询管理员")
+    public ResultVO<List<Admin>> getAdminsByArea(@PathVariable String areaId) {
+        List<Admin> admins = adminService.getAdminsByAreaId(areaId);
+        return ResultVO.success(admins);
     }
 
     /**
-     * 获取所有管理员角色枚举
+     * 获取所有角色
      */
     @GetMapping("/roles")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'AREA_ADMIN')")
-    @Operation(summary = "获取管理员角色列表", description = "返回所有可选角色（super_admin/area_admin/viewer）")
-    public ResponseEntity<ResultVO<Admin.AdminRole[]>> getAllRoles() {
-        try {
-            Admin.AdminRole[] roles = adminService.getAllRoles();
-            return ResponseEntity.ok(ResultVO.success(roles));
-        } catch (Exception e) {
-            return ResponseEntity.ok(ResultVO.error(500, "获取角色列表失败：" + e.getMessage()));
-        }
+    @Operation(summary = "获取管理员角色列表")
+    public ResultVO<Admin.AdminRole[]> getAllRoles() {
+        return ResultVO.success(adminService.getAllRoles());
     }
 
     /**
-     * 新增/编辑管理员
-     * 重写保存接口的注释，明确区域关联说明
+     * 保存管理员
      */
     @PostMapping("/save")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    @Operation(summary = "保存管理员", description = "新增/编辑管理员，区域管理员必须指定areaId")
-    public ResponseEntity<ResultVO<Admin>> saveAdmin(@RequestBody Admin admin) {
-        // 实现保持不变
-        try {
-
-            if (admin.getAdminName() == null || admin.getAdminName().trim().isEmpty()) {
-                return ResponseEntity.ok(ResultVO.error(400, "管理员姓名不能为空"));
-            }
-
-            Admin savedAdmin = adminService.saveAdmin(admin);
-            return ResponseEntity.ok(ResultVO.success(savedAdmin));
-        } catch (Exception e) {
-            return ResponseEntity.ok(ResultVO.error(500, "保存失败：" + e.getMessage()));
-        }
+    @Operation(summary = "保存管理员")
+    public ResultVO<Admin> saveAdmin(@RequestBody Admin admin) {
+        Admin savedAdmin = adminService.saveAdmin(admin);
+        return ResultVO.success(savedAdmin);
     }
 
     /**
      * 删除管理员
      */
     @DeleteMapping("/{adminId}")
-    @PreAuthorize("hasRole('SUPER_ADMIN')") // 仅超级管理员可删除
-    @Operation(summary = "删除管理员", description = "按ID删除管理员")
-    public ResponseEntity<ResultVO<Void>> deleteAdmin(@PathVariable String adminId) {
-        try {
-            adminService.deleteAdmin(adminId);
-            return ResponseEntity.ok(ResultVO.success(null));
-        } catch (Exception e) {
-            return ResponseEntity.ok(ResultVO.error(500, "删除失败：" + e.getMessage()));
-        }
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Operation(summary = "删除管理员")
+    public ResultVO<Void> deleteAdmin(@PathVariable String adminId) {
+        adminService.deleteAdmin(adminId);
+        return ResultVO.success();
     }
 
     /**
-     * 管理员登录
+     * 登录
      */
     @PostMapping("/login")
-    @Operation(summary = "管理员登录", description = "用户名+密码验证，返回管理员信息（含角色）")
-    public ResponseEntity<ResultVO<Admin>> login(
+    @Operation(summary = "管理员登录")
+    public ResultVO<Admin> login(
             @RequestParam String adminName,
             @RequestParam String password
     ) {
-        Optional<Admin> admin = adminService.login(adminName, password);
-        if (admin.isPresent()) {
-            return ResponseEntity.ok(ResultVO.success(admin.get()));
-        } else {
-            return ResponseEntity.ok(ResultVO.error(401, "用户名或密码错误"));
-        }
+        Admin admin = adminService.login(adminName, password)
+                .orElseThrow(() -> new RuntimeException("用户名或密码错误"));
+        return ResultVO.success(admin);
     }
 
-
-
     /**
-     * 管理员个人信息修改
-     * 允许当前登录用户修改自己的基本信息（不含角色/区域等敏感字段）
+     * 修改个人信息
      */
     @PostMapping("/profile/update")
-    @PreAuthorize("isAuthenticated()") // 只要登录即可访问
-    @Operation(summary = "修改个人信息", description = "当前登录管理员修改自己的基本信息（不含角色）")
-    public ResponseEntity<ResultVO<Admin>> updateProfile(
+    @PreAuthorize("isAuthenticated()")
+    public ResultVO<Admin> updateProfile(
             @RequestBody Admin profile,
-            Authentication authentication) {
-        try {
-            // 1. 获取当前登录用户名
-            String currentUsername = authentication.getName();
+            Authentication authentication
+    ) {
+        // 拿到当前登录的用户
+        String username = authentication.getName();
+        Admin currentAdmin = adminService.getAdminByName(username)
+                .orElseThrow(() -> new RuntimeException("用户不存在"));
 
-            // 2. 验证身份一致性（当前用户只能修改自己的信息）
-            Admin currentAdmin = adminService.getAdminByName(currentUsername)
-                    .orElseThrow(() -> new RuntimeException("当前用户信息不存在"));
+        // 强制把当前登录人的 ID 塞进去 → 只能改自己！
+        profile.setAdminId(currentAdmin.getAdminId());
 
-            if (!currentAdmin.getAdminId().equals(profile.getAdminId())) {
-                throw new RuntimeException("无权修改其他管理员信息");
-            }
+        // 调用 service
+        Admin updatedAdmin = adminService.updateProfile(profile);
 
-            // 3. 过滤敏感字段（不允许修改角色和区域ID）
-            profile.setRole(currentAdmin.getRole());
-            profile.setAreaId(currentAdmin.getAreaId());
-
-            // 4. 调用服务层更新
-            Admin updatedAdmin = adminService.updateProfile(profile);
-            return ResponseEntity.ok(ResultVO.success(updatedAdmin, "个人信息更新成功"));
-        } catch (Exception e) {
-            return ResponseEntity.ok(ResultVO.error(500, "更新失败：" + e.getMessage()));
-        }
+        return ResultVO.success(updatedAdmin, "更新成功");
     }
-
     /**
-     * 获取当前登录管理员信息
+     * 获取当前登录用户
      */
     @GetMapping("/current")
-    @PreAuthorize("isAuthenticated()") // 只要登录即可访问
-    @Operation(summary = "获取当前登录管理员信息", description = "返回当前登录管理员的完整信息（含角色、区域等）")
-    public ResponseEntity<ResultVO<Admin>> getCurrentAdmin(Authentication authentication) {
-        try {
-            // 1. 从Authentication中获取当前登录用户名
-            String currentUsername = authentication.getName();
-
-            // 2. 调用服务层查询完整管理员信息
-            Admin currentAdmin = adminService.getAdminByName(currentUsername)
-                    .orElseThrow(() -> new RuntimeException("当前登录用户信息不存在"));
-
-            return ResponseEntity.ok(ResultVO.success(currentAdmin));
-        } catch (Exception e) {
-            return ResponseEntity.ok(ResultVO.error(500, "获取当前用户信息失败：" + e.getMessage()));
-        }
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "获取当前登录管理员信息")
+    public ResultVO<Admin> getCurrentAdmin(Authentication authentication) {
+        String username = authentication.getName();
+        Admin admin = adminService.getAdminByName(username)
+                .orElseThrow(() -> new RuntimeException("用户信息不存在"));
+        return ResultVO.success(admin);
     }
 
     /**
-     * 管理员密码修改
-     * 允许当前登录管理员修改自己的密码（需验证原密码）
+     * 修改密码
      */
     @PostMapping("/password/update")
-    @PreAuthorize("isAuthenticated()") // 登录即可访问
-    @Operation(summary = "修改密码", description = "当前登录管理员修改自己的密码（需验证原密码）")
-    public ResponseEntity<ResultVO<Void>> updatePassword(
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "修改密码")
+    public ResultVO<Void> updatePassword(
             @RequestParam String oldPassword,
             @RequestParam String newPassword,
-            Authentication authentication) {
-        try {
-            // 1. 获取当前登录用户名
-            String currentUsername = authentication.getName();
-
-            // 2. 验证原密码并更新新密码
-            boolean success = adminService.updatePassword(currentUsername, oldPassword, newPassword);
-            if (success) {
-                return ResponseEntity.ok(ResultVO.success(null, "密码修改成功"));
-            } else {
-                return ResponseEntity.ok(ResultVO.error(400, "原密码验证失败"));
-            }
-        } catch (IllegalArgumentException e) {
-            // 处理新密码格式错误等参数问题
-            return ResponseEntity.ok(ResultVO.error(400, e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.ok(ResultVO.error(500, "密码修改失败：" + e.getMessage()));
-        }
+            Authentication authentication
+    ) {
+        String username = authentication.getName();
+        adminService.updatePassword(username, oldPassword, newPassword);
+        return ResultVO.success(null, "密码修改成功");
     }
-
 }

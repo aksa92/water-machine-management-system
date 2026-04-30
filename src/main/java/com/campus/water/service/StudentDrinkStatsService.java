@@ -3,7 +3,7 @@ package com.campus.water.service;
 import com.campus.water.entity.DrinkRecord;
 import com.campus.water.entity.vo.DailyDrinkVO;
 import com.campus.water.entity.vo.StudentDrinkStatsVO;
-import com.campus.water.mapper.DrinkRecordRepository;
+import com.campus.water.Repository.DrinkRecordRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.math.BigDecimal;

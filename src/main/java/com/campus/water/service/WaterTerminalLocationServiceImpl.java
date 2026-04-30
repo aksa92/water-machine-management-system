@@ -3,9 +3,8 @@ package com.campus.water.service;
 import com.campus.water.entity.DeviceTerminalMapping;
 import com.campus.water.entity.WaterTerminalLocation;
 import com.campus.water.entity.vo.TerminalLocationVO;
-import com.campus.water.mapper.DeviceTerminalMappingRepository;
-import com.campus.water.mapper.WaterTerminalLocationRepository;
-import com.campus.water.service.WaterTerminalLocationService;
+import com.campus.water.Repository.DeviceTerminalMappingRepository;
+import com.campus.water.Repository.WaterTerminalLocationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

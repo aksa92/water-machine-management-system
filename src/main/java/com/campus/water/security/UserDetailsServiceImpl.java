@@ -3,9 +3,9 @@ package com.campus.water.security;
 import com.campus.water.entity.Admin;
 import com.campus.water.entity.RepairerAuth;
 import com.campus.water.entity.User; // 自定义User实体类（保留）
-import com.campus.water.mapper.AdminRepository;
-import com.campus.water.mapper.RepairerAuthRepository;
-import com.campus.water.mapper.UserRepository;
+import com.campus.water.Repository.AdminRepository;
+import com.campus.water.Repository.RepairerAuthRepository;
+import com.campus.water.Repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;

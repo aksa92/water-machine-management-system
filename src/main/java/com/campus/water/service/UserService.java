@@ -1,7 +1,7 @@
 package com.campus.water.service;
 
 import com.campus.water.entity.User;
-import com.campus.water.mapper.UserRepository;
+import com.campus.water.Repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;

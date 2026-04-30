@@ -1,4 +1,4 @@
-package com.campus.water.mapper;
+package com.campus.water.Repository;
 
 import com.campus.water.entity.RepairerAuth; // 改为entity包下的RepairerAuth
 import org.springframework.data.jpa.repository.JpaRepository;

@@ -1,6 +1,10 @@
-# MQTT 配置（是否启用 + 连接参数）
+# MQTT 配置
 mqtt:
-  enabled: true  # 是否启用 MQTT 客户端
+  enabled: true
+  offline-cache:
+    max-queue-size: 10000
+    dedup-expire-minutes: 5
+    replay-delay-ms: 100
 
 jwt:
   secret: "789&kLp23$87bnM90!789poI87&90lkJ78*90jhG78!90fdS78%90saD78^90xcV78&90zbN78!这是安全密钥1234567890"
@@ -20,13 +24,28 @@ spring:
   # JPA 配置
   jpa:
     hibernate:
-      ddl-auto: update  # 自动更新表结构（开发环境用，生产环境建议改为 none）
-    show-sql: true  # 打印 SQL 语句
+      ddl-auto: update
+    show-sql: true
     properties:
       hibernate:
-        format_sql: true  # 格式化 SQL 语句
-        jdbc.lob.non_contextual_creation: true  # 解决 LOB 字段创建警告
-        dialect: org.hibernate.dialect.MySQL8Dialect  # MySQL 8 方言
+        format_sql: true
+        jdbc.lob.non_contextual_creation: true
+        dialect: org.hibernate.dialect.MySQL8Dialect
+
+    # Redis 配置
+    data:
+      redis:
+        host: 127.0.0.1
+        port: 6379
+        password:
+        database: 0
+        timeout: 3000ms
+        lettuce:
+          pool:
+            max-active: 8
+            max-idle: 8
+            min-idle: 0
+            max-wait: -1ms
 
 # 服务器编码配置
 server:

@@ -16,14 +16,16 @@ import org.springframework.util.MimeTypeUtils;
 
 import java.time.LocalDateTime;
 import java.util.Random;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j // 日志注解（替代System.out）
 public class MqttSensorSender {
     private final MqttPahoMessageHandler mqttMessageHandler;
-    private final ObjectMapper objectMapper; // JSON序列化工具（Spring默认注入）
-    private final Random random = new Random(); // 生成模拟数据
+    private final ObjectMapper objectMapper;
+    private final Random random = new Random();
+    private final MqttRedisCacheService redisCacheService;
 
     /**
      * 模拟制水机发送「正常状态数据」
@@ -147,15 +149,24 @@ public class MqttSensorSender {
      * @param payload 消息内容（JSON字符串）
      */
     private void sendMessage(String topic, String payload) {
-        // 构建Spring Messaging消息（指定JSON格式、主题、QOS）
+        String messageId = UUID.randomUUID().toString();
+
         Message<String> message = MessageBuilder
                 .withPayload(payload)
                 .setHeader(MessageHeaders.CONTENT_TYPE, MimeTypeUtils.APPLICATION_JSON)
                 .setHeader("mqtt_topic", topic)
                 .setHeader("mqtt_qos", MqttConfig.QOS)
+                .setHeader("message_id", messageId)
                 .build();
 
-        // 调用处理器发送消息
-        mqttMessageHandler.handleMessage(message);
+        try {
+            mqttMessageHandler.handleMessage(message);
+            log.debug("MQTT消息发送成功 | 消息ID：{} | 主题：{}", messageId, topic);
+        } catch (Exception e) {
+            log.error("MQTT消息发送失败，缓存到Redis | 消息ID：{} | 主题：{} | 错误：{}",
+                    messageId, topic, e.getMessage());
+
+            redisCacheService.cacheMessage(topic, payload, MqttConfig.QOS);
+        }
     }
 }

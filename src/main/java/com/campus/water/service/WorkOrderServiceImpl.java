@@ -2,15 +2,14 @@ package com.campus.water.service;
 
 import com.campus.water.entity.WorkOrder;
 import com.campus.water.entity.Repairman;
-import com.campus.water.mapper.WorkOrderRepository;
-import com.campus.water.mapper.RepairmanRepository;
+import com.campus.water.Repository.WorkOrderRepository;
+import com.campus.water.Repository.RepairmanRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.campus.water.service.NotificationService;
-import com.campus.water.service.WorkOrderService;
+
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
@@ -19,7 +18,6 @@ import java.util.Optional;
 /**
  * 工单服务实现类
  *
- * @author 豆包编程助手
  * @date 2025/12/25
  */
 @Slf4j
@@ -343,7 +341,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
      * @param repairmanId 维修人员ID
      */
     @Transactional
-    private void updateRepairmanStatusByPendingOrders(String repairmanId) {
+    protected void updateRepairmanStatusByPendingOrders(String repairmanId) {
         // 1. 定义「待处理工单」状态集合（根据业务调整，此处包含待抢、已抢、待审核）
         List<WorkOrder.OrderStatus> pendingStatuses = Arrays.asList(
                 WorkOrder.OrderStatus.pending,

@@ -1,4 +1,4 @@
-package com.campus.water.mapper;
+package com.campus.water.Repository;
 
 import com.campus.water.entity.Repairman;
 import org.springframework.data.jpa.repository.JpaRepository;

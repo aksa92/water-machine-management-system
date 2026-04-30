@@ -1,7 +1,7 @@
 package com.campus.water.task;
 
 import com.campus.water.entity.Device;
-import com.campus.water.mapper.DeviceRepository;
+import com.campus.water.Repository.DeviceRepository;
 import com.campus.water.service.MqttSensorSender;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

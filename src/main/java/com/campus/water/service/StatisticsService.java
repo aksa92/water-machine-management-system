@@ -6,13 +6,12 @@ import com.campus.water.entity.TerminalUsageStats;
 import com.campus.water.entity.dto.request.StatisticsQueryRequest;
 import com.campus.water.entity.vo.AlarmStatisticsVO;
 import com.campus.water.entity.vo.StatisticsVO;
-import com.campus.water.mapper.AlertRepository;
-import com.campus.water.mapper.DeviceRepository;
-import com.campus.water.mapper.TerminalUsageStatsRepository;
+import com.campus.water.Repository.AlertRepository;
+import com.campus.water.Repository.DeviceRepository;
+import com.campus.water.Repository.TerminalUsageStatsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;

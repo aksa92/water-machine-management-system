@@ -2,12 +2,11 @@ package com.campus.water.service;
 
 import com.campus.water.entity.Device;
 import com.campus.water.entity.dto.request.DeviceStatusUpdateRequest;
-import com.campus.water.mapper.DeviceRepository;
+import com.campus.water.Repository.DeviceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 

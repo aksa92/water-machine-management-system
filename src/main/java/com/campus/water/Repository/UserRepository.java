@@ -1,5 +1,5 @@
 // filePath：main/java/com/campus/water/mapper/UserRepository.java
-package com.campus.water.mapper;
+package com.campus.water.Repository;
 
 import com.campus.water.entity.User; // 改为引用User实体类
 import org.springframework.data.jpa.repository.JpaRepository;

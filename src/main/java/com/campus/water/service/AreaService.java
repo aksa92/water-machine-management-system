@@ -1,11 +1,11 @@
 package com.campus.water.service;
 
 import com.campus.water.entity.Area;
-import com.campus.water.mapper.AreaRepository;
+import com.campus.water.Repository.AreaRepository;
 import com.campus.water.entity.Admin;
-import com.campus.water.mapper.AdminRepository;
-import com.campus.water.mapper.DeviceRepository;
-import com.campus.water.mapper.DeviceTerminalMappingRepository;
+import com.campus.water.Repository.AdminRepository;
+import com.campus.water.Repository.DeviceRepository;
+import com.campus.water.Repository.DeviceTerminalMappingRepository;
 import com.campus.water.security.RoleConstants;
 
 import java.util.List;
@@ -70,6 +70,7 @@ public class AreaService {
         return savedArea;
     }
 
+
     /**
      * 修改区域
      * @param areaId 区域ID
@@ -105,6 +106,7 @@ public class AreaService {
         // 5. 保存修改
         return areaRepository.save(existingArea);
     }
+
 
     /**
      * 删除区域
