@@ -79,7 +79,7 @@ public class MqttSensorReceiver {
         entity.setWaterFlow2(sensorData.getWaterFlow2() != null ? BigDecimal.valueOf(sensorData.getWaterFlow2()) : null);
         entity.setWaterPress(sensorData.getWaterPress() != null ? BigDecimal.valueOf(sensorData.getWaterPress()) : null);
         entity.setFilterLife(sensorData.getFilterLife());
-        entity.setLeakage(sensorData.getLeakage() ? true : false);
+        entity.setLeakage(sensorData.getLeakage());
         entity.setWaterQuality(sensorData.getWaterQuality());
         entity.setStatus(WaterMakerRealtimeData.DeviceStatus.valueOf(sensorData.getStatus()));
         entity.setRecordTime(sensorData.getRecordTime());
@@ -114,7 +114,7 @@ public class MqttSensorReceiver {
         alert.setStatus(Alert.AlertStatus.pending);
         alert.setTimestamp(sensorData.getRecordTime() != null ? sensorData.getRecordTime() : LocalDateTime.now());
         LocalDateTime now = LocalDateTime.now();
-        alert.setCreatedTime(alert.getCreatedTime() != null ? alert.getCreatedTime() : now);
+        alert.setCreatedTime(now);
         alert.setUpdatedTime(now);
 
         alertRepo.save(alert);
@@ -165,11 +165,9 @@ public class MqttSensorReceiver {
                 sensorData.getTemperature()
         ));
         alert.setStatus(Alert.AlertStatus.pending);
-        // 完善告警时间戳（确保不为空）
         alert.setTimestamp(sensorData.getTimestamp() != null ? sensorData.getTimestamp() : LocalDateTime.now());
-        // 完善创建/更新时间（确保不为空）
         LocalDateTime now = LocalDateTime.now();
-        alert.setCreatedTime(alert.getCreatedTime() != null ? alert.getCreatedTime() : now);
+        alert.setCreatedTime(now);
         alert.setUpdatedTime(now);
 
         alertRepo.save(alert);

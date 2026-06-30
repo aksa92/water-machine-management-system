@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class GlobalExceptionHandler {
 
+
     /**
      * 处理参数格式/值错误（如枚举值非法、参数为空等）
      */
@@ -57,18 +58,18 @@ public class GlobalExceptionHandler {
         String errorMsg;
         // 特殊处理时间格式错误（告警查询的时间参数）
         if (e.getCause() instanceof java.time.format.DateTimeParseException) {
-            errorMsg = "时间参数格式错误，正确格式：yyyy-MM-dd HH:mm:ss（示例：2025-12-05 10:30:00）";
+            errorMsg = "时间参数格式错误";
         } else if (e.getRequiredType() != null && e.getRequiredType().isEnum()) {
             // 枚举类型转换错误处理
             errorMsg = String.format(
-                    "参数[%s]枚举值错误，允许值：%s",
+                    "参数枚举值错误",
                     e.getName(),
                     getEnumValues(e.getRequiredType())
             );
         } else {
             // 通用类型不匹配提示
             errorMsg = String.format(
-                    "参数[%s]类型错误，期望类型：%s，实际传入值：%s",
+                    "参数类型错误",
                     e.getName(),
                     e.getRequiredType() != null ? e.getRequiredType().getSimpleName() : "未知",
                     e.getValue()

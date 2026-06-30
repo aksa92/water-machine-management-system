@@ -4,15 +4,21 @@ import com.campus.water.entity.Device;
 import com.campus.water.entity.DeviceTerminalMapping;
 import com.campus.water.entity.Device.DeviceStatus;
 import com.campus.water.entity.Device.DeviceType;
+import com.campus.water.entity.WaterMakerRealtimeData;
+import com.campus.water.entity.WaterSupplyRealtimeData;
 import com.campus.water.Repository.DeviceRepository;
 import com.campus.water.Repository.DeviceTerminalMappingRepository;
+import com.campus.water.Repository.WaterMakerRealtimeDataRepository;
+import com.campus.water.Repository.WaterSupplyRealtimeDataRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -26,6 +32,8 @@ public class DeviceService {
 
     private final DeviceRepository deviceRepository;
     private final DeviceTerminalMappingRepository terminalMappingRepository;
+    private final WaterMakerRealtimeDataRepository waterMakerRealtimeDataRepository;
+    private final WaterSupplyRealtimeDataRepository waterSupplyRealtimeDataRepository;
 
     /**
      * 根据设备ID查询设备详情
@@ -33,6 +41,24 @@ public class DeviceService {
     public Device getDeviceById(String deviceId) {
         return deviceRepository.findById(deviceId)
                 .orElseThrow(() -> new RuntimeException("设备不存在：" + deviceId));
+    }
+
+    /**
+     * 获取设备详细信息（含实时数据）
+     */
+    public Map<String, Object> getDeviceDetail(String deviceId) {
+        Device device = getDeviceById(deviceId);
+        Map<String, Object> resultMap = new HashMap<>();
+        resultMap.put("deviceInfo", device);
+
+        if (Device.DeviceType.water_maker.equals(device.getDeviceType())) {
+            Optional<WaterMakerRealtimeData> realtimeData = waterMakerRealtimeDataRepository.findLatestByDeviceId(deviceId);
+            realtimeData.ifPresent(data -> resultMap.put("realtimeData", data));
+        } else if (Device.DeviceType.water_supply.equals(device.getDeviceType())) {
+            Optional<WaterSupplyRealtimeData> realtimeData = waterSupplyRealtimeDataRepository.findLatestByDeviceId(deviceId);
+            realtimeData.ifPresent(data -> resultMap.put("realtimeData", data));
+        }
+        return resultMap;
     }
 
 

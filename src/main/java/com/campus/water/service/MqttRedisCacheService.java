@@ -8,7 +8,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.ListOperations;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.integration.mqtt.outbound.MqttPahoMessageHandler;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageHeaders;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.MimeTypeUtils;
 
 import java.time.Duration;
 import java.util.List;
@@ -32,6 +37,8 @@ public class MqttRedisCacheService {
 
     @Value("${mqtt.offline-cache.replay-delay-ms:100}")
     private long replayDelayMs;
+
+    private final MqttPahoMessageHandler mqttMessageHandler;
 
     private static final String OFFLINE_QUEUE_KEY = "mqtt:offline:queue";
     private static final String DEDUP_CACHE_KEY_PREFIX = "mqtt:dedup:";
@@ -115,7 +122,7 @@ public class MqttRedisCacheService {
                 }
 
                 try {
-                    resendMessage(sender, message);
+                    resendMessage(message);
                     replayCount++;
                     incrementStat("replayed");
 
@@ -138,25 +145,24 @@ public class MqttRedisCacheService {
     }
 
     /**
-     * 根据主题类型重新发送消息
+     * 重放消息：将缓存的原始消息重新发送到 MQTT
      */
-    private void resendMessage(MqttSensorSender sender, OfflineMessage message) {
+    private void resendMessage(OfflineMessage message) {
         try {
-            if (message.getTopic().contains("/device/state/water_maker/")) {
-                log.info("重放制水机状态消息 | 消息ID：{}", message.getMessageId());
+            Message<String> mqttMessage = MessageBuilder
+                    .withPayload(message.getPayload())
+                    .setHeader(MessageHeaders.CONTENT_TYPE, MimeTypeUtils.APPLICATION_JSON)
+                    .setHeader("mqtt_topic", message.getTopic())
+                    .setHeader("mqtt_qos", message.getQos())
+                    .setHeader("message_id", message.getMessageId())
+                    .build();
 
-            } else if (message.getTopic().contains("/device/warn/water_maker/")) {
-                log.info("重放制水机告警消息 | 消息ID：{}", message.getMessageId());
-
-            } else if (message.getTopic().contains("/device/state/water_supply/")) {
-                log.info("重放供水机状态消息 | 消息ID：{}", message.getMessageId());
-
-            } else if (message.getTopic().contains("/device/warn/water_supply/")) {
-                log.info("重放供水机告警消息 | 消息ID：{}", message.getMessageId());
-            }
-
+            mqttMessageHandler.handleMessage(mqttMessage);
+            log.info("离线消息重放成功 | 消息ID：{} | 主题：{}", message.getMessageId(), message.getTopic());
         } catch (Exception e) {
-            log.error("解析重放消息失败 | 消息ID：{}", message.getMessageId(), e);
+            log.error("离线消息重放失败 | 消息ID：{} | 主题：{} | 错误：{}",
+                    message.getMessageId(), message.getTopic(), e.getMessage());
+            throw e;
         }
     }
 

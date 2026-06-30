@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * 告警触发与工单创建服务
@@ -235,11 +236,9 @@ public class AlertTriggerService {
         }
     }
     /**
-     * 生成唯一工单ID（WO+时间戳+随机数）
+     * 生成唯一工单ID（WO + UUID前8位）
      */
     private String generateOrderId() {
-        return String.format("WO%s%03d",
-                System.currentTimeMillis(),
-                (int)(Math.random() * 1000));
+        return "WO" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 }

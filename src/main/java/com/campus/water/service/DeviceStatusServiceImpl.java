@@ -3,10 +3,13 @@ package com.campus.water.service;
 import com.campus.water.entity.Device;
 import com.campus.water.entity.dto.request.DeviceStatusUpdateRequest;
 import com.campus.water.Repository.DeviceRepository;
+import com.campus.water.Repository.WaterMakerRealtimeDataRepository;
+import com.campus.water.Repository.WaterSupplyRealtimeDataRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -16,6 +19,8 @@ import java.util.Map;
 public class DeviceStatusServiceImpl implements DeviceStatusService {
 
     private final DeviceRepository deviceRepository;
+    private final WaterMakerRealtimeDataRepository waterMakerRealtimeDataRepository;
+    private final WaterSupplyRealtimeDataRepository waterSupplyRealtimeDataRepository;
 
     @Override
     public boolean updateDeviceStatus(DeviceStatusUpdateRequest request) {
@@ -129,11 +134,36 @@ public class DeviceStatusServiceImpl implements DeviceStatusService {
 
     @Override
     public List<Device> getOfflineDevicesExceedThreshold(Integer thresholdMinutes, String areaId) {
-        return deviceRepository.findByAreaIdAndStatus(areaId, Device.DeviceStatus.offline);
+        List<Device> offlineDevices = deviceRepository.findByAreaIdAndStatus(areaId, Device.DeviceStatus.offline);
+        log.info("查询离线设备 | 区域：{} | 数量：{} | 阈值：{}分钟", areaId, offlineDevices.size(), thresholdMinutes);
+        return offlineDevices;
     }
 
     @Override
     public void autoDetectOfflineDevices(Integer thresholdMinutes) {
-        log.info("自动检测离线设备（不执行时间判断，仅依赖手动标记）");
+        log.info("开始自动检测离线设备（阈值：{}分钟）", thresholdMinutes);
+        List<Device> allDevices = deviceRepository.findAll();
+        int detectedOffline = 0;
+        LocalDateTime threshold = LocalDateTime.now().minusMinutes(thresholdMinutes);
+
+        for (Device device : allDevices) {
+            if (device.getStatus() == Device.DeviceStatus.online) {
+                boolean hasRecentData = false;
+                if (device.getDeviceType() == Device.DeviceType.water_maker) {
+                    hasRecentData = waterMakerRealtimeDataRepository.findLatestByDeviceId(device.getDeviceId())
+                            .map(data -> data.getRecordTime() != null && data.getRecordTime().isAfter(threshold))
+                            .orElse(false);
+                } else if (device.getDeviceType() == Device.DeviceType.water_supply) {
+                    hasRecentData = waterSupplyRealtimeDataRepository.findLatestByDeviceId(device.getDeviceId())
+                            .map(data -> data.getTimestamp() != null && data.getTimestamp().isAfter(threshold))
+                            .orElse(false);
+                }
+                if (!hasRecentData) {
+                    log.warn("检测到设备可能离线 | 设备ID：{} | 类型：{}", device.getDeviceId(), device.getDeviceType());
+                    detectedOffline++;
+                }
+            }
+        }
+        log.info("离线设备检测完成 | 总设备数：{} | 可能离线：{}", allDevices.size(), detectedOffline);
     }
 }

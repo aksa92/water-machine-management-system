@@ -12,13 +12,16 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.util.DigestUtils;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 /**
@@ -26,7 +29,7 @@ import java.util.Arrays;
  */
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity()
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private final UserDetailsServiceImpl userDetailsService;
@@ -50,12 +53,27 @@ public class SecurityConfig {
     }
 
     /**
-     * 密码加密器（使用BCrypt替代MD5）
+     * 密码加密器：BCrypt（新密码）+ 兼容旧MD5密码
+     * 验证时先试 BCrypt，不匹配再试 MD5，实现平滑过渡
      */
     @Bean
     public PasswordEncoder passwordEncoder() {
-        // 替换BCrypt加密为自定义MD5加密器
-        return new MD5PasswordEncoder();
+        BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder();
+        return new PasswordEncoder() {
+            @Override
+            public String encode(CharSequence rawPassword) {
+                return bcrypt.encode(rawPassword);
+            }
+
+            @Override
+            public boolean matches(CharSequence rawPassword, String encodedPassword) {
+                if (encodedPassword == null) return false;
+                if (bcrypt.matches(rawPassword, encodedPassword)) return true;
+                String md5 = DigestUtils.md5DigestAsHex(
+                        rawPassword.toString().getBytes(StandardCharsets.UTF_8));
+                return md5.equals(encodedPassword);
+            }
+        };
     }
 
     /**

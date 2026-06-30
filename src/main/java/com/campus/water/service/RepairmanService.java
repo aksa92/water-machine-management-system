@@ -1,6 +1,8 @@
 package com.campus.water.service;
 
 import com.campus.water.entity.Repairman;
+import com.campus.water.entity.RepairerAuth;
+import com.campus.water.Repository.RepairerAuthRepository;
 import com.campus.water.Repository.RepairmanRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,6 +18,7 @@ import java.util.Optional;
 public class RepairmanService {
 
     private final RepairmanRepository repairmanRepository;
+    private final RepairerAuthRepository repairerAuthRepository;
 
     /**
      * 获取维修人员列表（支持多条件筛选）
@@ -83,5 +86,16 @@ public class RepairmanService {
      */
     public Optional<Repairman> getRepairmanById(String repairmanId) {
         return repairmanRepository.findById(repairmanId);
+    }
+
+    /**
+     * 根据登录用户名获取维修人员所属区域ID
+     */
+    public String getAreaIdByUsername(String username) {
+        RepairerAuth auth = repairerAuthRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("维修人员认证信息不存在"));
+        Repairman repairman = repairmanRepository.findById(auth.getRepairmanId())
+                .orElseThrow(() -> new RuntimeException("维修人员信息不存在"));
+        return repairman.getAreaId();
     }
 }

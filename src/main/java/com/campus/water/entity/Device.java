@@ -44,11 +44,8 @@ public class Device {
     @Column(name = "parent_maker_id", length = 20)
     private String parentMakerId;
 
-    // 保留原有的remark方法（若表中有该字段可直接映射，无则忽略）
+    @Column(name = "remark", columnDefinition = "TEXT")
     private String remark;
-    public void setRemark(String remark) {
-        this.remark = remark;
-    }
 
     public enum DeviceType {
         water_maker, water_supply

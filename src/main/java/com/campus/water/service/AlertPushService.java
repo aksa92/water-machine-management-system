@@ -1,8 +1,10 @@
 package com.campus.water.service;
 
+import com.campus.water.entity.Admin;
 import com.campus.water.entity.Alert;
 import com.campus.water.entity.MessagePush;
 import com.campus.water.entity.Repairman;
+import com.campus.water.Repository.AdminRepository;
 import com.campus.water.Repository.MessagePushRepository;
 import com.campus.water.Repository.RepairmanRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,29 +21,27 @@ import java.util.List;
 public class AlertPushService {
 
     private final MessagePushRepository messagePushRepository;
-    private final RepairmanRepository repairmanRepository; // 维修人员数据访问
+    private final RepairmanRepository repairmanRepository;
+    private final AdminRepository adminRepository;
 
     /**
      * 推送告警消息给目标用户（根据告警级别和区域分配）
-     * @param alert 告警实体
      */
     @Transactional
     public void pushAlertMessage(Alert alert) {
-        // 1. 确定推送目标（紧急告警推送给管理员+区域维修人员；一般告警仅推送给区域维修人员）
         String alertType = alert.getAlertType();
         String areaId = alert.getAreaId();
-        boolean isEmergency = alert.getAlertLevel().getPriority() >= 3; // 紧急级别（error/critical）
+        boolean isEmergency = alert.getAlertLevel().getPriority() >= 3;
 
-        // 2. 构建消息内容
         MessagePush message = new MessagePush();
         message.setTitle(String.format("[%s告警] %s",
                 alert.getAlertLevel().getLevelName(), alertType));
         message.setContent(alert.getAlertMessage());
         message.setMessageType("ALERT");
-        message.setRelatedId(alert.getAlertId().toString()); // 关联告警ID
+        message.setRelatedId(alert.getAlertId().toString());
         message.setPushTime(LocalDateTime.now());
 
-        // 3. 推送区域维修人员（所有级别都推送）
+        // 推送区域维修人员
         List<Repairman> areaRepairmen = repairmanRepository.findByAreaId(areaId);
         for (Repairman repairman : areaRepairmen) {
             MessagePush repairmanMsg = copyMessage(message);
@@ -53,18 +53,20 @@ public class AlertPushService {
         log.info("告警推送区域维修人员完成 | 告警ID：{} | 区域：{} | 人数：{}",
                 alert.getAlertId(), areaId, areaRepairmen.size());
 
-        // 4. 紧急告警额外推送管理员（假设管理员userType为"ADMIN"，可扩展查询逻辑）
+        // 紧急告警推送管理员
         if (isEmergency) {
-            MessagePush adminMsg = copyMessage(message);
-            adminMsg.setAdminId("ADMIN001"); // 实际应从管理员表查询
-            adminMsg.setUserId("ADMIN001");
-            adminMsg.setUserType("ADMIN");
-            messagePushRepository.save(adminMsg);
-            log.info("紧急告警推送管理员完成 | 告警ID：{}", alert.getAlertId());
+            List<Admin> admins = adminRepository.findByRole(Admin.AdminRole.ROLE_SUPER_ADMIN);
+            for (Admin admin : admins) {
+                MessagePush adminMsg = copyMessage(message);
+                adminMsg.setAdminId(admin.getAdminId());
+                adminMsg.setUserId(admin.getAdminId());
+                adminMsg.setUserType("ADMIN");
+                messagePushRepository.save(adminMsg);
+            }
+            log.info("紧急告警推送管理员完成 | 告警ID：{} | 人数：{}", alert.getAlertId(), admins.size());
         }
     }
 
-    // 复制消息基础信息（避免重复代码）
     private MessagePush copyMessage(MessagePush source) {
         MessagePush target = new MessagePush();
         target.setTitle(source.getTitle());

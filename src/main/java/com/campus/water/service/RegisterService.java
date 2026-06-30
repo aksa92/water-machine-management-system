@@ -6,33 +6,22 @@ import com.campus.water.entity.Repairman;
 import com.campus.water.entity.User;
 import com.campus.water.entity.dto.request.RegisterRequest;
 import com.campus.water.Repository.*;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 
 @Service
+@RequiredArgsConstructor
 public class RegisterService {
 
-    @Autowired
-    private AdminRepository adminRepository;
-
-    @Autowired
-    private AreaRepository areaRepository;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private RepairerAuthRepository repairerAuthRepository;
-
-    // 新增注入RepairmanRepository
-    @Autowired
-    private RepairmanRepository repairmanRepository;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    private final AdminRepository adminRepository;
+    private final AreaRepository areaRepository;
+    private final UserRepository userRepository;
+    private final RepairerAuthRepository repairerAuthRepository;
+    private final RepairmanRepository repairmanRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public boolean register(RegisterRequest request) {
         String username = request.getUsername();

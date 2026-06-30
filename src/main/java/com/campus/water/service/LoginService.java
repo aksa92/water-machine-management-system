@@ -15,7 +15,6 @@ import com.campus.water.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 @RequiredArgsConstructor
@@ -24,9 +23,7 @@ public class LoginService {
     private final AdminRepository adminRepository;
     private final UserRepository userRepository;
     private final RepairerAuthRepository repairerAuthRepository;
-    // 新增：注入RepairmanRepository
-    @Autowired
-    private RepairmanRepository repairmanRepository;
+    private final RepairmanRepository repairmanRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
 
@@ -134,7 +131,4 @@ public class LoginService {
         return vo;
     }
 
-    public void setRepairmanRepository(RepairmanRepository repairmanRepository) {
-        this.repairmanRepository = repairmanRepository;
-    }
 }

@@ -5,7 +5,6 @@ import com.campus.water.entity.Area;
 import com.campus.water.Repository.AdminRepository;
 import com.campus.water.Repository.AreaRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -18,11 +17,8 @@ import java.util.Optional;
 public class AdminService {
 
     private final AdminRepository adminRepository;
-    private final AreaRepository areaRepository;  // 新增注入
-
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    private final AreaRepository areaRepository;
+    private final PasswordEncoder passwordEncoder;
     /**
      * 获取管理员列表（支持按姓名/角色筛选）
      */
@@ -125,14 +121,6 @@ public class AdminService {
      */
     public Admin.AdminRole[] getAllRoles() {
         return Admin.AdminRole.values();
-    }
-
-    public AreaRepository getAreaRepository() {
-        return areaRepository;
-    }
-
-    public void setPasswordEncoder(PasswordEncoder passwordEncoder) {
-        this.passwordEncoder = passwordEncoder;
     }
 
     /**

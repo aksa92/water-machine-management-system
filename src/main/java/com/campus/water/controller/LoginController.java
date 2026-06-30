@@ -4,8 +4,7 @@ import com.campus.water.entity.dto.request.LoginRequest; // 替换原LoginDTO为
 import com.campus.water.entity.vo.LoginVO;
 import com.campus.water.service.LoginService;
 import com.campus.water.util.ResultVO;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,21 +16,15 @@ import jakarta.validation.Valid;
  * 登录接口控制器（公共接口）
  */
 @RestController
-@RequestMapping("/api/common") // 保持统一接口前缀
+@RequestMapping("/api/common")
+@RequiredArgsConstructor
 public class LoginController {
 
-    @Autowired
-    private LoginService loginService;
+    private final LoginService loginService;
 
-    /**
-     * 登录接口
-     * @param loginRequest 登录请求参数（替换原LoginDTO）
-     * @return 登录响应结果
-     */
-    // 修改LoginController的login方法
     @PostMapping("/login")
-    public ResponseEntity<ResultVO<LoginVO>> login(@Valid @RequestBody LoginRequest loginRequest) {
+    public ResultVO<LoginVO> login(@Valid @RequestBody LoginRequest loginRequest) {
         LoginVO loginVO = loginService.login(loginRequest);
-        return ResponseEntity.ok(ResultVO.success(loginVO)); // 用ResultVO包装
+        return ResultVO.success(loginVO);
     }
 }
